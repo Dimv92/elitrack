@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0048. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0132. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -360,16 +360,28 @@ const ks=kAll.filter(k=>k.round+off===r.id).sort((a,b)=>(a.time_in_round_in_ms||
 const e=r.defuse?'defuse':ks.filter(k=>tOf(k.victim.puuid)===lose).length>=size(lose)?'elim':r.plant?'spike':'time';
 const f=ks[0],fs=f?snap(f.player_locations,f.location&&idx[f.victim.puuid]!=null?[[idx[f.victim.puuid],Math.round(f.location.x),Math.round(f.location.y)]]:[]):[];
 const pLoc=r.plant&&r.plant.location?[Math.round(r.plant.location.x),Math.round(r.plant.location.y)]:null;
+const eco=f=>pl.map((p,j)=>{const s=(r.stats||[]).find(x=>x.player&&idx[x.player.puuid]===j),e=s&&s.economy;return e&&typeof e[f]==='number'?Math.round(e[f]/100):-1;});
 return{w,s:sideOf(i),ol:load(1),tl:load(0),p:r.plant?(r.plant.site||'?'):'',pu:planter[i]==null?-1:planter[i],pt:r.plant?r.plant.round_time_in_ms||0:0,df:r.defuse?1:0,e,
-fs,pl:pLoc,ps:r.plant?snap(r.plant.player_locations):[]};
+fs,pl:pLoc,ps:r.plant?snap(r.plant.player_locations):[],lo:eco('loadout_value'),rm:eco('remaining')};
 });
 const pos=(k,id)=>{const x=(k.player_locations||[]).find(p=>p.player&&p.player.puuid===id);return x&&x.location?x.location:null;};
 const kills=kAll.map(k=>{const ri=rounds.findIndex(r=>r.id===k.round+off),vl=k.location||null,kl=k.killer?pos(k,k.killer.puuid):null;
 return[ri,k.time_in_round_in_ms||0,k.killer&&idx[k.killer.puuid]!=null?idx[k.killer.puuid]:-1,idx[k.victim.puuid]??-1,
-vl?Math.round(vl.x):null,vl?Math.round(vl.y):null,kl?Math.round(kl.x):null,kl?Math.round(kl.y):null,(k.weapon||{}).name||'',(k.assistants||[]).map(a=>idx[a.puuid]).filter(x=>x!=null)];
+vl?Math.round(vl.x):null,vl?Math.round(vl.y):null,kl?Math.round(kl.x):null,kl?Math.round(kl.y):null,(k.weapon||{}).name||'',(k.assistants||[]).map(a=>idx[a.puuid]).filter(x=>x!=null),
+...sightOf(k,vl,kl,p=>idx[p]==null?null:pl[idx[p]].t)];
 }).filter(k=>k[0]>=0&&k[3]>=0);
 const t0=Date.parse(meta.started_at)||0;
-return{id:String(meta.match_id||'').toLowerCase(),v:6,map:(meta.map||{}).name||'?',date:t0?isoLoc(new Date(t0)):'',ts:t0,rounds:rr,kills,pl};
+return{id:String(meta.match_id||'').toLowerCase(),v:7,map:(meta.map||{}).name||'?',date:t0?isoLoc(new Date(t0)):'',ts:t0,rounds:rr,kills,pl};
+}
+const SIGHT_DEG=15,SIGHT_M=30;
+function sightOf(k,vl,kl,teamOf){
+const L=(k.player_locations||[]).filter(p=>p&&p.player&&p.location&&typeof p.view_radians==='number'),vt=teamOf(k.victim.puuid);
+if(!vl||!L.length||vt==null)return[];
+const aims=(p,T)=>{if(!T)return false;const dx=T.x-p.location.x,dy=T.y-p.location.y;if(Math.hypot(dx,dy)>SIGHT_M*100)return false;
+let a=(p.view_radians-Math.atan2(dy,dx))%(2*Math.PI);if(a>Math.PI)a-=2*Math.PI;if(a<-Math.PI)a+=2*Math.PI;return Math.abs(a)<=SIGHT_DEG*Math.PI/180;};
+const kid=k.killer&&k.killer.puuid,al=L.filter(p=>teamOf(p.player.puuid)===vt),en=L.filter(p=>p.player.puuid!==kid&&teamOf(p.player.puuid)!=null&&teamOf(p.player.puuid)!==vt);
+const na=al.length?Math.round(Math.min(...al.map(p=>Math.hypot(p.location.x-vl.x,p.location.y-vl.y)))/100):-1;
+return[en.filter(p=>aims(p,vl)).length,kl?al.filter(p=>aims(p,kl)).length:-1,na];
 }
 const grp=(a,f)=>a.reduce((o,x)=>{const k=f(x);(o[k]=o[k]||[]).push(x);return o;},{});
 function plLines(d){
@@ -457,7 +469,7 @@ const CAT_KEY={ouverture:'io',trade:'it',mid:'im',clutch:'ic',post:'ip',retake:'
 function pgAll(d,M){
 const pl=(d&&d.pl)||[],rounds=(d&&d.rounds)||[],nR=rounds.length;if(!nR||pl.length<2)return[];
 const L=plLines(d),byR=grp(d.kills||[],k=>k[0]),tm=j=>pl[j]?pl[j].t:null,sz=t=>pl.filter(p=>p.t===t).length||5;
-const S=pl.map((p,i)=>{const s={};PG_KEYS.forEach(k=>{s[k]=0;});const l=L[i];
+const S=pl.map((p,i)=>{const s={};PG_KEYS.forEach(k=>{s[k]=0;});PG_OPT.forEach(k=>{s[k]=0;});const l=L[i];
 return Object.assign(s,{n:1,r:nR,k:p.k,d:p.d,a:p.as,sc:p.sc,dmg:p.dmg,rec:p.rec,hs:p.hs,sh:p.sh,kast:Math.round(l.kast*nR/100),fk:l.fk,fd:l.fd,trd:l.trd,mk:l.mk,
 cast:(p.c||[]).reduce((a,b)=>a+(b||0),0)});});
 rounds.forEach((r,ri)=>{
@@ -474,26 +486,76 @@ const x=pl.findIndex((p,y)=>p.t===t&&!dead.has(y));if(S[x]){S[x].cla++;if((r.w==
 });
 S.forEach((s,i)=>{if(!dead.has(i))s.surv++;});
 });
-flowOf(d,M).forEach(f=>f.ev.forEach(e=>{const c=CAT_KEY[e.cat];if(!c||e.killer==null)return;
+const F=flowOf(d,M);
+F.forEach(f=>f.ev.forEach(e=>{const c=CAT_KEY[e.cat];if(!c||e.killer==null)return;
 [e.killer,e.victim].forEach(x=>{const s=S[x];if(!s)return;const t=tm(x),g=t===1?e.d:-e.d;
 s[t===0&&c==='ip'?'ir':t===0&&c==='ir'?'ip':c]+=g;s.imp+=g;});}));
+if(rounds.some(r=>Array.isArray(r.fs))){S.forEach(s=>{s.rE=nR;});deathsOf(d,M,F).forEach(e=>{const s=S[e.x];if(!s)return;s['e_'+e.tag]++;if(e.c)s['e_'+e.c]++;});}
+if((d.v||0)>=7){S.forEach(s=>{s.r7=nR;});ecoDesync(d).forEach(e=>{const s=S[e.x];if(!s)return;s['e_'+e.k]++;s.dsr++;if(e.w)s.dsw++;});}
 return S;
+}
+const ECO_P=39,ECO_E=20;
+const ECO_DEF={
+bs:{t:'Tu achètes seul pendant que ton équipe économise',fix:'Quand ton équipe économise, garde ton argent aussi : un achat seul gagne rarement le round et retarde le prochain achat commun.'},
+ss:{t:'Tu économises seul alors que ton équipe achète',fix:'Ton équipe achète et tu as les crédits : achète avec elle (au minimum Spectre + bouclier). À 4 armés contre 5, le round part mal.'}
+};
+function ecoDesync(d){
+const pl=(d&&d.pl)||[],byR=grp((d&&d.kills)||[],k=>k[0]),out=[];
+((d&&d.rounds)||[]).forEach((r,i)=>{if(i===0||i===12||!Array.isArray(r.lo)||!Array.isArray(r.rm))return;
+const dead=new Set((byR[i-1]||[]).map(k=>k[3]));
+pl.forEach((p,x)=>{const lo=r.lo[x];if(!(lo>=0))return;
+const m=pl.map((q,j)=>j).filter(j=>j!==x&&pl[j].t===p.t&&r.lo[j]>=0);if(m.length<3)return;
+const nE=m.filter(j=>r.lo[j]<ECO_E).length,nP=m.filter(j=>r.lo[j]>=ECO_P).length,w=(r.w===1)===(p.t===1);
+if(lo>=ECO_P&&nE>=m.length-1&&dead.has(x))out.push({r:i,x,k:'bs',w});
+else if(lo<ECO_E&&nP>=m.length-1&&lo+Math.max(0,r.rm[x])>=ECO_P)out.push({r:i,x,k:'ss',w});});
+});
+return out;
+}
+function ecoAgg(D){
+const me={bs:[],ss:[]},ot={bs:0,ss:0};let rMe=0,rOt=0,n=0,dW=0,dN=0;
+(D||[]).forEach(d=>{if((d.v||0)<7)return;const i=(d.pl||[]).findIndex(p=>p.n==='moi'),nR=(d.rounds||[]).length;if(i<0||!nR)return;
+n++;rMe+=nR;rOt+=nR*(d.pl.length-1);
+ecoDesync(d).forEach(e=>{dN++;if(e.w)dW++;if(e.x===i)me[e.k].push({id:d.id,map:d.map,ts:d.ts,r:e.r,w:e.w});else ot[e.k]++;});});
+const rows=Object.keys(ECO_DEF).map(k=>{const a=me[k].length,rate=rMe?a/rMe*100:null,ref=rOt?ot[k]/rOt*100:null,exp=ref==null?null:ref*rMe/100;
+const z=exp>0?(a-exp)/Math.sqrt(exp):0;
+return{k,t:ECO_DEF[k].t,fix:ECO_DEF[k].fix,n:a,rate,ref,extra:rate!=null&&ref!=null?rate-ref:0,sure:a>=3&&z>=1.645,won:me[k].filter(x=>x.w).length,ex:me[k].sort((x,y)=>y.ts-x.ts).slice(0,4)};});
+return{n,rounds:rMe,wr:dN?dW/dN*100:null,dN,rows};
+}
+function agentAdd(B,d,skip){
+B.g=B.g||{};const nR=((d&&d.rounds)||[]).length;if(!nR)return B;
+(d.pl||[]).forEach((p,i)=>{if((skip&&skip(p,i))||!p.a||!Array.isArray(p.c))return;const rk=rankOf(p.tr);
+[`*|${p.a}`].concat(rk?[`${rk}|${p.a}`]:[]).forEach(key=>{const o=B.g[key]||(B.g[key]={n:0,r:0,c:[0,0,0,0]});o.n++;o.r+=nR;p.c.forEach((v,j)=>{o.c[j]+=v||0;});});});
+return B;
+}
+function agentUse(D,B,rk,agent,min=30){
+const G=(D||[]).map(d=>{const p=(d.pl||[]).find(q=>q.n==='moi');return p&&p.a===agent&&Array.isArray(p.c)?{r:d.rounds.length,c:p.c}:null;}).filter(x=>x&&x.r);
+if(G.length<3)return null;
+const src=Array.isArray(B)?B:[B],ref=r=>{for(const b of src){const o=b&&b.g&&b.g[`${r}|${agent}`];if(o&&o.n>=(b.local?Math.min(min,15):min))return o;}return null;};
+const up=rk>=1&&rk<9?rk+1:0,A=rk?ref(rk):null,U=up?ref(up):null,R=G.reduce((s,g)=>s+g.r,0);
+const ab=[0,1,2,3].map(j=>{const v=G.reduce((s,g)=>s+(g.c[j]||0),0)/R,m=R/G.length;
+const se=Math.sqrt(G.reduce((s,g)=>s+((g.c[j]||0)-v*g.r)**2,0)/(G.length*(G.length-1)))/m;
+const a=A?A.c[j]/A.r:null,u=U?U.c[j]/U.r:null,cmp=u!=null?u:a;
+return{j,me:v,se,ref:a,up:u,low:cmp!=null&&v<cmp*.8&&(cmp-v)>=1.645*se};});
+return{agent,n:G.length,rk,up,ab,refN:A?A.n:0,upN:U?U.n:0};
 }
 function benchAdd(B,d,M,roleOf,skip,S0){
 const S=S0||pgAll(d,M);B.c=B.c||{};B.n=(B.n||0)+1;
 S.forEach((s,i)=>{const p=d.pl[i],rk=rankOf(p.tr);if(!rk||(skip&&skip(p,i)))return;const ro=roleOf(p.a),keys=[`${rk}|*`,'*|*'];
 if(ROLES.includes(ro))keys.push(`${rk}|${ro}`,`*|${ro}`);
-keys.forEach(key=>{const c=B.c[key]||(B.c[key]={});PG_KEYS.forEach(k=>{c[k]=(c[k]||0)+s[k];});});});
-return B;
+keys.forEach(key=>{const c=B.c[key]||(B.c[key]={});PG_KEYS.concat(PG_OPT).forEach(k=>{c[k]=(c[k]||0)+(s[k]||0);});});});
+return agentAdd(B,d,skip);
 }
 function benchClean(raw){
 if(!obj(raw)||raw.format!=='elitrack-bench'||raw.v!==1||!obj(raw.c))return null;
 const c={};Object.entries(raw.c).slice(0,100).forEach(([k,v])=>{if(!/^([1-9]|\*)\|(\*|Duelist|Initiator|Controller|Sentinel)$/.test(k)||!obj(v))return;
-const o={};for(const f of PG_KEYS){if(typeof v[f]!=='number'||!Number.isFinite(v[f]))return;o[f]=v[f];}if(o.n>=1&&o.r>=1)c[k]=o;});
+const o={};for(const f of PG_KEYS){if(typeof v[f]!=='number'||!Number.isFinite(v[f]))return;o[f]=v[f];}
+PG_OPT.forEach(f=>{if(typeof v[f]==='number'&&Number.isFinite(v[f])&&v[f]>=0)o[f]=v[f];});if(o.n>=1&&o.r>=1)c[k]=o;});
+const g={};Object.entries(obj(raw.g)?raw.g:{}).slice(0,400).forEach(([k,v])=>{if(!/^([1-9]|\*)\|[A-Za-z][A-Za-z/ ]{1,11}$/.test(k)||!obj(v))return;
+const N=x=>typeof x==='number'&&Number.isFinite(x)&&x>=0;if(N(v.n)&&N(v.r)&&v.n>=1&&v.r>=1&&Array.isArray(v.c)&&v.c.length===4&&v.c.every(N))g[k]={n:v.n,r:v.r,c:v.c.slice()};});
 const cnt=(m,re)=>{const o={};Object.entries(obj(m)?m:{}).forEach(([k,v])=>{if(re.test(k)&&Array.isArray(v)&&v.length===2&&v.every(x=>Number.isInteger(x)&&x>=0)&&v[1]<=v[0])o[k]=v;});return o;};
 const M=obj(raw.M)?{S:cnt(raw.M.S,/^[1-5]\|[1-5]\|[nut]$/),E:cnt(raw.M.E,/^(eco|force|full)\|(eco|force|full)$/)}:null;
 const day=v=>RE_DATE.test(v||'')?v:'';
-return{format:'elitrack-bench',v:1,local:false,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),c,M:M&&Object.keys(M.S).length?M:null};
+return{format:'elitrack-bench',v:1,local:false,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),c,g,M:M&&Object.keys(M.S).length?M:null};
 }
 function benchRef(B,rk,role,min=40,noRole){
 if(Array.isArray(B)){for(const b of B){const r=benchRef(b,rk,role,min,noRole);if(r)return r;}return null;}
@@ -505,8 +567,9 @@ return ok(`${rk}|*`)?{c:C[`${rk}|*`],lvl:'rang',src:B}:null;
 const MET={imp:['imp','r',1],io:['io','r',1],it:['it','r',1],im:['im','r',1],ic:['ic','r',1],ip:['ip','r',1],ir:['ir','r',1],
 opW:['fk',s=>s.fk+s.fd,100],fdr:['fd','r',100],hsP:['hs','sh',100],adr:['dmg','r',1],kast:['kast','r',100],trP:['trd','d',100],trk:['trk','r',100],
 surv:['surv','r',100],cast:['cast','r',1],clW:['clw','cla',100],b0W:['b0w','b0',100],b1W:['b1w','b1',100],b2W:['b2w','b2',100]};
+Object.keys(ECO_DEF).forEach(k=>{MET['e_'+k]=['e_'+k,'r7',100];});
 const metF=f=>typeof f==='function'?f:s=>s[f]||0;
-const metV=(c,k)=>{const m=MET[k],den=c?metF(m[1])(c):0;return den>0?metF(m[0])(c)/den*m[2]:null;};
+const metV=(c,k)=>{const m=MET[k];if(!c||(typeof m[0]==='string'&&PG_OPT.includes(m[0])&&!(m[0]in c)))return null;const den=metF(m[1])(c);return den>0?metF(m[0])(c)/den*m[2]:null;};
 function metSE(G,k){
 const m=MET[k],nf=metF(m[0]),df=metF(m[1]),n=(G||[]).length;let N=0,Dn=0;(G||[]).forEach(g=>{N+=nf(g);Dn+=df(g);});
 if(!(Dn>0))return{v:null,se:null,n,den:0};
@@ -558,11 +621,12 @@ return{lvl:c.sure?(c.cost>=.5?3:2):1,k:cs[0]?cs[0].id:c.k,cat:c.k,t:c.t,cost:c.c
 .sort((a,b)=>(b.sure-a.sure)||b.cost-a.cost).slice(0,5);
 if(!items.length)items.push({lvl:1,k:'ok',t:'Aucune phase ne te coûte de rounds à coup sûr',fix:'Garde ta routine et travaille ton point fort pour en faire une arme.',causes:[]});
 const strong=cats.filter(c=>c.cost!=null&&c.cost<=-.15&&c.sure).sort((a,b)=>a.cost-b.cost);
-const next=up?RANK_METS.map(([k,t])=>{const x=cmp(k);return x.me==null||x.ref==null||x.up==null?null
-:Object.assign(x,{t,below:x.me<x.up,sure:x.se!=null&&Math.abs(x.me-x.up)>=Z*x.se});}).filter(Boolean):[];
+const next=up?RANK_METS.map(([k,t,dir=1])=>{const x=cmp(k);return x.me==null||x.ref==null||x.up==null?null
+:Object.assign(x,{t,dir,below:dir>0?x.me<x.up:x.me>x.up,sure:x.se!=null&&Math.abs(x.me-x.up)>=Z*x.se});}).filter(Boolean):[];
 return{n,rpg,rk,up,tot:cmp('imp'),cats,items,strong,next};
 }
-const RANK_METS=[['hsP','Balles dans la tête'],['trP','Tes morts vengées en 3 s'],['trk','Rounds où tu venges un coéquipier'],['cast','Capacités utilisées par round']];
+const RANK_METS=[['hsP','Balles dans la tête'],['trP','Tes morts vengées en 3 s'],['trk','Rounds où tu venges un coéquipier'],['cast','Capacités utilisées par round'],
+['e_seul','Morts sans allié à moins de 15 m (pour 100 rounds)',-1]];
 const ERR_ISO=15,ERR_TRADE=3000;
 const ERR_DEF={
 ouvSeul:{t:'Premier mort du round, loin de tes alliés',fix:'N\'entre pas seul : avance avec un coéquipier à 1-2 s derrière toi, ou après une capacité (flash, info).',
@@ -573,7 +637,16 @@ avant:{t:'Mort alors que ton équipe avait l\'avantage',fix:'En avance (4 contre
 notr:{t:'Mort non vengée',fix:'Reste à portée de reprise : un allié doit pouvoir voir ton tueur dans les 3 s. Annonce ta position avant de sortir.'}
 };
 const ERR_KEYS=Object.keys(ERR_DEF);
-ERR_KEYS.forEach(k=>{MET['e_'+k]=['e_'+k,'r',100];});
+ERR_KEYS.forEach(k=>{MET['e_'+k]=['e_'+k,'rE',100];});
+const ERR_CAUSE={
+xf:{t:'Pris entre deux ennemis',d:'un 2e ennemi te visait déjà',fix:'Avant de sortir, coupe un des deux angles (smoke, flash, mur) ou prends-les un par un : un « jiggle peek » pour voir combien ils sont, puis duel sur un seul.'},
+seul:{t:'Mort sans allié à moins de 15 m',d:'aucun allié à moins de 15 m',fix:'Joue à 5-10 m d\'un coéquipier : à plus de 25 m, à peine 3 % des morts sont vengées.'},
+nocov:{t:'Allié proche, mais personne ne visait ton tueur',d:'ton allié était proche mais regardait ailleurs',fix:'Avant de sortir, dis « je peek, couvre-moi » : ton allié vise l\'angle d\'où on peut te tuer. Couvert, ta mort est vengée 6 fois plus souvent.'}
+};
+const CAUSE_KEYS=Object.keys(ERR_CAUSE);
+const causeOf=k=>!k||k.length<13?null:k[10]>=1?'xf':k[12]<0||k[12]>ERR_ISO?'seul':k[11]===0?'nocov':null;
+CAUSE_KEYS.forEach(k=>{MET['e_'+k]=['e_'+k,'r7',100];});
+const PG_OPT=['rE','r7','dsr','dsw'].concat(ERR_KEYS.concat(CAUSE_KEYS,Object.keys(ECO_DEF)).map(k=>'e_'+k));
 const errSev=c=>c>=.2?3:c>=.1?2:1;
 function deathsOf(d,M,F0){
 const F=F0||flowOf(d,M),pl=(d&&d.pl)||[],tm=j=>pl[j]?pl[j].t:null,byR=grp((d&&d.kills)||[],k=>k[0]),out=[];
@@ -595,27 +668,32 @@ else if(mine>theirs&&mine>=2)tag='avant';
 else if(mine>=2)tag='notr';
 if(!tag)return;
 const k=ks.find(q=>q[3]===x&&q[1]===e.ms)||[];
-out.push({x,r:f.i,s:side,ms:e.ms,k:e.killer,tag,cost,sev:errSev(cost),iso,vx:k[4]??null,vy:k[5]??null});
+out.push({x,r:f.i,s:side,ms:e.ms,k:e.killer,tag,c:causeOf(k),cost,sev:errSev(cost),iso,vx:k[4]??null,vy:k[5]??null});
 });
 });
 return out;
 }
 function errLessons(E){
-const g={};(E||[]).forEach(e=>{const o=g[e.tag]||(g[e.tag]={tag:e.tag,n:0,cost:0,rounds:[],sides:{}});o.n++;o.cost+=e.cost;o.rounds.push(e.r);o.sides[e.s]=(o.sides[e.s]||0)+1;});
-return Object.values(g).filter(o=>o.cost>=.1).sort((a,b)=>b.cost-a.cost).slice(0,3);
+const g={};(E||[]).forEach(e=>{const o=g[e.tag]||(g[e.tag]={tag:e.tag,n:0,cost:0,rounds:[],sides:{},cs:{}});o.n++;o.cost+=e.cost;o.rounds.push(e.r);o.sides[e.s]=(o.sides[e.s]||0)+1;
+if(e.c)o.cs[e.c]=(o.cs[e.c]||0)+1;});
+return Object.values(g).filter(o=>o.cost>=.1).sort((a,b)=>b.cost-a.cost).slice(0,3)
+.map(o=>{const c=Object.entries(o.cs).sort((a,b)=>b[1]-a[1])[0];return Object.assign(o,{cause:c?c[0]:null,causeN:c?c[1]:0});});
 }
 const errFix=(tag,sides)=>{const D=ERR_DEF[tag];return D.fixD&&sides&&(sides.D||0)>(sides.A||0)?D.fixD:D.fix;};
 function errAgg(D,M,Eof){
-const me={},ot={},ex={};let rMe=0,rOt=0,n=0,pm=0;
+const me={},ot={},ex={},R={t:[0,0,0,0],c:[0,0,0,0]};let n=0;
+const put=(o,key,e,mine,d)=>{const c=o[key]||(o[key]={n:0,cost:0,sides:{}});c.n++;c.cost+=e.cost;c.sides[e.s]=(c.sides[e.s]||0)+1;
+if(mine)(ex[key]=ex[key]||[]).push({id:d.id,map:d.map,ts:d.ts,r:e.r,cost:e.cost});};
 (D||[]).forEach(d=>{const i=(d.pl||[]).findIndex(p=>p.n==='moi'),nR=(d.rounds||[]).length;if(i<0||!nR)return;
-n++;rMe+=nR;rOt+=nR*(d.pl.length-1);pm+=d.pl.length-1;
-(Eof?Eof(d):deathsOf(d,M)).forEach(e=>{const o=e.x===i?me:ot,c=o[e.tag]||(o[e.tag]={n:0,cost:0,sides:{}});c.n++;c.cost+=e.cost;c.sides[e.s]=(c.sides[e.s]||0)+1;
-if(e.x===i)(ex[e.tag]=ex[e.tag]||[]).push({id:d.id,map:d.map,ts:d.ts,r:e.r,cost:e.cost});});});
-const rows=ERR_KEYS.map(k=>{const a=me[k]||{n:0,cost:0,sides:{}},b=ot[k]||{n:0,cost:0},rate=rMe?a.n/rMe*100:null,ref=rOt?b.n/rOt*100:null;
-const exp=ref==null?null:ref*rMe/100,z=exp>0?(a.n-exp)/Math.sqrt(exp):0,cpm=n?a.cost/n:0,cref=pm?b.cost/pm:0;
-return{k,t:ERR_DEF[k].t,fix:errFix(k,a.sides),n:a.n,rate,ref,cpm,cref,extra:cpm-cref,sure:a.n>=3&&z>=1.645,
-ex:(ex[k]||[]).sort((x,y)=>y.ts-x.ts||y.cost-x.cost).slice(0,4)};});
-return{n,rounds:rMe,rows:rows.filter(r=>r.n).sort((a,b)=>(b.sure-a.sure)||b.extra-a.extra)};
+n++;const o=d.pl.length-1,add=x=>{x[0]+=nR;x[1]+=nR*o;x[2]++;x[3]+=o;};add(R.t);if((d.v||0)>=7)add(R.c);
+(Eof?Eof(d):deathsOf(d,M)).forEach(e=>{const O=e.x===i?me:ot;put(O,e.tag,e,e.x===i,d);if(e.c)put(O,'c:'+e.c,e,e.x===i,d);});});
+const row=(k,key,t,fix,r,cause)=>{const a=me[key]||{n:0,cost:0,sides:{}},b=ot[key]||{n:0,cost:0},rate=r[0]?a.n/r[0]*100:null,ref=r[1]?b.n/r[1]*100:null;
+const exp=ref==null?null:ref*r[0]/100,z=exp>0?(a.n-exp)/Math.sqrt(exp):0,cpm=r[2]?a.cost/r[2]:0,cref=r[3]?b.cost/r[3]:0;
+return{k,cause,t,fix:fix(a.sides),n:a.n,rate,ref,cpm,cref,extra:cpm-cref,sure:a.n>=3&&z>=1.645,
+ex:(ex[key]||[]).sort((x,y)=>y.ts-x.ts||y.cost-x.cost).slice(0,4)};};
+const rows=ERR_KEYS.map(k=>row(k,k,ERR_DEF[k].t,s=>errFix(k,s),R.t,false))
+.concat(CAUSE_KEYS.map(k=>row(k,'c:'+k,ERR_CAUSE[k].t,()=>ERR_CAUSE[k].fix,R.c,true)));
+return{n,n7:R.c[2],rounds:R.t[0],rows:rows.filter(r=>r.n).sort((a,b)=>(b.sure-a.sure)||b.extra-a.extra)};
 }
 function focusPick(C,A){
 const it=(C&&C.items)||[],er=((A&&A.rows)||[]).filter(r=>r.n>=3),mk=(k,dir,t,fix,why)=>({k,dir,t,fix,why});
@@ -805,7 +883,7 @@ else if(o&&typeof o==='object')Object.keys(o).forEach(k=>{const v=o[k];if(typeof
 return o;
 }
 function aggAge(G,today,half=30){
-if(G.day&&today>G.day){const f=Math.pow(.5,(Date.parse(today)-Date.parse(G.day))/864e5/half);aggDecay(G.M,f);aggDecay(G.B.c,f);aggDecay(G.A,f);G.matches*=f;}
+if(G.day&&today>G.day){const f=Math.pow(.5,(Date.parse(today)-Date.parse(G.day))/864e5/half);aggDecay(G.M,f);aggDecay(G.B,f);aggDecay(G.A,f);G.matches*=f;}
 G.day=today;return G;
 }
 function aggMatch(G,md,cosOf,roleOf){
@@ -820,7 +898,8 @@ function aggPublish(G,region,today){
 const M={S:{},E:{}},c={},meta={v:1,maj:today,region,matches:Math.round(G.matches),du:G.du,au:G.au};
 ['S','E'].forEach(k=>Object.entries(G.M[k]).forEach(([key,v])=>{const n=Math.round(v[0]);if(n>0)M[k][key]=[n,Math.min(n,Math.round(v[1]))];}));
 Object.entries(G.B.c).forEach(([k,v])=>{const o={};Object.keys(v).forEach(f=>{o[f]=Math.round(v[f]*1000)/1000;});c[k]=o;});
-return{bench:Object.assign({format:'elitrack-bench'},meta,{c,M}),atlas:Object.assign({format:'elitrack-atlas'},meta,{maps:atlasPack(G.A)})};
+const g={},r3=x=>Math.round(x*1000)/1000;Object.entries(G.B.g||{}).forEach(([k,v])=>{if(v.n>=.5)g[k]={n:r3(v.n),r:r3(v.r),c:v.c.map(r3)};});
+return{bench:Object.assign({format:'elitrack-bench'},meta,{c,g,M}),atlas:Object.assign({format:'elitrack-atlas'},meta,{maps:atlasPack(G.A)})};
 }
 function atlasClean(raw){
 if(!obj(raw)||raw.format!=='elitrack-atlas'||raw.v!==1||!obj(raw.maps))return null;
@@ -1049,7 +1128,7 @@ ridNorm,b64uEnc,b64uDec,utf8,fromUtf8,LIC_PLANS,licBody,licHead,licParse,licChec
 FEATURES,PREM_DEF,featOn,PUB_DEF,httpsUrl,isGoogle,proxyUrl,pubCfg,smRow,rowsAgg,aggBy,mainAgent,sessionsOf,serieOf,
 v4Detail,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
 RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,RANK_METS,
-ERR_DEF,ERR_KEYS,deathsOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
+ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
 rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggPublish,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
 stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
@@ -1413,12 +1492,14 @@ r.onsuccess=()=>{const db=r.result,tx=db.transaction('md',mode),q=fn(tx.objectSt
 }
 const mdKey=(prof,id)=>`${prof.demo?'demo':prof.puuid||prof.rid}:${id}`;
 const DET={mem:{},miss:new Set()};
+const DET_V=7;
 async function detGet(prof,id,fresh){
-const k=mdKey(prof,id);if(DET.mem[k]&&!(fresh&&(DET.mem[k].v||0)<6))return DET.mem[k];
-let d=null;if(!fresh){try{d=await idb('readonly',s=>s.get(k));}catch(e){}}
-if(d)return DET.mem[k]=d;
-if(prof.demo)return DET.mem[k]||null;
-const md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true,to:25000})).data;if(!md)return null;
+const k=mdKey(prof,id),old=x=>fresh&&(x.v||0)<DET_V;if(DET.mem[k]&&!old(DET.mem[k]))return DET.mem[k];
+let d=DET.mem[k]||null;if(!d){try{d=await idb('readonly',s=>s.get(k));}catch(e){}}
+if(d&&!old(d))return DET.mem[k]=d;
+if(prof.demo)return d?DET.mem[k]=d:null;
+let md=null;try{md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true,to:25000})).data;}catch(e){if(d)return DET.mem[k]=d;throw e;}
+if(!md)return d?DET.mem[k]=d:null;
 const me=(md.players||[]).find(p=>(prof.puuid&&p.puuid===prof.puuid)||ridNorm(`${p.name}#${p.tag}`)===prof.rid);if(!me)return null;
 d=v4Detail(md,me.team_id,p=>p===me?'moi':'');
 try{await idb('readwrite',s=>s.put(d,k));}catch(e){console.warn('Détail non gardé',e);}
@@ -1434,7 +1515,7 @@ return out.sort((a,b)=>b.ts-a.ts);
 }
 async function detFill(prof,max,onStep){
 if(prof.demo||!apiReady())return 0;
-const have=new Map((await detAll(prof)).map(d=>[d.id,d.v||0])),todo=prof.rows.slice(0,max).filter(r=>!DET.miss.has(r.id)&&(!have.has(r.id)||have.get(r.id)<6));
+const have=new Map((await detAll(prof)).map(d=>[d.id,d.v||0])),todo=prof.rows.slice(0,max).filter((r,j)=>!DET.miss.has(r.id)&&(!have.has(r.id)||have.get(r.id)<6||(j<5&&have.get(r.id)<DET_V)));
 let n=0,fail=0;
 for(const[i,r]of todo.entries()){
 if(i)await sleep(n<3?600:2000);
@@ -1677,8 +1758,9 @@ $('#app').innerHTML=`
       <label class="chk small"><input type="checkbox" id="landOk" ${ST.get('consent')?'checked':''}> C'est mon compte (ou le joueur est d'accord). Mes données restent dans mon navigateur.</label>
       <p class="small muted mt8">Pas encore prêt ? <a href="#" data-act="demo">Voir la démo</a> avec un profil inventé.</p>
     </div>
-    <div class="wall" aria-hidden="true">${wall.map((a,i)=>`<img src="${IMG.agent(a,'fullportrait')}" alt="" style="--i:${i};--c:${AGENT_COL[a]}" loading="lazy">`).join('')}</div>
+    <div class="wall" aria-hidden="true">${wall.map((a,i)=>`<img src="img/mur-${a.toLowerCase()}.webp" alt="" width="661" height="600" style="--i:${i};--c:${AGENT_COL[a]}" loading="lazy" decoding="async" fetchpriority="low">`).join('')}</div>
   </section>
+  <h2 class="sr">Ce que fait ${esc(C.nom)}</h2>
   <section class="grid g3 feats">
     <div class="card"><h3>${ico('tactique')}Positionnement optimal</h3><p>Tes meilleurs spots, carte par carte, avec l'angle à tenir et d'où on te tue. Comparé aux joueurs de ton niveau, jamais une position intenable.</p></div>
     <div class="card"><h3>${ico('map')}Stratégie par carte</h3><p>Quel site attaquer, où smoker, où te placer en défense, quand tourner, quel agent prendre. Écrit pour TON agent, avec un briefing d'1 minute.</p></div>
@@ -2076,15 +2158,15 @@ if(CD.v&&CD.D===D&&CD.M===APP.M&&CD.B===APP.bench&&CD.P===APP.prof)return CD.v;
 const G=[],L={c:{},local:true},tiers=[];
 D.forEach(d=>{const i=meIdx(d),S=pgOf(d);if(i<0||!S[i])return;const p=d.pl[i];if(p.tr>=3)tiers.push(p.tr);
 const g=Object.assign({},S[i],{ro:ROLE_OF[p.a]||'',ts:d.ts,id:d.id,w:d.rounds.filter(r=>r.w).length*2>d.rounds.length?1:0});
-ERR_KEYS.forEach(k=>{g['e_'+k]=0;});deOf(d).forEach(e=>{if(e.x===i)g['e_'+e.tag]++;});
 G.push(g);benchAdd(L,d,APP.M,a=>ROLE_OF[a],(q,j)=>j===i,S);});
 const W=APP.bench&&Object.keys(APP.bench.c).length?APP.bench:null,rk=rankOf(APP.prof.mmr.tier)||rankOf(tiers.sort((a,b)=>a-b)[tiers.length>>1]);
-const v={G,L,W,rk,C:coachV2(G,W?[W,L]:L,rk),A:errAgg(D,APP.M,deOf)};
+const ag=Object.entries(D.reduce((o,d)=>{const p=d.pl[meIdx(d)];if(p)o[p.a]=(o[p.a]||0)+1;return o;},{})).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+const v={G,L,W,rk,C:coachV2(G,W?[W,L]:L,rk),A:errAgg(D,APP.M,deOf),E:ecoAgg(D),U:ag.slice(0,2).map(a=>agentUse(D,W?[W,L]:[L],rk,a)).filter(Boolean)};
 Object.assign(CD,{v,D,M:APP.M,B:APP.bench,P:APP.prof});return v;
 }
 function focusState(){
 const P=APP.prof;if(!P||(APP.D||[]).length<3)return null;
-const V=coachData(),list=focusPick(V.C,V.A).filter(x=>MET[x.k]),key='focus:'+(P.demo?'demo':P.rid);
+const V=coachData(),list=focusPick(V.C,{rows:V.A.rows.concat(V.E.rows)}).filter(x=>MET[x.k]),key='focus:'+(P.demo?'demo':P.rid);
 let f=ST.get(key,null);
 if(!f||!MET[f.k]||!f.base||f.base.v==null){
 const now=Date.now();f=null;
@@ -2134,15 +2216,30 @@ const nx=C.next||[],nextHtml=nx.length?`<div class="card"><div class="card-h"><h
     ${nx.map(x=>{const m=Math.max(x.me||0,x.ref||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${lvlPill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(rkN,x.ref,m,metTxt(x.k,x.ref))}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}</div>`:'';
 const phase=c=>{const e=c.cost==null?null:-c.cost;return`<div class="drow"><span>${esc(c.t)}<small class="muted">toi ${rv(per(c.me))} · ${esc(rkN)} ${rv(per(c.ref))}${c.cost!=null&&!c.sure?' · à confirmer':''}</small></span><span class="dbar" aria-hidden="true">${e==null?'':`<i class="${e>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(e)*40)}%"></i>`}</span><b class="${e==null||Math.abs(e)<.05?'':e>=0?'up':'down'}">${e==null?'—':rv(e)}</b></div>`;};
 const pct2=(n,x)=>`<li class="srow"><div><b>${n}</b><small>${x==null?'pas assez de parties':`mieux que ${Math.round(x)} % des joueurs de tes parties`}</small></div><div class="val"><b>${x==null?'—':Math.round(x)+' %'}</b>${x==null?'':barHtml(x/100,.5,x>=60?'ok':x<40?'bad':'')}</div></li>`;
-const A=V.A,er=(A.rows||[]).filter(r=>r.n>=2&&(r.ref==null||r.rate>r.ref)).slice(0,4);
-const fh=focusHtml(),errHtml=er.length?`<div class="card"><div class="card-h"><h2>Tes erreurs qui reviennent</h2><span class="muted small">${A.n} parties · ${A.rounds} rounds</span></div>
-    ${er.map(r=>`<div class="coach"><span class="lvl lvl${r.sure?3:1}">${r.sure?'Sûr':'À confirmer'}</span><div><b>${esc(r.t)}</b>
-      <p class="small">Toi : <b class="${r.ref!=null&&r.rate>r.ref?'down':''}">${fmt(r.rate,1)}</b> pour 100 rounds <span class="muted">(autres joueurs de tes parties : ${r.ref==null?'—':fmt(r.ref,1)})</span> · coût <b class="down">${fmt(r.cpm,1)} round${r.cpm>=2?'s':''}/partie</b></p>
+const A=V.A,rkRef=(k,r)=>{const c=r&&V.W&&V.W.c[`${r}|*`];return c?metV(c,'e_'+k):null;};
+const refTxt=k=>[[rkN,rkRef(k,C.rk)],[upN,rkRef(k,C.up)]].filter(x=>x[0]&&x[1]!=null).map(x=>`${esc(x[0])} : ${fmt(x[1],1)}`).join(' · ');
+const errRow=r=>{const rt=refTxt(r.k);return`<div class="coach"><span class="lvl lvl${r.sure?3:1}">${r.sure?'Sûr':'À confirmer'}</span><div><b>${esc(r.t)}</b>
+      <p class="small">Toi : <b class="${r.ref!=null&&r.rate>r.ref?'down':''}">${fmt(r.rate,1)}</b> pour 100 rounds <span class="muted">(autres joueurs de tes parties : ${r.ref==null?'—':fmt(r.ref,1)}${rt?` · ${rt}`:''})</span>${r.cpm?` · coût <b class="down">${fmt(r.cpm,1)} round${r.cpm>=2?'s':''}/partie</b>`:''}${r.won!=null&&r.n?` · ${r.won}/${r.n} gagnés`:''}</p>
       ${r.ex.length?`<p class="small">Exemples : ${r.ex.map(x=>`<button type="button" class="chip" data-act="rapR:${esc(x.id)}|${x.r}">${esc(x.map)} R${x.r+1}</button>`).join(' ')}</p>`:''}
-      <p class="fix">→ ${esc(r.fix)}</p></div></div>`).join('')}
-    <p class="note">Chaque mort est classée par des règles fixes (vengée en 3 s = jamais une erreur). « Sûr » = plus fréquent que chez les 9 autres joueurs de tes parties, au seuil de 90 %. Seuils = conventions, à confirmer par la collecte.</p></div>`:'';
+      <p class="fix">→ ${esc(r.fix)}</p></div></div>`;};
+const worse=r=>r.n>=2&&(r.ref==null||r.rate>r.ref);
+const er=(A.rows||[]).filter(r=>!r.cause&&worse(r)).slice(0,4),cr=(A.rows||[]).filter(r=>r.cause&&worse(r)).slice(0,2),eco=(V.E.rows||[]).filter(worse);
+const fh=focusHtml(),errHtml=er.length||cr.length?`<div class="card"><div class="card-h"><h2>Tes erreurs qui reviennent</h2><span class="muted small">${A.n} parties · ${A.rounds} rounds</span></div>
+    ${er.map(errRow).join('')}
+    ${cr.length?`<h3 class="mt8">Pourquoi personne ne t'a vengé</h3><p class="muted small">D'après le regard des 9 autres joueurs à l'instant de ta mort (${A.n7} partie${A.n7>1?'s':''} récente${A.n7>1?'s':''}).</p>${cr.map(errRow).join('')}`:''}
+    <p class="note">Chaque mort est classée par des règles fixes (vengée en 3 s = jamais une erreur). « Sûr » = plus fréquent que chez les 9 autres joueurs de tes parties, au seuil de 90 %. « Visait » = regard à moins de 15° et 30 m (l'API ne connaît pas les murs). Seuils = conventions.</p></div>`:'';
+const ecoHtml=eco.length?`<div class="card"><div class="card-h"><h2>Tes achats</h2><span class="muted small">${V.E.n} parties récentes</span></div>${eco.map(errRow).join('')}
+    <p class="note">Plein = 3 900 crédits d'équipement ou plus, éco = moins de 2 000 ; pistols exclus. Dans tes parties, les rounds avec un achat décalé sont gagnés à ${V.E.wr==null?'—':pc0(V.E.wr)} (${V.E.dN} cas, tous joueurs).</p></div>`:'';
+const agHtml=(V.U||[]).map(u=>{const K=(window.KITS||{})[u.agent]||[],nm=j=>(K[j+1]||'').split('|')[0]||['C','Q','E','X'][j],m=x=>fmt(x,2);
+const low=u.ab.filter(a=>a.low);
+return`<div class="card"><div class="card-h"><h2>Tes capacités en ${esc(u.agent)}</h2><span class="muted small">${u.n} parties</span></div>
+      ${u.ab.map(a=>{const mx=Math.max(a.me,a.ref||0,a.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(nm(a.j))}</b> ${a.low?'<span class="pill bad">moins que le rang au-dessus</span>':''}</p><div class="mbars">${mbarH('Toi',a.me,mx,m(a.me)+'/round',true)}${a.ref!=null?mbarH(rkN,a.ref,mx,m(a.ref)):''}${a.up!=null?mbarH(upN,a.up,mx,m(a.up)):''}</div></div>`;}).join('')}
+      ${low.length?`<p class="fix">→ Utilise plus ${low.map(a=>esc(nm(a.j))).join(' et ')} : les joueurs ${esc(upN||rkN)} en ${esc(u.agent)} s'en servent nettement plus souvent que toi.</p>`:`<p class="small muted">${u.ab.some(a=>a.ref!=null)?'Tu utilises ton kit autant que les joueurs de ton niveau.':'Pas encore assez de joueurs de ton rang sur cet agent pour comparer.'}</p>`}
+      <p class="note">Utilisations par round sur la partie entière (l'API ne donne pas le détail round par round). Plus n'est pas toujours mieux : c'est un repère, pas une règle.${u.refN?` Référence : ${Math.round(u.refN)} parties ${esc(rkN)}${u.upN?`, ${Math.round(u.upN)} ${esc(upN)}`:''}.`:''}</p></div>`;});
+const side=[fh,...agHtml,ecoHtml].filter(Boolean);
 return`${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
-  ${fh||errHtml?`<div class="grid g2 mt">${fh}${errHtml}</div>`:''}
+  ${side.length?`<div class="grid g2 mt">${side.join('')}</div>`:''}
+  ${errHtml?`<div class="mt">${errHtml}</div>`:''}
   ${rest.length||(C.strong&&C.strong.length)?`<div class="card mt"><h2>${rest.length?(top?'Tes autres priorités':'Autres conseils'):'Tes forces'}</h2>${rest.map(itemHtml).join('')}
     ${C.strong&&C.strong.length?`<p class="sem ok mt8">Tes forces : ${C.strong.map(c=>`${esc(c.t)} (+${fmt(-c.cost,1)} round/partie)`).join(', ')}</p>`:''}</div>`:''}
   <div class="grid g2 mt">${nextHtml}
@@ -2172,7 +2269,7 @@ async function openReport(id){
 const P=APP.prof,r=P.rows.find(x=>x.id===id);if(!r)return;
 if(!(featOn('rapports',APP.plan,APP.cfg)||(featOn('dernier',APP.plan,APP.cfg)&&id===P.rows[0].id)))return premiumOpen('rapports');
 dlgOpen(`<div class="skel skel-hero"></div>${skel(4)}`);
-let d=null;try{d=await detGet(P,id);}catch(e){return dlgOpen(stateHtml('!','Rapport indisponible',`${e.message} Réessaie dans un instant.`,['Réessayer','rapport:'+id],true));}
+let d=null;try{d=await detGet(P,id,true);}catch(e){return dlgOpen(stateHtml('!','Rapport indisponible',`${e.message} Réessaie dans un instant.`,['Réessayer','rapport:'+id],true));}
 if(!d)return dlgOpen(stateHtml('!','Rapport indisponible','Le service ne donne pas le détail de cette partie (trop ancienne ou introuvable).',null,true));
 const D=await detAll(P);if(!D.some(x=>x.id===d.id))D.push(d);
 await benchLoad();const M=modelOf(D),me=meIdx(d),S=matchSum(d,M,me),L=S.me;
@@ -2193,7 +2290,8 @@ const LS=errLessons(deathsOf(d,M,S.F).filter(e=>e.x===me)),FS=focusState(),ft=FS
 const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'La leçon':`Les ${LS.length} leçons`} de cette partie`:'Leçons de cette partie'}</h3>
     ${LS.length?`<ol class="plan">${LS.map(l=>`<li><b>${esc(ERR_DEF[l.tag].t)}</b> : ${l.n} fois, <b class="down">−${fmt(l.cost,1)} round${l.cost>=2?'s':''}</b>
       <span class="rds">${l.rounds.map(r=>`<button type="button" class="rd L" data-act="repRound:${r}" aria-label="Voir le round ${r+1} sur la carte">${r+1}</button>`).join('')}</span>
-      <p class="fix small">→ ${esc(errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées ou sans conséquence.</p>'}
+      ${l.cause&&l.causeN?`<p class="small">Pourquoi : ${l.causeN===l.n?'':`${l.causeN} fois sur ${l.n}, `}${esc(ERR_CAUSE[l.cause].d)}.</p>`:''}
+      <p class="fix small">→ ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées ou sans conséquence.</p>'}
     ${ft?`<p class="small mt8">Ton focus (<b>${esc(FS.f.t)}</b>) : ${metTxt(FS.f.k,ft.v)} contre ${metTxt(FS.f.k,FS.ev.base)} d'habitude <span class="sem ${ft.ok?'ok':'bad'}">${ft.ok?'✓':'✕'}</span></p>`:''}
     <p class="note">Règles fixes : une mort vengée en 3 s n'est jamais une erreur ; « loin » = aucun allié à moins de 15 m. Coût = chances de gagner le round perdues à ta mort.</p></div>`;
 const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
@@ -2589,6 +2687,7 @@ INSTALL.prompt();try{await INSTALL.userChoice;}catch(e){}INSTALL=null;$('#instBt
 if(GUARD_OK&&'serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Hors ligne indisponible',e)));
 (async function boot(){
 if(!GUARD_OK)return;
+if(readHash()||(ST.get('last')||{}).riot)$('#recherche').hidden=false;
 $('#qReg').innerHTML=REGIONS.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
 const hdr=()=>document.documentElement.style.setProperty('--hdr',$('header.top').offsetHeight+'px');window.addEventListener('resize',hdr);hdr();
 const net=()=>{$('#horsLigne').hidden=navigator.onLine!==false;};window.addEventListener('online',net);window.addEventListener('offline',net);net();
