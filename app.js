@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0012. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0048. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -11,216 +11,7 @@ const nums=(o,keys)=>{if(o&&typeof o==='object')keys.forEach(k=>{if(k in o)o[k]=
 const strs=(o,keys)=>{if(o&&typeof o==='object')keys.forEach(k=>{if(k in o)o[k]=toStr(o[k]);});return o;};
 const arr=(o,k,f)=>{if(o&&k in o)o[k]=Array.isArray(o[k])?o[k].filter(x=>x&&typeof x==='object').map(f):[];};
 const obj=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
-const SHAPE={
-matches:m=>{nums(m,['us','them','fk','fd','clutchW','clutchA','pistols','ecoLost','ts']);strs(m,['id','date','time','type','opp','map','notes','src']);
-if(m.time!=null&&!/^\d{1,2}:\d{2}$/.test(m.time))m.time='';
-arr(m,'players',p=>strs(nums(p,['k','d','a','acs','hsN','shots','kastR','rounds','traded']),['name','agent','tier']));
-if(m.lobby&&typeof m.lobby==='object')nums(m.lobby,['us','them']);return m;},
-checkins:c=>strs(nums(c,['sleep','fat','stress','mood']),['id','player','date']),
-candidates:c=>{nums(c,['acsR','hs','kast','fk','fd','comms','tilt','contactN']);strs(c,['id','name','riot','role','rank','pipe','notes','date','src','contact']);
-arr(c,'tryouts',t=>strs(nums(t,['acsR','kast','fk','fd','comms','tilt']),['date']));
-if('rt'in c)c.rt=obj(c.rt)?Object.fromEntries(Object.entries(c.rt).map(([k,v])=>[k,Array.isArray(v)?v.slice(0,2).map(toNum):[null,null]])):{};
-if('scout'in c){const s=c.scout=obj(c.scout)?c.scout:{};nums(s,['n','w','acs','acsR','adr','hs','lg','kast','fkM','fdM','kd','rating','sd','afk','ff','tier','rr','lvl','roleShare']);
-strs(s,['d','role','peak','last','tierName']);s.agents=Array.isArray(s.agents)?s.agents.filter(Array.isArray).map(a=>[toStr(a[0])||'',toNum(a[1])||0]):[];
-['hours','days'].forEach(k=>{s[k]=Array.isArray(s[k])?s[k].map(v=>toNum(v)||0):[];});}
-return c;},
-skills:s=>{nums(s,['ts']);strs(s,['id','player','date']);if(s.v&&typeof s.v==='object')nums(s.v,Object.keys(s.v));else s.v={};return s;},
-trainlog:l=>{strs(nums(l,['min','lv']),['id','player','date','kind','tool']);if('scores'in l){if(obj(l.scores))nums(l.scores,Object.keys(l.scores));else l.scores={};}return l;},
-events:e=>strs(nums(e,['dur']),['id','date','time','type','title','notes']),
-tasks:t=>strs(t,['id','t','due','date','src']),
-reports:r=>{strs(r,['id','player','date','titre','text','kind']);if(r.basis&&typeof r.basis==='object'){nums(r.basis,['n']);strs(r.basis,['from','to']);}return r;},
-roster:p=>{nums(p,['dpi','sens']);strs(p,['id','name','riot','role','status','xhair','hour','notes','tier']);
-if('days'in p)p.days=Array.isArray(p.days)?p.days.map(toNum).filter(d=>d!=null&&d>=0&&d<=6):[];
-if('agents'in p)p.agents=Array.isArray(p.agents)?p.agents.map(toStr).filter(Boolean):[];
-arr(p,'sensH',h=>strs(nums(h,['dpi','sens']),['d']));return p;},
-strats:s=>{strs(s,['id','name','map','side','show']);nums(s,['phase','created']);if(s.uses&&typeof s.uses==='object')nums(s.uses,['w','l']);
-arr(s,'items',it=>{nums(it,['x','y','w','phase']);strs(it,['id','t','kind','text','color','ag','sl']);if('pts'in it)it.pts=Array.isArray(it.pts)?it.pts.filter(Array.isArray).map(p=>[toNum(p[0])||0,toNum(p[1])||0]):[];return it;});
-if('notes'in s)s.notes=Array.isArray(s.notes)?s.notes.map(n=>toStr(n)||''):['','','',''];return s;},
-vods:v=>strs(v,['id','matchId','round','ts','cat','note','url']),
-antistrats:a=>strs(a,['id','team','map','date','notes','plan'])
-};
-function shapeColl(coll,value){
-if(coll==='mmr'){
-if(!value||typeof value!=='object'||Array.isArray(value))return{};
-Object.values(value).forEach(r=>{if(!r||typeof r!=='object')return;nums(r,['tier','rr','elo','last','shields','updated']);strs(r,['tierName']);
-if(r.peak&&typeof r.peak==='object'){nums(r.peak,['tier']);strs(r.peak,['name','season']);}
-arr(r,'hist',h=>strs(nums(h,['elo','ch','t']),['d','map','mid']));});
-return value;
-}
-const f=SHAPE[coll];if(!f)return value;
-return Array.isArray(value)?value.filter(x=>x&&typeof x==='object').map(f):[];
-}
-const INBOX_FORMAT='prohub-inbox',INBOX_VERSION=1;
-const LIM={batches:20,items:500,bytes:2e6};
 const RE_DATE=/^\d{4}-\d{2}-\d{2}$/,RE_TIME=/^\d{1,2}:\d{2}$/,RE_ID=/^[\w.:@+-]{1,80}$/;
-const T={
-str:(max,req)=>({t:'str',max,req}),int:(min,max,req)=>({t:'int',min,max,req}),num:(min,max,req)=>({t:'num',min,max,req}),
-date:req=>({t:'date',req}),time:()=>({t:'time'}),bool:()=>({t:'bool'}),enm:(vals,req)=>({t:'enum',vals,req}),url:()=>({t:'url'}),
-color:()=>({t:'color'}),list:(max,n)=>({t:'list',max,n}),arr:(of,n)=>({t:'arr',of,n}),obj:(of,req)=>({t:'obj',of,req}),id:()=>({t:'id'})
-};
-const ROLES_ALL=['Duelist','Initiator','Controller','Sentinel','Flex','IGL'];
-const S_PLAYER={name:T.str(40,true),agent:T.str(20),k:T.int(0,200),d:T.int(0,200),a:T.int(0,200),acs:T.int(0,1500)};
-const S_ITEM={id:T.id(),t:T.enm(['stroke','arrow','text','util'],true),kind:T.str(12),x:T.num(0,1000),y:T.num(0,1000),w:T.num(1,30),color:T.color(),text:T.str(40),phase:T.int(0,3),pts:{t:'pts'},ag:T.str(20),sl:T.enm(['C','Q','E','X'])};
-const SCHEMA={
-matches:{id:T.id(),date:T.date(true),time:T.time(),type:T.enm(['Ranked','Premier','Scrim','Tournoi']),opp:T.str(60),map:T.str(30,true),us:T.int(0,60,true),them:T.int(0,60,true),
-fk:T.int(0,60),fd:T.int(0,60),pistols:T.int(0,2),ecoLost:T.int(0,60),clutchW:T.int(0,60),clutchA:T.int(0,60),players:T.arr(S_PLAYER,10),notes:T.str(1500)},
-candidates:{id:T.id(),name:T.str(60,true),riot:T.str(40),role:T.enm(ROLES_ALL),rank:T.str(30),pipe:T.enm(['repéré','contacté','tryout','signé','refusé','écarté']),
-acsR:T.num(0,400),hs:T.num(0,100),kast:T.num(0,100),fk:T.num(0,30),fd:T.num(0,30),comms:T.int(1,5),tilt:T.int(1,5),notes:T.str(3000),date:T.date()},
-reports:{id:T.id(),player:T.str(60,true),date:T.date(),titre:T.str(160),text:T.str(30000,true),kind:T.enm(['analyse','bilan']),basis:T.obj({n:T.int(0,100000),from:T.date(),to:T.date()})},
-events:{id:T.id(),date:T.date(true),time:T.time(),dur:T.int(5,1440),type:T.enm(['Entraînement','Scrim','Ranked','Tournoi','Revue VOD','Tryout','Autre']),title:T.str(160,true),notes:T.str(1000)},
-strats:{id:T.id(),name:T.str(100),map:T.str(30),side:T.enm(['atk','def']),notes:T.list(800,4),tags:T.list(20,12),items:T.arr(S_ITEM,400),phase:T.int(0,3),show:T.enm(['cum','only'])},
-tasks:{id:T.id(),t:T.str(240,true),due:{t:'dateOrEmpty'},done:T.bool()},
-skills:{id:T.id(),ts:T.int(0,1e15),player:T.str(60,true),date:T.date(true),v:T.obj({hs:T.num(0,100),kast:T.num(0,100),trade:T.num(0,100),util:T.num(0,100),fb:T.num(0,100)},true)},
-antistrats:{id:T.id(),team:T.str(80,true),map:T.str(30),date:T.date(),notes:T.str(4000),plan:T.str(4000)},
-roster:{id:T.id(),name:T.str(40,true),riot:T.str(40),role:T.enm(ROLES_ALL),status:T.enm(['titulaire','remplaçant','essai','ancien']),agents:T.list(20,10),
-dpi:T.int(100,32000),sens:T.num(0.001,50),xhair:T.str(300),days:{t:'days'},hour:T.time(),notes:T.str(600)},
-vods:{id:T.id(),matchId:T.str(80),round:T.str(4),ts:T.str(9),cat:T.enm(['Micro/Aim','Macro/Spacing','Comms/Info latency','Eco management','Utility','Positive clip']),note:T.str(600,true),url:T.url()},
-checkins:{id:T.id(),player:T.str(40,true),date:T.date(true),sleep:T.num(0,14),fat:T.int(1,5),stress:T.int(1,5),mood:T.int(1,5)},
-trainlog:{id:T.id(),player:T.str(40,true),date:T.date(true),min:T.int(1,600),kind:T.str(40)}
-};
-const INBOX_COLLS=Object.keys(SCHEMA);
-const BATCH_KEYS=['id','date','titre','notes','comps','settings',...INBOX_COLLS];
-const typeOf=v=>v===null?'null':Array.isArray(v)?'liste':typeof v==='string'?'texte':typeof v==='number'?'nombre':typeof v;
-function check(v,s,path,errs){
-const bad=msg=>{errs.push(`${path} : ${msg}`);return undefined;};
-if(v===undefined||v===null)return s.req?bad('obligatoire'):v===null?null:undefined;
-switch(s.t){
-case'str':if(typeof v!=='string')return bad(`texte attendu (reçu : ${typeOf(v)})`);if(s.req&&!v.trim())return bad('ne doit pas être vide');return v.length>s.max?bad(`trop long (${v.length} caractères, maximum ${s.max})`):v;
-case'id':return typeof v==='string'&&RE_ID.test(v)?v:bad('identifiant invalide (lettres, chiffres, - _ . : seulement, 80 caractères maximum)');
-case'int':case'num':
-if(typeof v!=='number'||!Number.isFinite(v))return bad(`nombre attendu (reçu : ${typeOf(v)})`);
-if(s.t==='int'&&!Number.isInteger(v))return bad('nombre entier attendu');
-return v<s.min||v>s.max?bad(`hors bornes (${v} ; attendu entre ${s.min} et ${s.max})`):v;
-case'date':return typeof v==='string'&&RE_DATE.test(v)&&!isNaN(new Date(v+'T12:00:00'))?v:bad('date AAAA-MM-JJ attendue');
-case'dateOrEmpty':return v===''||(typeof v==='string'&&RE_DATE.test(v))?v:bad('date AAAA-MM-JJ ou vide attendue');
-case'time':return typeof v==='string'&&RE_TIME.test(v)?v:bad('heure HH:MM attendue');
-case'bool':return typeof v==='boolean'?v:bad('vrai/faux attendu');
-case'enum':return s.vals.includes(v)?v:bad(`valeur non prévue (« ${String(v).slice(0,30)} » ; possibles : ${s.vals.join(', ')})`);
-case'url':return typeof v==='string'&&/^https?:\/\/[^\s"'<>]{3,500}$/i.test(v)?v:bad('lien http(s) attendu');
-case'color':return typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:bad('couleur #rrggbb attendue');
-case'days':return Array.isArray(v)&&v.every(d=>Number.isInteger(d)&&d>=0&&d<=6)?v:bad('liste de jours 0 à 6 attendue');
-case'list':if(!Array.isArray(v))return bad('liste attendue');if(v.length>s.n)return bad(`trop d'éléments (${v.length}, maximum ${s.n})`);
-return v.every(x=>typeof x==='string'&&x.length<=s.max)?v:bad(`liste de textes de ${s.max} caractères maximum attendue`);
-case'pts':return Array.isArray(v)&&v.length<=2000&&v.every(p=>Array.isArray(p)&&p.length===2&&p.every(n=>typeof n==='number'&&n>=0&&n<=1000))?v:bad('liste de points [x, y] entre 0 et 1000 attendue');
-case'arr':{if(!Array.isArray(v))return bad('liste attendue');if(v.length>s.n)return bad(`trop d'éléments (${v.length}, maximum ${s.n})`);
-const out=v.map((x,i)=>checkObj(x,s.of,`${path}[${i+1}]`,errs));return out.some(x=>x===undefined)?undefined:out;}
-case'obj':return checkObj(v,s.of,path,errs);
-}
-return bad('type inconnu');
-}
-function checkObj(o,schema,path,errs){
-if(!o||typeof o!=='object'||Array.isArray(o)){errs.push(`${path} : objet attendu`);return undefined;}
-const out={},n0=errs.length;
-Object.keys(o).forEach(k=>{if(!(k in schema))errs.push(`${path} : champ inconnu « ${k.slice(0,30)} »`);});
-Object.entries(schema).forEach(([k,s])=>{const v=check(o[k],s,`${path}.${k}`,errs);if(v!==undefined)out[k]=v;});
-return errs.length>n0?undefined:out;
-}
-function matchCoherence(m,path,errs){
-if(m.clutchW!=null&&m.clutchA!=null&&m.clutchW>m.clutchA)errs.push(`${path} : clutchs gagnés (${m.clutchW}) > clutchs tentés (${m.clutchA})`);
-if(m.fk!=null&&m.fd!=null&&m.fk+m.fd>m.us+m.them)errs.push(`${path} : FK + FD (${m.fk+m.fd}) > nombre de rounds (${m.us+m.them})`);
-if(m.us+m.them<1)errs.push(`${path} : aucun round joué`);
-}
-function validateInbox(data){
-const errs=[];
-if(!data||typeof data!=='object'||Array.isArray(data))return{ok:false,errors:['Le fichier doit contenir un objet JSON { "format": …, "version": …, "batches": [ … ] }.'],batches:[]};
-if(data.format!==INBOX_FORMAT)errs.push(`format : « ${INBOX_FORMAT} » attendu`);
-if(data.version!==INBOX_VERSION)errs.push(typeof data.version==='number'&&data.version>INBOX_VERSION?`version ${data.version} : plus récente que ce hub (${INBOX_VERSION}). Mettez le hub à jour.`:`version : ${INBOX_VERSION} attendue`);
-Object.keys(data).forEach(k=>{if(!['format','version','batches'].includes(k))errs.push(`champ inconnu à la racine « ${k.slice(0,30)} »`);});
-if(!Array.isArray(data.batches))errs.push('batches : liste attendue');
-else if(data.batches.length>LIM.batches)errs.push(`batches : ${data.batches.length} lots, maximum ${LIM.batches}`);
-if(errs.length)return{ok:false,errors:errs,batches:[]};
-const ids=new Set(),batches=[];
-data.batches.forEach((b,bi)=>{
-const p=`lot ${bi+1}`;
-if(!b||typeof b!=='object'||Array.isArray(b)){errs.push(`${p} : objet attendu`);return;}
-Object.keys(b).forEach(k=>{if(!BATCH_KEYS.includes(k))errs.push(`${p} : champ inconnu « ${k.slice(0,30)} »`);});
-const id=check(b.id,{t:'id'},`${p}.id`,errs);if(b.id==null)errs.push(`${p}.id : obligatoire`);
-if(id&&ids.has(id))errs.push(`${p}.id : « ${id} » utilisé deux fois`);if(id)ids.add(id);
-const out={id,date:check(b.date,T.date(),`${p}.date`,errs),titre:check(b.titre,T.str(160),`${p}.titre`,errs),notes:check(b.notes,T.str(3000),`${p}.notes`,errs)};
-INBOX_COLLS.forEach(k=>{
-if(b[k]==null)return;
-if(!Array.isArray(b[k])){errs.push(`${p}.${k} : liste attendue`);return;}
-if(b[k].length>LIM.items){errs.push(`${p}.${k} : ${b[k].length} éléments, maximum ${LIM.items}`);return;}
-const items=b[k].map((x,i)=>checkObj(x,SCHEMA[k],`${p}.${k}[${i+1}]`,errs));
-if(k==='matches')items.forEach((m,i)=>{if(m)matchCoherence(m,`${p}.matches[${i+1}]`,errs);});
-if(k==='strats')items.forEach((s,i)=>{if(s&&!s.id&&!(s.name&&s.map))errs.push(`${p}.strats[${i+1}] : « id » (mise à jour) ou « name » + « map » (nouvelle strat) obligatoires`);});
-out[k]=items;
-});
-if(b.comps!=null){
-if(typeof b.comps!=='object'||Array.isArray(b.comps))errs.push(`${p}.comps : objet { carte : [5 places] } attendu`);
-else{out.comps={};Object.entries(b.comps).forEach(([map,slots])=>{
-if(map.length>30)return errs.push(`${p}.comps : nom de carte trop long`);
-const v=check(slots,T.arr({player:T.str(40),agent:T.str(20)},5),`${p}.comps.${map}`,errs);if(v)out.comps[map]=v;});}
-}
-if(b.settings!=null)out.settings=checkObj(b.settings,{team:T.str(60),rank:T.str(30),rankGoal:T.str(30),pool:T.list(30,30)},`${p}.settings`,errs);
-Object.keys(out).forEach(k=>out[k]===undefined&&delete out[k]);
-batches.push(out);
-});
-return{ok:errs.length===0,errors:errs.slice(0,40),more:Math.max(0,errs.length-40),batches:errs.length?[]:batches};
-}
-const itemLabel=(k,x)=>k==='matches'?`${x.date||'?'} ${x.map||'?'} ${x.us??'?'}-${x.them??'?'}`:x.name||x.title||x.titre||x.t||x.team||x.player||x.id||'(sans nom)';
-function inboxPlan(batches,current,done,settings){
-return batches.map(b=>{
-const r={id:b.id,titre:b.titre||b.id,date:b.date||'',notes:b.notes||'',done:(done||[]).includes(b.id),colls:{},comps:[],settings:[],total:0};
-INBOX_COLLS.forEach(k=>{
-if(!b[k]||!b[k].length)return;
-const have=new Map((current[k]||[]).map(x=>[x.id,x])),add=[],upd=[];
-b[k].forEach(x=>{const old=x.id&&have.get(x.id);if(old){const ch=Object.keys(x).filter(f=>f!=='id'&&JSON.stringify(x[f])!==JSON.stringify(old[f]));if(ch.length)upd.push({label:itemLabel(k,Object.assign({},old,x)),fields:ch});}else add.push({label:itemLabel(k,x)});});
-if(add.length||upd.length){r.colls[k]={add,upd};r.total+=add.length+upd.length;}
-});
-if(b.comps){r.comps=Object.keys(b.comps);r.total+=r.comps.length;}
-if(b.settings)['team','rank','rankGoal','pool'].forEach(k=>{if(b.settings[k]!=null&&JSON.stringify(b.settings[k])!==JSON.stringify((settings||{})[k])){r.settings.push({k,from:(settings||{})[k],to:b.settings[k]});r.total++;}});
-return r;
-});
-}
-const SCHEMA_V=2;
-const J=s=>{try{return s==null?null:JSON.parse(s);}catch(e){return null;}};
-const MIGRATIONS={
-2:{
-up(raw,seed,log){
-if(J(raw.psh_seed_v)==null||!seed)return;
-const reps=J(raw.psh_reports)||[];
-(seed.analyses||[]).forEach(a=>{if(!reps.some(r=>r.id===a.id)){reps.push(JSON.parse(JSON.stringify(a)));log.push(`rapport ajouté : ${a.titre}`);}});
-raw.psh_reports=JSON.stringify(reps);
-const st=seed.settings||{};
-['logo','banner'].forEach(k=>{if(st[k]&&J(raw['psh_'+k])==null){raw['psh_'+k]=JSON.stringify(st[k]);log.push(`${k==='logo'?'logo':'bannière'} de l'équipe : ${st[k]}`);}});
-},
-down(raw,seed){
-if(!seed)return;
-const ids=new Set((seed.analyses||[]).map(a=>a.id)),reps=J(raw.psh_reports);
-if(Array.isArray(reps))raw.psh_reports=JSON.stringify(reps.filter(r=>!ids.has(r.id)));
-const st=seed.settings||{};
-['logo','banner'].forEach(k=>{if(st[k]&&J(raw['psh_'+k])===st[k])delete raw['psh_'+k];});
-}
-}
-};
-function migrateRaw(raw0,seed,to=SCHEMA_V){
-const raw=Object.assign({},raw0),log=[];
-let v=J(raw.psh_schema_v)||1;const from=v;
-while(v<to){v++;if(MIGRATIONS[v])MIGRATIONS[v].up(raw,seed,log);}
-while(v>to){if(MIGRATIONS[v])MIGRATIONS[v].down(raw,seed);v--;}
-if(v===1)delete raw.psh_schema_v;else raw.psh_schema_v=JSON.stringify(v);
-return{raw,from,to:v,log};
-}
-const pc=a=>a&&a[0]?`${Math.round(a[1]/a[0]*100)} %`:'—';
-const nn=a=>a&&a[0]?`${a[1]}/${a[0]}`:'0';
-const NO_DATA='Données insuffisantes : il faut au moins 5 matchs avec le détail des rounds.';
-function rulesRows(K){
-const r=a=>a&&a[0]?a[1]/a[0]:null,why=f=>K?f():NO_DATA;
-return[
-['Pistol perdu','Round 2 : on sauve (éco), full buy au round 3.',why(()=>`Round après un pistol perdu : ${pc(K.r2l)} gagnés (${nn(K.r2l)}).`)],
-['Pistol gagné','Round 2 : on joue groupé contre leur éco, angles longs.',why(()=>`Round après un pistol gagné : ${pc(K.r2w)} gagnés (${nn(K.r2w)}).`)],
-['Force-buy','Seulement au dernier round d\'une mi-temps, ou si on aura quand même un full buy au round suivant.',why(()=>`Force contre full buy adverse : ${pc(K.force)} (${nn(K.force)})${r(K.force)!=null&&r(K.force)>=.5&&K.force[0]>=20?'. Ça passe plutôt bien chez vous, mais un force raté coûte aussi le round d\'après':''}.`)],
-['Spike posé','On joue le temps, on ne repeek pas, on trade en duo.',why(()=>`Post-plant : ${pc(K.post)} de rounds gagnés (${nn(K.post)})${r(K.post)!=null&&r(K.post)>=.65?', votre point fort':''}.`)],
-['Retake','Jamais à moins de 3. Sinon on sauve l\'arme. Smoke + flash ensemble.',why(()=>`Retake : ${pc(K.retake)} (${nn(K.retake)})${K.re2&&K.re2[0]?`, dont ${nn(K.re2)} à 2 joueurs ou moins`:''}${r(K.retake)!=null&&r(K.retake)<.4?', votre point faible':''}.`)],
-['2 défaites de suite','Pause de 20 min ou arrêt de la ranked pour la soirée.','Règle de discipline : pas encore mesurée sur vos matchs.']
-];
-}
-function reportStatus(rep,matchList){
-const to=rep&&rep.basis&&rep.basis.to;if(!to)return{stale:false,newer:0,known:false};
-const newer=(matchList||[]).filter(m=>m&&typeof m.date==='string'&&m.date>to).length;
-return{stale:newer>0,newer,known:true};
-}
 function wilson(k,n,z=1.645){
 if(!(n>0))return[0,1];
 const p=k/n,z2=z*z,d=1+z2/n,c=(p+z2/(2*n))/d,h=z*Math.sqrt(p*(1-p)/n+z2/(4*n*n))/d;
@@ -424,88 +215,8 @@ function trainEffect(rows){
 const R=(rows||[]).filter(x=>x&&Number.isFinite(x.r)),g=f=>meanCmp(R.filter(x=>f(x)&&!x.tr).map(x=>x.r),R.filter(x=>f(x)&&x.tr).map(x=>x.r));
 return{all:g(()=>true),first:g(x=>x.first)};
 }
-const encKey=id=>String(id||'').toLowerCase().replace(/\s+/g,'');
-function scoutAgg(rows){
-const G=(rows||[]).filter(r=>r&&r.nR>0);if(!G.length)return null;
-const sum=f=>G.reduce((s,r)=>s+(+f(r)||0),0),R=sum(r=>r.nR),n=G.length,ag={},rl={};
-G.forEach(r=>{ag[r.a]=(ag[r.a]||0)+1;rl[r.role]=(rl[r.role]||0)+1;});
-const role=Object.entries(rl).sort((a,b)=>b[1]-a[1])[0],rat=G.map(r=>r.rating).filter(Number.isFinite);
-const mr=rat.length?rat.reduce((a,b)=>a+b,0)/rat.length:null,sd=rat.length>=3?Math.sqrt(rat.reduce((s,v)=>s+(v-mr)**2,0)/(rat.length-1)):null;
-const sh=sum(r=>r.sh),L=G.filter(r=>r.lg!=null&&r.sh),shL=L.reduce((s,r)=>s+r.sh,0),lob=G.filter(r=>r.lob>0);
-const hours=[0,0,0,0],days=[0,0,0,0,0,0,0];
-G.forEach(r=>{const b=hourBucket(r.t);if(b!=null)hours[b]++;if(r.dow!=null&&r.dow>=0&&r.dow<=6)days[r.dow]++;});
-const tr=G.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(r=>r.tr).filter(t=>t>2),de=sum(r=>r.d);
-return{n,w:G.filter(r=>r.win).length,agents:Object.entries(ag).sort((a,b)=>b[1]-a[1]).slice(0,4),role:role[0],roleShare:role[1]/n,
-acs:sum(r=>r.sc)/R,acsR:lob.length?lob.reduce((s,r)=>s+r.sc/r.nR/r.lob,0)/lob.length*100:null,adr:sum(r=>r.dmg)/R,
-hs:sh>=30?sum(r=>r.hs)/sh*100:null,lg:shL>=30?L.reduce((s,r)=>s+r.lg,0)/shL*100:null,kast:sum(r=>r.kastP*r.nR)/R,
-fkM:sum(r=>r.fk)/n,fdM:sum(r=>r.fd)/n,kd:de?sum(r=>r.k)/de:null,rating:mr,sd,hours,days,
-last:G.reduce((m,r)=>r.date>m?r.date:m,''),afk:sum(r=>r.afk),ff:sum(r=>r.ff),tier:tr.length?tr[tr.length-1]:null};
-}
-function fitScore(s,ctx){
-if(!s)return null;const c=ctx||{},needs=c.needs||[],P={},i=needs.indexOf(s.role);
-P.role=(i===0?35:i>0?28:!needs.length?20:6)*(i>=0&&s.roleShare<.5?.8:1);
-const gap=s.tier&&c.tier?Math.abs(s.tier-c.tier):0;
-P.level=s.rating==null?10:Math.max(0,Math.min(1,(s.rating-.75)/.5)*25-(gap>6?12:gap>3?6:0));
-P.steady=s.sd==null?5:s.sd<.2?10:s.sd<.3?7:s.sd<.4?4:2;
-const nh=s.hours.reduce((a,b)=>a+b,0),nd=s.days.reduce((a,b)=>a+b,0);
-P.time=!nh&&!nd?14:(c.days&&c.days.length&&nd?c.days.reduce((a,d)=>a+s.days[d],0)/nd*12:6)
-+(c.hb!=null&&nh?[c.hb-1,c.hb,c.hb+1].reduce((a,b)=>a+(s.hours[b]||0),0)/nh*8:4);
-P.behav=Math.max(0,10-Math.min(8,s.afk/s.n*8)-(s.ff/s.n>150?4:0));
-Object.keys(P).forEach(k=>P[k]=Math.round(P[k]));
-return{score:Math.min(100,Object.values(P).reduce((a,b)=>a+b,0)),parts:P,few:s.n<3};
-}
-const ROLE_ART={Duelist:'un duelliste',Initiator:'un initiateur',Controller:'un contrôleur',Sentinel:'une sentinelle',Flex:'un joueur flex',IGL:'un IGL'};
-const needFr=r=>ROLE_ART[r]||'un joueur';
 const frList=a=>{a=(a||[]).filter(Boolean);return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' et '+a[a.length-1];};
 const JOURS=['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
-const hourFr=t=>{const m=/^(\d{1,2}):(\d{2})$/.exec(t||'');return m?`${+m[1]} h${m[2]!=='00'?' '+m[2]:''}`:'21 h';};
-function dispoFr(days,hour){
-const d=[...new Set(days||[])].filter(x=>x>=0&&x<=6).sort(),h=` vers ${hourFr(hour)}`;
-if(!d.length)return'le soir';
-if(d.length===7)return'tous les soirs'+h;
-if(d.join()==='0,1,2,3,4')return'en semaine'+h;
-if(d.join()==='5,6')return'le week-end'+h;
-return frList(d.map(i=>'le '+JOURS[i]))+h;
-}
-function whenFr(date,now){
-const a=new Date(date+'T12:00:00'),b=new Date(now+'T12:00:00'),n=Math.round((b-a)/864e5);
-return isNaN(n)?'':n<=0?'ce soir':n===1?'hier soir':n<7?JOURS[(a.getDay()+6)%7]+' soir':n<15?'il y a quelques jours':'il y a quelque temps';
-}
-function recruitMsg(kind,x0,seed=0){
-const x=Object.assign({name:'',agent:'',map:'',when:'',k:0,games:0,wins:0,need:'un joueur',team:'',rank:'',dispo:'le soir',day:'ce soir',hour:'21 h',me:'',have:'',goal:'progresser ensemble'},x0||{});
-const v=Math.abs(Math.round(seed))%3,nm=x.name?' '+x.name:'',team=x.team||'notre équipe',ag=x.agent?` en ${x.agent}`:'',kTxt=x.k>=15?`, ${x.k} kills`:'';
-const praise=x.k>=20?` (${x.k} kills, gros match)`:x.k>=15?' et t\'as vraiment bien joué':' et t\'as fait le taf',where=x.map+(x.when?' '+x.when:'');
-const met=x.games>=3?[`on a fait ${x.games} games ensemble ces derniers temps (${x.wins} gagnées) et t'étais solide à chaque fois`,`ça fait ${x.games} games qu'on tombe ensemble, toujours propre`,`on est tombés ${x.games} fois ensemble en ranked (${x.wins} victoires), gg`]
-:x.map&&x.vs?[`on t'a eu en face sur ${where}${ag?` et franchement${ag} tu nous as fait mal`:', tu nous as fait mal'}`,`gg pour la game sur ${where}, t'étais en face${ag} et t'as été solide`,`t'étais contre nous sur ${where} (${x.agent||'gg'}${kTxt}), bien joué`]
-:x.map?[`on était ensemble sur ${where}${ag?`, t'étais${ag}`:''}${praise}`,`c'était cool la game sur ${where}${ag?`, bien joué${ag}`:''}`,`je t'ai eu en mate sur ${where} (${x.agent||'gg'}${kTxt}), gg`]
-:[`je suis tombé sur ton profil${ag?`,${ag} t'as l'air solide`:', t\'as l\'air solide'}`,`j'ai regardé tes games${ag}, c'est propre`,`je regardais des profils${x.rank?' '+x.rank:''} et le tien m'a tapé dans l'œil`];
-const low=String(x.agent||'').toLowerCase(),T={
-dm:[`salut${nm}, ${met[0]}. on monte une team${x.team?` (${x.team})`:''} et il nous manque ${x.need}. ça te dit de faire 2-3 games avec nous un soir pour voir si ça colle ?`,
-`yo${nm} ! ${met[1]}. on cherche ${x.need} pour compléter notre 5, on joue surtout ${x.dispo}. t'es chaud pour tester avec nous ?`,
-`hello${nm}, ${met[2]}. on est une petite équipe${x.rank?' '+x.rank:''} qui fait de la ranked à 5 et quelques tournois. il nous manque ${x.need}, si jamais ça t'intéresse dis-moi`],
-chat:[`gg${low?' '+low:''}, t'as un discord ? on cherche ${x.need} pour notre team`,`wp${low?' '+low:''}, on monte une team et il nous manque ${x.need}, ça t'intéresse ?`,
-`gg ! ${low?low+' ':''}t'étais chaud, ajoute-moi si tu veux jouer avec nous`],
-relance:[`re${nm}, je relance pour les games de test. aucun souci si t'es pas dispo, dis-moi juste`,`hey${nm}, t'as vu mon message ? on joue ${x.day} vers ${x.hour} si tu veux tester avec nous`,
-`salut${nm}, toujours partant pour quelques games avec nous ? sinon pas de problème`],
-tryout:[`top ! on peut faire une session de test ${x.day} vers ${x.hour} ? 3 à 5 games, rien de prise de tête.${x.me?` ajoute-moi : ${x.me}`:''}`,
-`cool ! ${x.day} vers ${x.hour} ça te va ? on fera quelques games ensemble pour voir comment ça se passe.${x.me?` mon pseudo : ${x.me}`:''}`,
-`parfait. dispo ${x.day} vers ${x.hour} ? on lance 3-4 games à 5.${x.me?` tu peux m'ajouter : ${x.me}`:''}`],
-oui:[`c'est validé de notre côté, bienvenue dans ${team} ! je t'ajoute sur le discord et je te passe nos strats. prochaine session ${x.day} à ${x.hour}`,
-`bon, on en a parlé et c'est oui pour nous. bienvenue${nm} ! on se retrouve ${x.day} à ${x.hour} pour caler les rôles et les compos`,
-`bienvenue dans l'équipe${nm} ! première session ensemble ${x.day} vers ${x.hour}, je t'envoie le lien du discord`],
-non:[`merci pour les games${nm}, c'était cool. on part sur un autre profil pour l'instant, mais bonne continuation et peut-être à bientôt en ranked`,
-`hello${nm}, merci d'avoir pris le temps de jouer avec nous. on ne va pas continuer ensemble pour le moment, mais t'as été réglo du début à la fin. bonne suite !`,
-`merci d'avoir testé avec nous${nm}. pour l'instant on cherche un profil un peu différent, mais je garde ton contact. bon jeu`],
-annonce:[`[FR] ${x.team||'Notre équipe'} cherche ${x.need}\nRang : ${x.rank||'à voir'} · Dispo : ${x.dispo}\nAu programme : ranked à 5, scrims et tournois amateurs${x.have?`\nOn a déjà ${x.have}`:''}\nCe qu'on attend : un micro, du calme et de la régularité\nMP si t'es intéressé (Riot ID + agents joués)`,
-`Salut ! On est ${x.team||'une équipe'}, une équipe FR${x.rank?' '+x.rank:''} qui joue ${x.dispo}. On cherche ${x.need} pour compléter le 5 : ranked ensemble, scrims, tournois. Pas besoin d'être un monstre, le plus important c'est d'être régulier et de parler en jeu. Envoie-moi ton Riot ID et tes agents en MP.`,
-`${x.team||'Notre équipe'} recrute ${x.need} (${x.rank?x.rank+', ':''}FR). On joue ${x.dispo}, objectif : ${x.goal}. Si tu cherches une équipe sérieuse mais détendue, MP avec ton Riot ID.`],
-tweet:[`#LFP #ValorantFR ${x.team||'Notre équipe'}${x.rank?` (${x.rank}, FR)`:' (FR)'} cherche ${x.need}. On joue ${x.dispo} : ranked à 5 + tournois. MP ouverts`,
-`On cherche ${x.need} pour ${team} ! FR${x.rank?', '+x.rank:''}, dispo ${x.dispo}. Ranked, scrims, tournois. DM si chaud #LFP #VALORANT`,
-`${x.team||'Notre équipe'} recrute : ${x.need}${x.rank?' '+x.rank:''} FR, dispo ${x.dispo}. Équipe chill mais sérieuse. RT apprécié #LFP #ValorantFR`]
-};
-const out=(T[kind]||T.dm)[v];
-return kind==='tweet'&&out.length>280?out.slice(0,277)+'…':out;
-}
 const ridNorm=s=>String(s||'').toLowerCase().replace(/\s+/g,'');
 const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
 const intIn=(v,a,b,d)=>{const n=toNum(v);return n==null?d:clampN(Math.round(n),a,b);};
@@ -703,9 +414,9 @@ let a=sz(1),b=sz(0),pl='n',p=wpProb(M,a,b,pl,ec);const p0=p;let mx=p,mn=p;
 const plant=()=>{pl=r.pu===1?'u':'t';const np=wpProb(M,a,b,pl,ec);ev.push({cat:'plant',d:np-p,pb:p,pa:np,us:r.pu===1});p=np;};
 ks.forEach((k,j)=>{
 if(r.pt&&k[1]>r.pt&&pl==='n'&&r.pu>=0)plant();
-const v=tm(k[3]),kt=tm(k[2]),st=`${a}v${b}`;if(v===1)a--;else if(v===0)b--;
+const v=tm(k[3]),kt=tm(k[2]),st=`${a}v${b}`,n0=[b,a];if(v===1)a--;else if(v===0)b--;
 const np=wpProb(M,a,b,pl,ec),cat=!j?'ouverture':pl==='u'?'post':pl==='t'?'retake':(kt===1&&a===1)||(kt===0&&b===1)?'clutch':ks.slice(0,j).some(q=>q[2]===k[3]&&k[1]-q[1]<=3000)?'trade':'mid';
-ev.push({cat,d:np-p,pb:p,pa:np,killer:k[2],victim:k[3],ours:kt===1,st:`${st} → ${a}v${b}`,t:Math.round(k[1]/1000),w:k[8]||''});
+ev.push({cat,d:np-p,pb:p,pa:np,killer:k[2],victim:k[3],ours:kt===1,st:`${st} → ${a}v${b}`,n0,ms:k[1],t:Math.round(k[1]/1000),w:k[8]||''});
 p=np;mx=Math.max(mx,p);mn=Math.min(mn,p);
 });
 if(r.pt&&pl==='n'&&r.pu>=0)plant();
@@ -852,6 +563,93 @@ const next=up?RANK_METS.map(([k,t])=>{const x=cmp(k);return x.me==null||x.ref==n
 return{n,rpg,rk,up,tot:cmp('imp'),cats,items,strong,next};
 }
 const RANK_METS=[['hsP','Balles dans la tête'],['trP','Tes morts vengées en 3 s'],['trk','Rounds où tu venges un coéquipier'],['cast','Capacités utilisées par round']];
+const ERR_ISO=15,ERR_TRADE=3000;
+const ERR_DEF={
+ouvSeul:{t:'Premier mort du round, loin de tes alliés',fix:'N\'entre pas seul : avance avec un coéquipier à 1-2 s derrière toi, ou après une capacité (flash, info).',
+fixD:'Seul sur ton angle, tu meurs en premier : change de position d\'un round à l\'autre et recule après ton premier tir au lieu de rester.'},
+ouv:{t:'Premier mort du round, sans être vengé',fix:'Le premier duel ne se prend pas « à sec » : attends une info ou une capacité, et vérifie qu\'un allié peut reprendre ton duel.'},
+post:{t:'Mort après votre plant alors que vous étiez à égalité ou en avance',fix:'Après le plant, c\'est à eux de venir : joue loin du spike, à couvert, et laisse tourner le temps.'},
+avant:{t:'Mort alors que ton équipe avait l\'avantage',fix:'En avance (4 contre 3, 3 contre 2…), ne cherche pas le duel : regroupez-vous et laissez l\'ennemi venir.'},
+notr:{t:'Mort non vengée',fix:'Reste à portée de reprise : un allié doit pouvoir voir ton tueur dans les 3 s. Annonce ta position avant de sortir.'}
+};
+const ERR_KEYS=Object.keys(ERR_DEF);
+ERR_KEYS.forEach(k=>{MET['e_'+k]=['e_'+k,'r',100];});
+const errSev=c=>c>=.2?3:c>=.1?2:1;
+function deathsOf(d,M,F0){
+const F=F0||flowOf(d,M),pl=(d&&d.pl)||[],tm=j=>pl[j]?pl[j].t:null,byR=grp((d&&d.kills)||[],k=>k[0]),out=[];
+F.forEach(f=>{
+const ks=(byR[f.i]||[]).slice().sort((a,b)=>a[1]-b[1]),fs=f.r.fs||[];
+f.ev.forEach(e=>{
+if(e.victim==null||e.killer==null||!e.n0||e.pb<=.03||e.pb>=.97)return;
+const x=e.victim,t=tm(x);if(t==null||tm(e.killer)===t)return;
+const cost=t===1?-e.d:e.d,mine=e.n0[t],theirs=e.n0[1-t];
+if(ks.some(k=>k[3]===e.killer&&tm(k[2])===t&&k[1]>=e.ms&&k[1]-e.ms<=ERR_TRADE))return;
+const side=t===1?f.r.s:f.r.s==='A'?'D':f.r.s==='D'?'A':'?',own=t===1?e.cat==='post':e.cat==='retake';
+let tag=null,iso=null;
+if(e.cat==='ouverture'){
+const me=fs.find(p=>p[0]===x),al=fs.filter(p=>p[0]!==x&&tm(p[0])===t);
+if(me&&al.length)iso=Math.min(...al.map(p=>Math.hypot(p[1]-me[1],p[2]-me[2])))/100;
+tag=iso!=null&&iso>ERR_ISO?'ouvSeul':'ouv';
+}else if(own&&mine>=theirs)tag='post';
+else if(mine>theirs&&mine>=2)tag='avant';
+else if(mine>=2)tag='notr';
+if(!tag)return;
+const k=ks.find(q=>q[3]===x&&q[1]===e.ms)||[];
+out.push({x,r:f.i,s:side,ms:e.ms,k:e.killer,tag,cost,sev:errSev(cost),iso,vx:k[4]??null,vy:k[5]??null});
+});
+});
+return out;
+}
+function errLessons(E){
+const g={};(E||[]).forEach(e=>{const o=g[e.tag]||(g[e.tag]={tag:e.tag,n:0,cost:0,rounds:[],sides:{}});o.n++;o.cost+=e.cost;o.rounds.push(e.r);o.sides[e.s]=(o.sides[e.s]||0)+1;});
+return Object.values(g).filter(o=>o.cost>=.1).sort((a,b)=>b.cost-a.cost).slice(0,3);
+}
+const errFix=(tag,sides)=>{const D=ERR_DEF[tag];return D.fixD&&sides&&(sides.D||0)>(sides.A||0)?D.fixD:D.fix;};
+function errAgg(D,M,Eof){
+const me={},ot={},ex={};let rMe=0,rOt=0,n=0,pm=0;
+(D||[]).forEach(d=>{const i=(d.pl||[]).findIndex(p=>p.n==='moi'),nR=(d.rounds||[]).length;if(i<0||!nR)return;
+n++;rMe+=nR;rOt+=nR*(d.pl.length-1);pm+=d.pl.length-1;
+(Eof?Eof(d):deathsOf(d,M)).forEach(e=>{const o=e.x===i?me:ot,c=o[e.tag]||(o[e.tag]={n:0,cost:0,sides:{}});c.n++;c.cost+=e.cost;c.sides[e.s]=(c.sides[e.s]||0)+1;
+if(e.x===i)(ex[e.tag]=ex[e.tag]||[]).push({id:d.id,map:d.map,ts:d.ts,r:e.r,cost:e.cost});});});
+const rows=ERR_KEYS.map(k=>{const a=me[k]||{n:0,cost:0,sides:{}},b=ot[k]||{n:0,cost:0},rate=rMe?a.n/rMe*100:null,ref=rOt?b.n/rOt*100:null;
+const exp=ref==null?null:ref*rMe/100,z=exp>0?(a.n-exp)/Math.sqrt(exp):0,cpm=n?a.cost/n:0,cref=pm?b.cost/pm:0;
+return{k,t:ERR_DEF[k].t,fix:errFix(k,a.sides),n:a.n,rate,ref,cpm,cref,extra:cpm-cref,sure:a.n>=3&&z>=1.645,
+ex:(ex[k]||[]).sort((x,y)=>y.ts-x.ts||y.cost-x.cost).slice(0,4)};});
+return{n,rounds:rMe,rows:rows.filter(r=>r.n).sort((a,b)=>(b.sure-a.sure)||b.extra-a.extra)};
+}
+function focusPick(C,A){
+const it=(C&&C.items)||[],er=((A&&A.rows)||[]).filter(r=>r.n>=3),mk=(k,dir,t,fix,why)=>({k,dir,t,fix,why});
+const fromItem=x=>{const c=x.causes&&x.causes[0],R=c&&COACH_RULES[c.id];return R?mk(R.m,R.dir,R.t,R.fix,x.t):null;};
+const L=[];
+it.filter(x=>x.sure).forEach(x=>L.push(fromItem(x)));
+er.filter(r=>r.sure).forEach(r=>L.push(mk('e_'+r.k,-1,r.t,r.fix,'Erreur qui revient')));
+it.filter(x=>!x.sure).forEach(x=>L.push(fromItem(x)));
+er.filter(r=>!r.sure&&r.extra>0).forEach(r=>L.push(mk('e_'+r.k,-1,r.t,r.fix,'Erreur qui revient')));
+L.push(mk('hsP',1,'Balles dans la tête',COACH_RULES.hs.fix,'Monte avec le rang'),mk('trP',1,'Tes morts vengées en 3 s',COACH_RULES.tr.fix,'Monte avec le rang'));
+const seen={};return L.filter(x=>x&&!seen[x.k]&&(seen[x.k]=1));
+}
+function focusEval(f,G){
+if(!f||!MET[f.k])return null;const A=(G||[]).filter(g=>g.ts>=f.since),me=metSE(A,f.k),b=f.base||{};
+const diff=me.v!=null&&b.v!=null?(me.v-b.v)*f.dir:null,se=Math.sqrt((me.se||0)**2+(b.se||0)**2);
+const st=A.length<3||diff==null?'go':se>0&&diff>=1.645*se?'ok':se>0&&-diff>=1.645*se?'bad':A.length>=10?'flat':'wait';
+const ticks=A.slice().sort((x,y)=>x.ts-y.ts).map(g=>{const v=metV(g,f.k);return{id:g.id,ts:g.ts,v,ok:v==null||b.v==null?null:(v-b.v)*f.dir>=0};});
+return{st,n:A.length,v:me.v,base:b.v,diff,se,ticks};
+}
+const focusBase=(f,G)=>{const B=(G||[]).filter(g=>g.ts<f.since).sort((a,b)=>b.ts-a.ts).slice(0,20),x=metSE(B,f.k);return{v:x.v,se:x.se,n:x.n};};
+function tiltOf(G,cur,gapH=3){
+const L=(G||[]).filter(g=>g.ts&&g.r).slice().sort((a,b)=>a.ts-b.ts);if(L.length<8)return null;
+const ipr=g=>g.imp/g.r,fdr=g=>g.fd/g.r,mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/Math.max(1,a.length-1));};
+const C=new Set((cur||[]).map(x=>x.id)),S=L.filter(g=>C.has(g.id)),B=L.filter(g=>!C.has(g.id)).slice(-30);
+let ses=null;
+if(S.length>=2&&B.length>=6){const m=mean(S.map(ipr)),b=mean(B.map(ipr)),se=sd(B.map(ipr))/Math.sqrt(S.length);
+ses={n:S.length,imp:m,base:b,z:se>0?(m-b)/se:0,drop:se>0&&(b-m)>=1.645*se};}
+const aL=[],aW=[];for(let i=1;i<L.length;i++){if(L[i].ts-L[i-1].ts>gapH*36e5)continue;(L[i-1].w?aW:aL).push(L[i]);}
+let after=null;
+if(aL.length>=5&&aW.length>=5){const x=mean(aL.map(fdr)),y=mean(aW.map(fdr)),se=Math.sqrt(sd(aL.map(fdr))**2/aL.length+sd(aW.map(fdr))**2/aW.length);
+after={nL:aL.length,nW:aW.length,fdL:x*100,fdW:y*100,sure:se>0&&(x-y)>=1.645*se};}
+return{ses,after};
+}
 const coLabel=c=>!c?'?':c[0]==='Attacker Side'?'Spawn attaque':c[0]==='Defender Side'?'Spawn défense':c[1]==='Site'?`Site ${c[0]}`:`${c[0]} ${c[1]}`;
 const coFind=(cos,n)=>(cos||[]).find(c=>coLabel(c)===n)||null;
 const coZone=(cos,x,y)=>x==null||y==null||!(cos||[]).length?null:coLabel(nearestRegion(cos,x,y));
@@ -1137,17 +935,16 @@ if(H.length<5||g==null)return{need,n:H.length,few:true};
 const p=G.length/H.length,per=p*g-(1-p)*(l||0);
 return{need,n:H.length,g,l,p,per,wins:Math.ceil(need/g),games:per>0?Math.ceil(need/per):null};
 }
-function weekChallenges(rows,now,limit){
+function weekChallenges(rows,now,limit,focus){
 const R=(rows||[]).slice().sort((a,b)=>b.ts-a.ts),d0=new Date(now);d0.setHours(0,0,0,0);d0.setDate(d0.getDate()-(d0.getDay()+6)%7);
 const W=R.filter(r=>r.ts>=d0.getTime()),B=rowsAgg(R.filter(r=>r.ts<d0.getTime()).slice(0,30)),hsOf=r=>{const s=r.hs+r.bs+r.ls;return s>=20?r.hs/s*100:null;};
-const hsT=Math.min(40,Math.max(15,Math.round((B.hsP||18)+2))),kdT=B.kd!=null&&B.kd>=1.1?1.2:1,acsT=Math.max(150,Math.round((B.acs||200)*1.1/5)*5);
+const hsT=Math.min(40,Math.max(15,Math.round((B.hsP||18)+2)));
 const S=sessionsOf(W),maxS=S.reduce((m,s)=>Math.max(m,s.length),0),lim=limit||5;
 const c=(id,t,cur,goal,inv)=>({id,t,cur,goal,done:inv?W.length>0&&cur<=goal:cur>=goal,inv:!!inv});
-return[c('win','Gagne 5 parties classées',W.filter(r=>r.res==='W').length,5),
+return[focus&&c('focus',focus.t,focus.cur,focus.goal),
 c('hs',`3 parties avec au moins ${hsT} % de tirs à la tête`,W.filter(r=>(hsOf(r)||0)>=hsT).length,3),
-c('kd',`3 parties avec un K/D d'au moins ${String(kdT).replace('.',',')}`,W.filter(r=>(r.d?r.k/r.d:r.k)>=kdT).length,3),
-c('acs',`2 parties à ${acsT} d'ACS ou plus`,W.filter(r=>r.sc/r.r>=acsT).length,2),
-c('stop',`Jamais plus de ${lim} parties dans la même session`,maxS,lim,true)];
+c('win','Gagne 5 parties classées',W.filter(r=>r.res==='W').length,5),
+c('stop',`Jamais plus de ${lim} parties dans la même session`,maxS,lim,true)].filter(Boolean);
 }
 function badges(rows,D,hist){
 const out={},got=(id,ts)=>{if(ts&&(!out[id]||ts<out[id]))out[id]=ts;},R=(rows||[]).slice().sort((a,b)=>a.ts-b.ts);
@@ -1242,16 +1039,17 @@ function themeParse(code){
 const m=/^PHT1\.([A-Za-z0-9_-]{4,3000})$/.exec(String(code||'').replace(/\s+/g,''));if(!m)return null;
 const b=b64uDec(m[1]);if(!b)return null;try{return themeClean(JSON.parse(fromUtf8(b)));}catch(e){return null;}
 }
-return{esc,toNum,shapeColl,INBOX_FORMAT,INBOX_VERSION,INBOX_COLLS,validateInbox,inboxPlan,SCHEMA_V,migrateRaw,rulesRows,reportStatus,
+return{esc,toNum,
 wilson,trust,rateTip,nthStats,nightLimit,lobbyPlace,weaponStats,
 smooth,weekStart,pAgg,agentPick,stackStats,lobbyPct,wellImpact,habitDays,records,stepGoal,HOURS,hourBucket,
 divOf,pctRank,benchPct,pDetail,castRates,agentMeta,coverage,MOVERS,copyPhase,fromCv,nearestRegion,
 GUN,DBANDS,BAND_FR,duelStats,sensHint,psaStart,psaStep,sensHistPush,sensPeriods,meanCmp,trialVerdict,trainEffect,
-encKey,scoutAgg,fitScore,ROLE_ART,needFr,frList,JOURS,hourFr,dispoFr,whenFr,recruitMsg,
+frList,JOURS,
 ridNorm,b64uEnc,b64uDec,utf8,fromUtf8,LIC_PLANS,licBody,licHead,licParse,licCheck,LIC_WHY,LIC_DUR,licExp,jwkPub,
 FEATURES,PREM_DEF,featOn,PUB_DEF,httpsUrl,isGoogle,proxyUrl,pubCfg,smRow,rowsAgg,aggBy,mainAgent,sessionsOf,serieOf,
 v4Detail,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
-RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,
+RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,RANK_METS,
+ERR_DEF,ERR_KEYS,deathsOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
 rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggPublish,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
 stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
@@ -1546,21 +1344,28 @@ const key=userKey(),base=key?'https://api.henrikdev.xyz':APP.cfg.proxy;
 if(!base){const e=new Error('Ce site n\'a pas encore son serveur : ajoute ta clé HenrikDev gratuite (Réglages) ou essaie la démo.');e.code='nokey';throw e;}
 const lic=!key&&opt.lic&&APP.licCode?`${path.includes('?')?'&':'?'}lic=${encodeURIComponent(APP.licCode)}`:'';
 for(let a=0;;a++){
-let res;API.calls++;
-try{res=await fetch(key?base+'/valorant'+path:proxyUrl(base,'/valorant'+path+lic),key?{headers:{Authorization:key}}:{});}
-catch(e){throw new Error('Pas de connexion internet, ou le service ne répond pas. Réessaie dans un instant.');}
-let j=null;try{j=JSON.parse(await res.text());}catch(e){}
+let res,j=null;API.calls++;
+const ac=typeof AbortController==='function'?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),opt.to||15000);
+try{
+res=await fetch(key?base+'/valorant'+path:proxyUrl(base,'/valorant'+path+lic),Object.assign(key?{headers:{Authorization:key}}:{},ac?{signal:ac.signal}:{}));
+try{j=JSON.parse(await res.text());}catch(e){}
+}catch(e){
+clearTimeout(tm);if(a<tries-1){statut('Le service répond mal : nouvel essai…');await sleep(a?5000:2000);continue;}
+const x=new Error(e&&e.name==='AbortError'?'Le service met trop de temps à répondre. Réessaie dans un instant.':'Pas de connexion internet, ou le service ne répond pas. Réessaie dans un instant.');x.code='net';throw x;
+}
+clearTimeout(tm);
 const st=res.status!==200?res.status:j&&typeof j.status==='number'?j.status:200;
 if(st===429&&a<tries-1){
 const w=clamp(+(res.headers.get('Retry-After')||(j&&j.retry)||0)||20,5,60);
 statut(`Beaucoup de demandes en ce moment : reprise automatique dans ${w} s…`);await sleep(w*1000);continue;
 }
+if(st>=500&&a<tries-1){statut('Le service répond mal : nouvel essai…');await sleep(a?5000:2000);continue;}
 if(j&&j.erreur==='Adresse inconnue.')throw new Error('Le serveur du site est mal installé (ancienne version du code ?). Le propriétaire doit recopier le code du serveur.');
 if(st===402){const e=new Error('Cette fonction fait partie de Premium (le serveur a refusé sans code valable pour ce compte).');e.code=402;throw e;}
 if(st===404){const e=new Error('Introuvable : vérifie le pseudo, le #tag et la région.');e.code=404;throw e;}
 if(st===401||st===403)throw new Error(key?'Ta clé HenrikDev est refusée (incomplète, invalide ou désactivée). Recopie-la en entier dans les réglages.':'Le serveur du site est mal réglé (clé refusée) : réessaie plus tard.');
 if(st===429)throw new Error('Trop de demandes : réessaie dans une minute.');
-if(st>=400)throw new Error(`Le service a répondu une erreur (${st}). Réessaie plus tard.`);
+if(st>=400){const e=new Error(`Le service a répondu une erreur (${st}). Réessaie plus tard.`);e.code=st>=500?'net':st;throw e;}
 if(!j)throw new Error('Réponse illisible du service. Réessaie plus tard.');
 return j;
 }
@@ -1570,21 +1375,22 @@ const sp=splitRiot(riot);if(!sp)throw new Error('Écris ton Riot ID en entier : 
 const[nm,tg]=sp,rid=ridNorm(riot),pages=opt.pages||1,old=ST.get('prof:'+rid);
 if(!opt.force&&old&&old.v===2&&Date.now()-old.at<10*6e4&&old.pages>=pages)return old;
 const q=`${encodeURIComponent(nm)}/${encodeURIComponent(tg)}`,size=20;
-statut('Recherche du compte…');
-const acc=(await apiGet(`/v2/account/${q}`)).data||{};
+const known=old&&old.v===2&&old.puuid&&Date.now()-old.at<7*864e5;
+if(!known)statut('Recherche du compte…');
+const acc=known?{name:old.name,tag:old.tag,region:old.region,puuid:old.puuid,account_level:old.level,card:old.card}:(await apiGet(`/v2/account/${q}`)).data||{};
 const reg=REGIONS.some(r=>r[0]===String(acc.region||'').toLowerCase())?String(acc.region).toLowerCase():region;
-statut('Rang et RR…');
-let mmr={};try{mmr=(await apiGet(`/v3/mmr/${reg}/pc/${q}`)).data||{};}catch(e){if(e.code!==404)throw e;}
-const rows=[];
-for(let p=1;p<=pages;p++){
-statut(`Tes parties classées… ${pages>1?`(page ${p}/${pages})`:''}`);
-let l;try{l=(await apiGet(`/v1/stored-matches/${reg}/${q}?mode=competitive&size=${size}&page=${p}`,3,{lic:p>1})).data||[];}
-catch(e){if(e.code===402&&p>1){toast(e.message,true);break;}throw e;}
-l.forEach(sm=>{const r=smRow(sm);if(r&&!rows.some(x=>x.id===r.id))rows.push(r);});
-if(l.length<size)break;if(p<pages)await sleep(1200);
+statut('Rang, parties et RR…');
+const page=p=>apiGet(`/v1/stored-matches/${reg}/${q}?mode=competitive&size=${size}&page=${p}`,3,{lic:p>1}).then(x=>x.data||[]);
+const[mmrR,l1,histR]=await Promise.all([
+apiGet(`/v3/mmr/${reg}/pc/${q}`).then(x=>x.data||{},e=>{if(e.code!==404)throw e;return{};}),page(1),
+apiGet(`/v2/stored-mmr-history/${reg}/pc/${q}`).then(x=>x.data||[],e=>{if(e.code!==404)console.warn(e);return[];})]);
+const mmr=mmrR,hist=histR,rows=[],addL=l=>l.forEach(sm=>{const r=smRow(sm);if(r&&!rows.some(x=>x.id===r.id))rows.push(r);});
+addL(l1);
+for(let p=2,l=l1;p<=pages&&l.length>=size;p++){
+statut(`Tes parties classées… (page ${p}/${pages})`);await sleep(1200);
+try{l=await page(p);}catch(e){if(e.code===402){toast(e.message,true);break;}throw e;}
+addL(l);
 }
-statut('Historique des RR…');
-let hist=[];try{hist=(await apiGet(`/v2/stored-mmr-history/${reg}/pc/${q}`)).data||[];}catch(e){if(e.code!==404)console.warn(e);}
 const c=mmr.current||{},pk=mmr.peak||{},n=v=>toNum(v);
 const prof={v:2,at:Date.now(),rid,name:strCut(acc.name||nm,24),tag:strCut(acc.tag||tg,8),region:reg,puuid:typeof acc.puuid==='string'?acc.puuid:'',level:n(acc.account_level),
 card:typeof acc.card==='string'?acc.card:(acc.card||{}).id||'',pages,
@@ -1606,13 +1412,13 @@ r.onsuccess=()=>{const db=r.result,tx=db.transaction('md',mode),q=fn(tx.objectSt
 });
 }
 const mdKey=(prof,id)=>`${prof.demo?'demo':prof.puuid||prof.rid}:${id}`;
-const DET={mem:{}};
+const DET={mem:{},miss:new Set()};
 async function detGet(prof,id,fresh){
 const k=mdKey(prof,id);if(DET.mem[k]&&!(fresh&&(DET.mem[k].v||0)<6))return DET.mem[k];
 let d=null;if(!fresh){try{d=await idb('readonly',s=>s.get(k));}catch(e){}}
 if(d)return DET.mem[k]=d;
 if(prof.demo)return DET.mem[k]||null;
-const md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true})).data;if(!md)return null;
+const md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true,to:25000})).data;if(!md)return null;
 const me=(md.players||[]).find(p=>(prof.puuid&&p.puuid===prof.puuid)||ridNorm(`${p.name}#${p.tag}`)===prof.rid);if(!me)return null;
 d=v4Detail(md,me.team_id,p=>p===me?'moi':'');
 try{await idb('readwrite',s=>s.put(d,k));}catch(e){console.warn('Détail non gardé',e);}
@@ -1628,10 +1434,12 @@ return out.sort((a,b)=>b.ts-a.ts);
 }
 async function detFill(prof,max,onStep){
 if(prof.demo||!apiReady())return 0;
-const have=new Map((await detAll(prof)).map(d=>[d.id,d.v||0])),todo=prof.rows.slice(0,max).filter(r=>!have.has(r.id)||have.get(r.id)<6);let n=0;
-for(const r of todo){
-try{await detGet(prof,r.id,have.has(r.id));n++;if(onStep)onStep(n,todo.length);}catch(e){console.warn('Détail interrompu',e.message);break;}
-if(n<todo.length)await sleep(2000);
+const have=new Map((await detAll(prof)).map(d=>[d.id,d.v||0])),todo=prof.rows.slice(0,max).filter(r=>!DET.miss.has(r.id)&&(!have.has(r.id)||have.get(r.id)<6));
+let n=0,fail=0;
+for(const[i,r]of todo.entries()){
+if(i)await sleep(n<3?600:2000);
+try{if(await detGet(prof,r.id,have.has(r.id)))n++;else DET.miss.add(r.id);fail=0;if(onStep)await onStep(n,todo.length);}
+catch(e){if(e.code===404)DET.miss.add(r.id);else if(++fail>=2||e.code===402||e.code==='nokey'){console.warn('Détail interrompu',e.message);break;}}
 }
 return n;
 }
@@ -1963,9 +1771,11 @@ if(!TAB_KEYS.includes(APP.tab))APP.tab='vue';
 const f=(TABS_P.find(t=>t[0]===APP.tab)||[])[2];
 AFTER.length=0;
 if(f&&!featOn(f,APP.plan,APP.cfg)){el.innerHTML=teaser(f);return;}
-try{el.innerHTML=({vue:tabVue,parties:tabParties,agents:tabAgents,position:tabPosition,strategie:tabStrat,entrainement:tabTrain,visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer}[APP.tab]||tabVue)();runAfter();}
+if(['position','strategie','entrainement'].includes(APP.tab)&&typeof tabTrain==='undefined'){el.innerHTML=skel(4);lotLoad().then(()=>renderTab(),e=>{el.innerHTML=stateHtml('!','Onglet indisponible',e.message,['Réessayer','retab'],true);});return;}
+const V={vue:tabVue,parties:tabParties,agents:tabAgents,position:()=>tabPosition(),strategie:()=>tabStrat(),entrainement:()=>tabTrain(),visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer};
+try{el.innerHTML=(V[APP.tab]||tabVue)();runAfter();}
 catch(e){console.error(e);el.innerHTML=`<div class="card">${empty('Affichage impossible : '+e.message)}</div>`;logErr(e);}
-if(['visee','coach','vue','position','strategie','entrainement'].includes(APP.tab))detNeed();
+if(['visee','coach','vue','position','strategie','entrainement','progression'].includes(APP.tab))detNeed();
 if(APP.tab==='position'&&(APP.atlas===undefined||!APP.D)){
 const P=APP.prof,tab=APP.tab;Promise.all([atlasLoad(),APP.D?null:detAll(P).then(D=>{if(!APP.D)APP.D=D;})])
 .then(()=>{if(APP.prof===P&&APP.tab===tab&&canRerender())renderTab();}).catch(e=>logErr(e));
@@ -1997,18 +1807,23 @@ function bSession(){
 const P=APP.prof,R=P.rows,ses=sessionsOf(R).pop()||[],cur=ses.length&&Date.now()-ses[ses.length-1].ts<8*36e5?ses:[],lim=sessionLimit(R);
 const rrOf=S=>P.hist.filter(h=>h.ts>=S[0].ts-6e4&&h.ts<=S[S.length-1].ts+6e4).reduce((s,h)=>s+(h.ch||0),0);
 if(!cur.length){
-const L=ses.length?rowsAgg(ses):null;
+const L=ses.length?rowsAgg(ses):null,ids=new Set(ses.map(r=>r.id)),SG=(APP.D||[]).length>=3?coachData().G.filter(g=>ids.has(g.id)):[];
+const eT=ERR_KEYS.map(k=>[k,SG.reduce((s,g)=>s+(g['e_'+k]||0),0)]).sort((a,b)=>b[1]-a[1])[0],sImp=SG.length?SG.reduce((s,g)=>s+g.imp,0)/SG.length:null;
 return verdictHtml({h:'Avant de lancer',p:'Test de réflexes (30 s) puis échauffement de 10 minutes : tu commences la session à ton vrai niveau.',
 facts:[['Ta limite',`<b>${lim?`${lim} partie${lim>1?'s':''}`:'—'}</b>`,lim?'par session : au-delà, tu perds nettement plus souvent':'pas de baisse sûre : arrête-toi après 3 défaites d\'affilée'],
-L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}`]].filter(Boolean),
+L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}${sImp!=null?` · impact ${sg(sImp,1)} round/partie`:''}`],
+eT&&eT[1]>=2&&['À corriger ce soir',`<b>${eT[1]}×</b>`,`${esc(ERR_DEF[eT[0]].t.toLowerCase())} à la dernière session`]].filter(Boolean),
 acts:'<button class="btn" data-act="warmup">Échauffement 10 min</button><button class="btn ghost" data-act="tab:entrainement">Test de réflexes</button>'},'Ce soir','');
 }
 const A=rowsAgg(cur),before=rowsAgg(R.filter(r=>r.ts<cur[0].ts).slice(0,30)),rr=rrOf(cur);
 const last3=cur.slice(-3),lost3=last3.length===3&&last3.every(r=>r.res==='L'),low=cur.length>=3&&before.acs&&A.acs<before.acs*.85;
+const T=(APP.D||[]).length>=8?tiltOf(coachData().G,cur):null,drop=T&&T.ses&&T.ses.drop,aft=T&&T.after&&T.after.sure&&cur[cur.length-1].res==='L'?T.after:null;
 const st=lim&&cur.length>=lim?['bad','Stop conseillé',`Tu as atteint ta limite habituelle (${lim} parties) : au-delà, tu perds nettement plus souvent.`]
 :lost3?['bad','Pause conseillée','3 défaites d\'affilée : 15 minutes de pause, ou arrête-toi pour ce soir.']
+:drop?['foe','Attention : ton jeu baisse',`Tes kills et tes morts rapportent nettement moins de rounds que d'habitude ce soir (${sg(T.ses.imp*20,1)} contre ${sg(T.ses.base*20,1)} round/partie) : pause de 10 min ou fin de session.`]
 :low?['foe','Attention',`Tu joues en dessous de ton niveau ce soir (ACS ${fmt(A.acs,0)} contre ${fmt(before.acs,0)} d'habitude).`]
 :['ok','Feu vert','Tu peux continuer : rien d\'inquiétant dans cette session.'];
+if(aft)st[2]+=` Après une défaite, tu meurs en premier plus souvent (${fmt(aft.fdL,0)} % des rounds contre ${fmt(aft.fdW,0)} %) : joue la prochaine en 2e contact.`;
 return verdictHtml({cls:st[0],h:st[1],p:st[2],facts:[['Ce soir',`<b>${A.w} V · ${A.l} D</b>`,`${cur.length} partie${cur.length>1?'s':''}${lim?` sur ta limite de ${lim}`:''}`],
 P.hist.length&&['RR',`<b class="${rr>=0?'up':'down'}">${sg(rr,0)}</b>`,'gagnés ou perdus ce soir'],
 !low&&['ACS',`<b>${fmt(A.acs,0)}</b>`,before.acs?`${trendTxt(A.acs,before.acs,0)} par rapport à ton habitude (${fmt(before.acs,0)})`:'score de combat par round']].filter(Boolean)},'Session en cours','');
@@ -2025,10 +1840,10 @@ return`<div class="card"><div class="card-h"><h2>Objectif</h2><select data-goal 
       <p class="note">Calculé sur tes ${p.n} dernières parties avec RR. Ce n'est pas ton MMR caché, juste tes vrais gains.</p>`:empty('Pas assez de données de RR.')}</div>`;
 }
 function bDefis(){
-const C=weekChallenges(APP.prof.rows,Date.now(),sessionLimit(APP.prof.rows)||5),n=C.filter(c=>c.done).length;
+const C=weekChallenges(APP.prof.rows,Date.now(),sessionLimit(APP.prof.rows)||5,focusChallenge()),n=C.filter(c=>c.done).length;
 return`<div class="card"><div class="card-h"><h2>Défis de la semaine</h2><span class="pill ${n===C.length?'ok':''}">${n}/${C.length}</span></div>
     ${C.map(c=>`<div class="defi${c.done?' done':''}"><span class="defi-i sem ${c.done?'ok':'neutral'}" aria-label="${c.done?'réussi':'en cours'}"></span><div><b>${esc(c.t)}</b>${c.inv?`<small>${c.cur?`plus longue session : ${c.cur} partie${c.cur>1?'s':''}`:'pas encore joué cette semaine'}</small>`:`<div class="bar me"><i style="width:${Math.min(100,c.cur/c.goal*100)}%"></i></div><small>${Math.min(c.cur,c.goal)}/${c.goal}</small>`}</div></div>`).join('')}
-    <p class="note">Mesurés tout seuls sur tes parties classées. Nouveaux défis chaque lundi, réglés un peu au-dessus de ton habitude.</p></div>`;
+    <p class="note">Mesurés tout seuls sur tes parties classées. Le premier suit ton focus du coach. Nouveaux défis chaque lundi.</p></div>`;
 }
 function bSucces(){
 const P=APP.prof,got=badges(P.rows,APP.D||[],P.hist),key='badges:'+P.rid,saved=P.demo?{}:ST.get(key,{});
@@ -2152,7 +1967,8 @@ if((APP.D.length!==before||detFresh(APP.D)!==bv)&&APP.prof===P&&canRerender())re
 const on=f=>featOn(f,APP.plan,APP.cfg),want=on('position')||on('strategie')?25:on('visee')||on('coach')||on('entrainement')?15:0;
 if(!want||P.demo||!apiReady()||detFresh(APP.D)>=Math.min(want,P.rows.length)||APP.detTried===P.rid)return;
 APP.detBusy=true;APP.detTried=P.rid;
-const n=await detFill(P,want,(i,t)=>{const s=$('#detProg');if(s)s.textContent=`Analyse des parties : ${i}/${t}…`;statut(`Analyse de tes parties en arrière-plan : ${i}/${t}`);});
+const n=await detFill(P,want,async(i,t)=>{const s=$('#detProg');if(s)s.textContent=`Analyse des parties : ${i}/${t}…`;statut(`Analyse de tes parties en arrière-plan : ${i}/${t}`);
+if((i===3||i===10)&&i<t&&APP.prof===P){APP.D=await detAll(P);APP.M=modelOf(APP.D);if(s&&canRerender())renderTab();}});
 APP.detBusy=false;statut('');
 if(n){APP.D=await detAll(P);APP.M=modelOf(APP.D);if(APP.prof===P&&canRerender())renderTab();}
 }
@@ -2206,6 +2022,21 @@ const lo=Math.min(...v),hi=Math.max(...v),sp=Math.max(1,hi-lo),x=i=>4+i*(w-8)/(v
 const m=v.reduce((a,b)=>a+b,0)/v.length;
 return`<svg viewBox="0 0 ${w} ${h}" class="spark" role="img" aria-label="Évolution, moyenne ${fmt(m,0)} %"><line x1="0" x2="${w}" y1="${y(m)}" y2="${y(m)}" class="gl"/><polyline points="${v.map((a,i)=>`${x(i).toFixed(1)},${y(a).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--accent-t)" stroke-width="2"/></svg>`;
 }
+function weekRecapHtml(){
+const P=APP.prof,d0=Date.parse(weekStart(today())+'T00:00:00'),d1=d0-7*864e5,inW=(ts,a,b)=>ts>=a&&ts<b;
+const cur=P.rows.filter(r=>r.ts>=d0),prev=P.rows.filter(r=>inW(r.ts,d1,d0));if(!cur.length&&!prev.length)return'';
+const a=rowsAgg(cur),b=rowsAgg(prev),rr=(x,y)=>P.hist.filter(h=>inW(h.ts,x,y)).reduce((s,h)=>s+(h.ch||0),0);
+const G=(APP.D||[]).length>=3?coachData().G:[],gc=G.filter(g=>g.ts>=d0),gp=G.filter(g=>inW(g.ts,d1,d0));
+const imp=L=>L.length?L.reduce((s,g)=>s+g.imp,0)/L.length:null,er=L=>{const r=L.reduce((s,g)=>s+g.r,0);return r?L.reduce((s,g)=>s+ERR_KEYS.reduce((t,k)=>t+(g['e_'+k]||0),0),0)/r*100:null;};
+const line=(n,x,y,f,better)=>{const c=x==null||y==null||x===y?'':(x>y)===(better>0)?'up':'down';return`<tr><td>${n}</td><td class="${c}"><b>${x==null?'—':f(x)}</b></td><td class="muted">${y==null?'—':f(y)}</td></tr>`;};
+const S=focusState();
+return`<div class="card mt"><div class="card-h"><h2>Bilan de la semaine</h2><span class="muted small">depuis lundi, contre la semaine d'avant</span></div>
+    <div class="tbl"><table><thead><tr><th></th><th>Cette semaine</th><th>Semaine d'avant</th></tr></thead><tbody>
+    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR',a.n?rr(d0,Infinity):null,b.n?rr(d1,d0):null,x=>sg(x,0),1):''}
+    ${line('Impact (round/partie)',imp(gc),imp(gp),x=>sg(x,1),1)}${line('Morts « erreur » pour 100 rounds',er(gc),er(gp),x=>fmt(x,1),-1)}</tbody></table></div>
+    ${S?`<p class="small mt8">Focus : <b>${esc(S.f.t)}</b> · <span class="pill ${FOCUS_ST[S.ev.st][0]}">${FOCUS_ST[S.ev.st][1]}</span></p>`:''}
+    <p class="note">Impact et erreurs : seulement sur tes parties détaillées (${gc.length} cette semaine, ${gp.length} avant). Couleur = mieux ou moins bien, pas forcément sûr.</p></div>`;
+}
 function tabProg(){
 const P=APP.prof,R=P.rows,W={};R.forEach(r=>(W[weekStart(r.date)]=W[weekStart(r.date)]||[]).push(r));
 const weeks=Object.entries(W).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,10);
@@ -2216,7 +2047,7 @@ const v=lim?{cls:'foe',h:`Arrête-toi après ${lim} partie${lim>1?'s':''}`,p:'Au
 :{cls:'ok',h:'Pas de limite sûre',p:'Ton taux de victoire ne baisse pas à coup sûr avec le nombre de parties : joue tant que tu te sens bien, et arrête-toi après 3 défaites d\'affilée.'};
 v.facts=[['Sessions analysées',`<b>${S.length}</b>`,'groupes de parties à moins de 3 h d\'écart'],['Parties',`<b>${R.length}</b>`,`${P.hist.length} avec leur RR`]];
 if(P.hist.length>=2)chartMount('rrP',w=>rrSvg(P.hist,w,230));
-return`${verdictHtml(v,'Progression','')}
+return`${verdictHtml(v,'Progression','')}${weekRecapHtml()}
   <div class="card mt"><div class="card-h"><h2>Courbe de RR</h2><span class="muted small">${P.hist.length} parties · point plein : victoire, creux : défaite</span></div>${P.hist.length>=2?'<div class="chart" id="rrP" style="height:230px"></div>':empty('Pas assez de parties pour tracer la courbe.')}</div>
   <div class="grid g2 mt">
   <div class="card"><h2>Tes semaines</h2><div class="tbl"><table><thead><tr><th>Semaine du</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>Tête</th></tr></thead><tbody>
@@ -2236,15 +2067,52 @@ return{n:D.length,pct:P,op:ds.op,fd:r?fd/r:null,tr:dd?tr/dd*100:null,kast:r?kast
 }
 const PGM=new WeakMap();
 function pgOf(d){const c=PGM.get(d);if(c&&c.M===APP.M)return c.S;const S=pgAll(d,APP.M);PGM.set(d,{M:APP.M,S});return S;}
+const DEM=new WeakMap();
+function deOf(d){const c=DEM.get(d);if(c&&c.M===APP.M)return c.E;const E=deathsOf(d,APP.M);DEM.set(d,{M:APP.M,E});return E;}
+const CD={};
 function coachData(){
-const D=APP.D||[],G=[],L={c:{},local:true},tiers=[];if(!APP.M)APP.M=modelOf(D);
+const D=APP.D||[];if(!APP.M)APP.M=modelOf(D);
+if(CD.v&&CD.D===D&&CD.M===APP.M&&CD.B===APP.bench&&CD.P===APP.prof)return CD.v;
+const G=[],L={c:{},local:true},tiers=[];
 D.forEach(d=>{const i=meIdx(d),S=pgOf(d);if(i<0||!S[i])return;const p=d.pl[i];if(p.tr>=3)tiers.push(p.tr);
-G.push(Object.assign({},S[i],{ro:ROLE_OF[p.a]||''}));benchAdd(L,d,APP.M,a=>ROLE_OF[a],(q,j)=>j===i,S);});
+const g=Object.assign({},S[i],{ro:ROLE_OF[p.a]||'',ts:d.ts,id:d.id,w:d.rounds.filter(r=>r.w).length*2>d.rounds.length?1:0});
+ERR_KEYS.forEach(k=>{g['e_'+k]=0;});deOf(d).forEach(e=>{if(e.x===i)g['e_'+e.tag]++;});
+G.push(g);benchAdd(L,d,APP.M,a=>ROLE_OF[a],(q,j)=>j===i,S);});
 const W=APP.bench&&Object.keys(APP.bench.c).length?APP.bench:null,rk=rankOf(APP.prof.mmr.tier)||rankOf(tiers.sort((a,b)=>a-b)[tiers.length>>1]);
-return{G,L,W,rk,C:coachV2(G,W?[W,L]:L,rk)};
+const v={G,L,W,rk,C:coachV2(G,W?[W,L]:L,rk),A:errAgg(D,APP.M,deOf)};
+Object.assign(CD,{v,D,M:APP.M,B:APP.bench,P:APP.prof});return v;
 }
+function focusState(){
+const P=APP.prof;if(!P||(APP.D||[]).length<3)return null;
+const V=coachData(),list=focusPick(V.C,V.A).filter(x=>MET[x.k]),key='focus:'+(P.demo?'demo':P.rid);
+let f=ST.get(key,null);
+if(!f||!MET[f.k]||!f.base||f.base.v==null){
+const now=Date.now();f=null;
+for(const x of list){const g=Object.assign({},x,{since:now});g.base=focusBase(g,V.G);if(g.base.v!=null&&g.base.n>=3){f=g;break;}}
+if(!f)return null;if(!P.demo)ST.set(key,f);
+}
+return{f,ev:focusEval(f,V.G),list,key};
+}
+ACT.focusSet=k=>{const S=focusState(),x=S&&S.list.find(y=>y.k===k);if(!x)return;const f=Object.assign({},x,{since:Date.now()});f.base=focusBase(f,coachData().G);
+if(f.base.v==null)return toast('Pas assez de parties détaillées pour mesurer ce chiffre',true);ST.set(S.key,f);toast('Nouveau focus : '+x.t);renderTab();};
+const FOCUS_ST={go:['neutral','C\'est parti'],wait:['neutral','En cours'],ok:['ok','Progrès sûr ✓'],bad:['bad','En baisse'],flat:['foe','Pas de changement net']};
+function focusHtml(){
+const S=focusState();if(!S)return'';
+const{f,ev,list}=S,st=FOCUS_ST[ev.st],tx=v=>metTxt(f.k,v),nxt=list.find(x=>x.k!==f.k);
+const msg={go:`Joue ${3-ev.n} partie${3-ev.n>1?'s':''} de plus pour une première mesure.`,wait:'Écart encore trop petit pour exclure le hasard : continue.',ok:'Tu as vraiment progressé : garde le réflexe, puis passe au focus suivant.',
+bad:'Moins bien que ta base : relis le conseil et fais l\'exercice avant de jouer.',flat:'10 parties sans progrès net : change d\'approche ou de focus.'}[ev.st];
+return`<div class="card"><div class="card-h"><h2>Focus de la semaine</h2><span class="pill ${st[0]}">${st[1]}</span></div>
+    <p><b>${esc(f.t)}</b> <small class="muted">· ${esc(f.why||'')} · ${f.dir>0?'plus haut = mieux':'plus bas = mieux'}</small></p>
+    <div class="kpis mt8"><div class="kpi"><span>Ta base</span><b>${tx(ev.base)}</b><small>avant le focus</small></div><div class="kpi"><span>Depuis</span><b class="${ev.diff==null?'':ev.diff>=0?'up':'down'}">${tx(ev.v)}</b><small>${ev.n} partie${ev.n>1?'s':''} détaillée${ev.n>1?'s':''}</small></div></div>
+    ${ev.ticks.length?`<p class="small mt8" aria-label="Parties depuis le début du focus">${ev.ticks.slice(-12).map(t=>`<span class="sem ${t.ok==null?'neutral':t.ok?'ok':'bad'}" title="${esc(dFr(t.ts))} : ${tx(t.v)}">${t.ok==null?'○':t.ok?'✓':'✕'}</span>`).join(' ')}</p>`:''}
+    <p class="fix">→ ${esc(f.fix)}</p><p class="small muted">${esc(msg)}</p>
+    <div class="row mt8">${(ev.st==='ok'||ev.st==='flat')&&nxt?`<button class="btn sm" data-act="focusSet:${nxt.k}">Focus suivant : ${esc(nxt.t)}</button>`:''}
+      <select data-focus aria-label="Changer de focus" class="sm"><option value="">Changer de focus…</option>${list.filter(x=>x.k!==f.k).slice(0,6).map(x=>`<option value="${x.k}">${esc(x.t)}</option>`).join('')}</select></div></div>`;
+}
+function focusChallenge(){const S=focusState();if(!S)return null;const d0=Date.parse(weekStart(today())+'T00:00:00');
+return{t:`Focus : 3 parties meilleures que ta base (${S.f.t.replace(/ \(pour 100 rounds\)$/,'')})`,cur:S.ev.ticks.filter(t=>t.ts>=d0&&t.ok).length,goal:3};}
 function coachItems(){if((APP.D||[]).length<3)return[];const V=coachData();return V.rk?V.C.items:coachPub(coachStats());}
-const metTxt=(k,v)=>v==null?'—':MET[k][2]===100?pc0(v):fmt(v,k==='cast'?2:0);
+const metTxt=(k,v)=>v==null?'—':k.startsWith('e_')?`${fmt(v,1)}/100 rounds`:MET[k][2]===100?pc0(v):fmt(v,k==='cast'?2:0);
 function tabCoach(){
 const w=detWait();if(w)return w;
 const s=coachStats(),lp=s.place,Pc=s.pct,V=coachData(),C=V.C,rkN=RANK_FR[C.rk]||'',upN=C.up?RANK_FR[C.up]:'',per=x=>x==null?null:x*C.rpg,rv=x=>x==null?'—':Math.abs(x)<.05?'0':sg(x,1);
@@ -2266,7 +2134,15 @@ const nx=C.next||[],nextHtml=nx.length?`<div class="card"><div class="card-h"><h
     ${nx.map(x=>{const m=Math.max(x.me||0,x.ref||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${lvlPill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(rkN,x.ref,m,metTxt(x.k,x.ref))}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}</div>`:'';
 const phase=c=>{const e=c.cost==null?null:-c.cost;return`<div class="drow"><span>${esc(c.t)}<small class="muted">toi ${rv(per(c.me))} · ${esc(rkN)} ${rv(per(c.ref))}${c.cost!=null&&!c.sure?' · à confirmer':''}</small></span><span class="dbar" aria-hidden="true">${e==null?'':`<i class="${e>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(e)*40)}%"></i>`}</span><b class="${e==null||Math.abs(e)<.05?'':e>=0?'up':'down'}">${e==null?'—':rv(e)}</b></div>`;};
 const pct2=(n,x)=>`<li class="srow"><div><b>${n}</b><small>${x==null?'pas assez de parties':`mieux que ${Math.round(x)} % des joueurs de tes parties`}</small></div><div class="val"><b>${x==null?'—':Math.round(x)+' %'}</b>${x==null?'':barHtml(x/100,.5,x>=60?'ok':x<40?'bad':'')}</div></li>`;
+const A=V.A,er=(A.rows||[]).filter(r=>r.n>=2&&(r.ref==null||r.rate>r.ref)).slice(0,4);
+const fh=focusHtml(),errHtml=er.length?`<div class="card"><div class="card-h"><h2>Tes erreurs qui reviennent</h2><span class="muted small">${A.n} parties · ${A.rounds} rounds</span></div>
+    ${er.map(r=>`<div class="coach"><span class="lvl lvl${r.sure?3:1}">${r.sure?'Sûr':'À confirmer'}</span><div><b>${esc(r.t)}</b>
+      <p class="small">Toi : <b class="${r.ref!=null&&r.rate>r.ref?'down':''}">${fmt(r.rate,1)}</b> pour 100 rounds <span class="muted">(autres joueurs de tes parties : ${r.ref==null?'—':fmt(r.ref,1)})</span> · coût <b class="down">${fmt(r.cpm,1)} round${r.cpm>=2?'s':''}/partie</b></p>
+      ${r.ex.length?`<p class="small">Exemples : ${r.ex.map(x=>`<button type="button" class="chip" data-act="rapR:${esc(x.id)}|${x.r}">${esc(x.map)} R${x.r+1}</button>`).join(' ')}</p>`:''}
+      <p class="fix">→ ${esc(r.fix)}</p></div></div>`).join('')}
+    <p class="note">Chaque mort est classée par des règles fixes (vengée en 3 s = jamais une erreur). « Sûr » = plus fréquent que chez les 9 autres joueurs de tes parties, au seuil de 90 %. Seuils = conventions, à confirmer par la collecte.</p></div>`:'';
 return`${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
+  ${fh||errHtml?`<div class="grid g2 mt">${fh}${errHtml}</div>`:''}
   ${rest.length||(C.strong&&C.strong.length)?`<div class="card mt"><h2>${rest.length?(top?'Tes autres priorités':'Autres conseils'):'Tes forces'}</h2>${rest.map(itemHtml).join('')}
     ${C.strong&&C.strong.length?`<p class="sem ok mt8">Tes forces : ${C.strong.map(c=>`${esc(c.t)} (+${fmt(-c.cost,1)} round/partie)`).join(', ')}</p>`:''}</div>`:''}
   <div class="grid g2 mt">${nextHtml}
@@ -2313,11 +2189,18 @@ const dbar=([c,x])=>`<div class="drow"><span>${esc(CAT_FR[c])}</span><span class
 const strip=S.F.map(f=>{const x=f.r;return`<button type="button" class="rd ${x.w?'W':'L'}${f.thrown||f.stolen?' hot':''}${f.i===12?' half':''}" data-act="repRound:${f.i}" data-r="${f.i}" aria-pressed="false" aria-label="Round ${f.i+1} ${x.w?'gagné':'perdu'}" title="${esc(`Round ${f.i+1} · ${x.w?'gagné':'perdu'} (${END_FR[x.e]}) · chances au départ ${pc(f.p0)} · max ${pc(f.mx)} · min ${pc(f.mn)}\nAchats : vous ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.ol)]} · eux ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.tl)]}${x.p?`\nSpike posé en ${x.p} par ${x.pu===1?'vous':'eux'}`:''}`)}">${f.i+1}<small>${pc(f.p0)}</small></button>`;}).join('');
 const row=l=>{const x=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${x>=0?'up':'down'}">${sg(x)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
 const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th>Impact</th><th>Rating</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th>FK-FD</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>(S.imp[b.i]||0)-(S.imp[a.i]||0)).map(row).join('')}</tbody></table></div>`;
+const LS=errLessons(deathsOf(d,M,S.F).filter(e=>e.x===me)),FS=focusState(),ft=FS&&FS.ev.ticks.find(t=>t.id===d.id);
+const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'La leçon':`Les ${LS.length} leçons`} de cette partie`:'Leçons de cette partie'}</h3>
+    ${LS.length?`<ol class="plan">${LS.map(l=>`<li><b>${esc(ERR_DEF[l.tag].t)}</b> : ${l.n} fois, <b class="down">−${fmt(l.cost,1)} round${l.cost>=2?'s':''}</b>
+      <span class="rds">${l.rounds.map(r=>`<button type="button" class="rd L" data-act="repRound:${r}" aria-label="Voir le round ${r+1} sur la carte">${r+1}</button>`).join('')}</span>
+      <p class="fix small">→ ${esc(errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées ou sans conséquence.</p>'}
+    ${ft?`<p class="small mt8">Ton focus (<b>${esc(FS.f.t)}</b>) : ${metTxt(FS.f.k,ft.v)} contre ${metTxt(FS.f.k,FS.ev.base)} d'habitude <span class="sem ${ft.ok?'ok':'bad'}">${ft.ok?'✓':'✕'}</span></p>`:''}
+    <p class="note">Règles fixes : une mort vengée en 3 s n'est jamais une erreur ; « loin » = aucun allié à moins de 15 m. Coût = chances de gagner le round perdues à ta mort.</p></div>`;
 const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
 dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
       <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
       <p>${S.place===1?'<span class="pill ok">MVP de la partie</span> ':S.teamTop?'<span class="pill ok">Meilleur de ton équipe</span> ':''}${S.place}<sup>e</sup> sur ${d.pl.length} au score</p></div></div>
-    ${verdictHtml(v,'Ton impact sur la partie')}
+    ${verdictHtml(v,'Ton impact sur la partie')}${lesHtml}
     ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>gagnés-perdus</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b></div></div>`:''}
     <div class="grid g2 mt"><div><h3>Ton impact par phase</h3>${mine.map(dbar).join('')||empty('Peu d\'actions décisives.')}</div><div><h3>D'où viennent les rounds (équipe)</h3>${cats.map(dbar).join('')||empty('Rien de marquant.')}</div></div>
     <p class="note">Rounds gagnés (+) ou perdus (−) : variation des chances de gagner le round à chaque kill, mort, plant (modèle appris sur ${APP.bench&&APP.bench.M?'les parties collectées':'tes parties'}).</p>
@@ -2345,6 +2228,7 @@ $$('#dlg .rd').forEach(b=>b.setAttribute('aria-pressed',String(!all&&+b.dataset.
 const s=$('#dlg [data-repround]');if(s)s.value=all?'all':String(round);
 const c=$('#repCnt');if(c)c.textContent=`· ${win.length} kill${win.length>1?'s':''}, ${lose.length} mort${lose.length>1?'s':''}${all?'':` au round ${+round+1}`}`;
 }
+ACT.rapR=a=>{const[id,r]=a.split('|');openReport(id).then(()=>{if(APP.rep&&APP.rep.d.id===id)setTimeout(()=>ACT.repRound(+r),30);});};
 ACT.repRound=i=>{drawRep(i);const m=$('#repMv');if(m){const b=m.getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)m.scrollIntoView({block:'center',behavior:'smooth'});}};
 function premiumOpen(f){
 const C=APP.cfg,why=f&&FEATURES[f]?`<div class="infobox">★ <b>${esc(FEATURES[f].n)}</b> fait partie de Premium.</div>`:'';
@@ -2355,299 +2239,17 @@ return`<div class="card mt"><h3>J'ai un code</h3><div class="row"><input id="lic
     <p class="note">Le code est lié au Riot ID ${APP.prof&&!APP.prof.demo?`<b>${esc(APP.prof.riot)}</b>`:'donné à l\'achat'}. Il est gardé dans ce navigateur.</p><p id="licOut" class="small" role="status"></p></div>`;
 }
 function dlgOpen(html){const d=$('#dlg');$('#dlgIn').innerHTML=`<button class="btn ghost sm dlg-x" data-act="dlgClose" aria-label="Fermer">✕</button>${html}`;if(!d.open)d.showModal();d.scrollTop=0;}
-;
-"use strict";
-const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
-const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
 const pct=x=>x==null||!Number.isFinite(x)?'—':`${Math.round(x*100)} %`;
-const angTxt=s=>s&&s.ang?`vers ${s.ang.z}${s.dist?` (~${s.dist} m)`:''}`:'—';
-const tallyZ=a=>{const o={};(a||[]).forEach(k=>{if(k)o[k]=(o[k]||0)+1;});return Object.entries(o).sort((x,y)=>y[1]-x[1]);};
-const top3=t=>t.slice(0,3).map(([n,c])=>`${n} (${c})`).join(', ');
-const nA=a=>a&&a[0]?`${a[1]}/${a[0]}`:'0';
-function abil(ag,type){const k=(window.KITS||{})[ag];if(!k)return null;for(const j of type==='ab'?[3,2,1]:[2,3,1,4]){const[n,c]=String(k[j]||'').split('|');if(c===type)return{n,sl:'CQEX'[j-1]};}return null;}
-const abN=a=>a?`${a.n} (${a.sl})`:'';
-function myAgentOn(rows,map){const a=aggBy((rows||[]).filter(r=>r.map===map).slice(0,30),'agent');return a.length?a[0].key:null;}
-function mapPicker(kind,maps,cur,side,extra=''){
-return`<div class="row filt"><select data-pick="${kind}" aria-label="Carte">${maps.map(m=>`<option value="${esc(m.map)}"${m.map===cur?' selected':''}>${esc(m.map)}${m.n?` · ${m.n} partie${m.n>1?'s':''} à toi`:''}</option>`).join('')}</select>
-    <div class="chips" role="group" aria-label="Côté">${['A','D'].map(s=>`<button type="button" class="chip${side===s?' on':''}" data-act="side:${kind}:${s}" aria-pressed="${side===s}">${s==='A'?'Attaque':'Défense'}</button>`).join('')}</div>${extra}</div>`;
-}
-function pickState(key,maps,side0){
-const S=APP[key]||(APP[key]={map:maps[0].map,side:side0});
-if(!maps.some(m=>m.map===S.map))S.map=maps[0].map;
-return S;
-}
-const moreBtn=()=>APP.prof.demo||!apiReady()?'':`<button class="btn ghost sm" data-act="detMore" title="Récupère le détail de parties plus anciennes (1 toutes les 2 s)">＋ Analyser plus de parties</button>`;
 const atlasLoad=()=>APP.atlasP||(APP.atlasP=fetch('atlas.json').then(r=>r.ok?r.json():null).then(j=>{APP.atlas=j?atlasClean(j):null;}).catch(()=>{APP.atlas=null;}));
 const atlasMap=map=>APP.atlas&&APP.atlas.maps[map]&&mapOk(map)?APP.atlas.maps[map]:null;
-function posMaps(D){
-const mine=mapsOfD(D),n=m=>(mine.find(x=>x.map===m)||{}).n||0;
-const at=APP.atlas?Object.keys(APP.atlas.maps).filter(mapOk).sort((a,b)=>n(b)-n(a)||APP.atlas.maps[b].n-APP.atlas.maps[a].n):[];
-return[...at,...mine.map(x=>x.map).filter(m=>!at.includes(m))].map(map=>({map,n:n(map)}));
-}
-const siteTxt=L=>L.length?L.map(s=>`<b>${esc(s.s)}</b> ${pct(s.share)}`).join(' · '):'<span class="muted">—</span>';
-function sitesCard(D,only,bare){
-const rk=rgOf(APP.prof.mmr.tier),maps=only?[only]:posMaps(D).map(m=>m.map);
-const rows=maps.map(map=>{const M=atlasMap(map),all=atlasSites(M,rk),me=sitesMe(D,map),top=all[0];
-if(!M&&!me.A.length&&!me.D.length)return'';
-return`<tr><td><b>${esc(map)}</b>${M?` <small class="muted">${M.n} p.</small>`:''}</td><td>${top?`<b class="up">${esc(top.s)}</b> <small class="muted">(${siteTxt(all).replace(/<\/?b>/g,'')})</small>`:'—'}</td>
-      <td>${rk&&all.some(s=>s.gShare!=null)?all.slice().sort((a,b)=>(b.gShare||0)-(a.gShare||0)).map(s=>`${esc(s.s)} ${pct(s.gShare)}`).join(' · '):'—'}</td>
-      <td>${me.A.length?siteTxt(me.A)+` <small class="muted">(${me.A.reduce((a,s)=>a+s.n,0)} plants)</small>`:'<span class="muted">—</span>'}</td>
-      <td>${me.D.length?siteTxt(me.D)+` <small class="muted">(${me.D.reduce((a,s)=>a+s.n,0)})</small>`:'<span class="muted">—</span>'}</td></tr>`;}).join('');
-if(!rows)return'';
-return`<div class="${bare?'':'card mt'}"><div class="card-h"><h3>Site le plus attaqué${only?` sur ${esc(only)}`:', carte par carte'}</h3><span class="muted small">part des plants de l'attaque</span></div>
-    <div class="tbl"><table class="small"><thead><tr><th>Carte</th><th>Tous les joueurs</th><th>${rk?esc(RG_FR[rk]):'Ton niveau'}</th><th>Tes parties : ton équipe attaque</th><th>Tes parties : tu défends</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="note">« Tous » : ${APP.atlas?`${APP.atlas.matches.toLocaleString('fr-FR')} parties classées collectées (${esc((APP.atlas.region||'').toUpperCase())})`:'atlas indisponible'}. « Tes parties » : tes parties détaillées, mises à jour toutes seules après chaque partie.</p></div>`;
-}
-const POS_LOW=10;
-const kindOf=s=>s.verdict[1]==='ok'?'ok':s.verdict[1]==='bad'?'bad':'neutral';
-const VERD_FR={ok:'à jouer',bad:'à éviter',neutral:'correct',foe:'adversaire',ring:'présence adverse',line:'ligne d\'ouverture'};
-const moreAct=()=>APP.prof.demo||!apiReady()?null:['Analyser plus de parties','detMore'];
-function tabPosition(){
-if(APP.atlas===undefined)return`${skel(1)}<div class="grid g2 mt"><div class="skel skel-b" style="aspect-ratio:1;height:auto"></div>${skel(5)}</div>`;
-const D=APP.D||[],maps=posMaps(D);
-if(!maps.length)return detWait(3)||stateHtml(ico('tactique'),'Pas encore de partie détaillée','Analyse au moins 3 parties pour voir tes positions sur une carte.',moreAct());
-const S=pickState('pos',maps,'D'),map=S.map,side=S.side,foe=side==='A'?'D':'A',cos=cosOf(map),M=atlasMap(map),now=Date.now();
-const nMe=D.filter(d=>d.map===map).length,src=S.src==='moi'||!M?'moi':'tous';
-const V=src==='tous'?posAtlasV(D,map,side,foe,cos,M,now):posMineV(D,map,side,cos,now,M,nMe);
-const chips=`<div class="chips" role="group" aria-label="Données">${[['tous',`Tous les joueurs${M?` · ${M.n} p.`:''}`],['moi',`Toi · ${nMe} p.`]].map(([k,t])=>`<button type="button" class="chip${src===k?' on':''}" data-act="possrc:${k}" aria-pressed="${src===k}">${t}</button>`).join('')}</div>`;
-const allMaps=D.length||APP.atlas?`<details class="card mt"><summary><b>Toutes les cartes</b> <span class="muted small">site le plus attaqué et ta meilleure zone, carte par carte</span></summary>${sitesCard(D,null,true)}${D.length?`<h3>Ta meilleure zone de chaque côté</h3>${posOverview(D,mapsOfD(D),now)}`:''}</details>`:'';
-const head=`<div class="card"><div class="card-h"><h2>Positionnement</h2></div>${mapPicker('pos',maps,map,side,chips)}</div>`;
-if(V.empty)return head+`<div class="mt">${V.empty}</div>`+allMaps;
-after(()=>svgDraw($('#posMv'),map,V.L));
-const eb=`${esc(map)} · ${SIDE_FR[side]} · ${src==='tous'?'tous les joueurs':'tes parties'}`;
-return`${head}${verdictHtml(V.verdict,eb)}
-    <div class="grid g2 mt" data-link="pos"><div class="card">${svgMapHtml('posMv',map,`Minimap de ${map} en ${SIDE_FR[side]}`)}${legendHtml(V.legend)}</div><div class="card">${V.list}</div></div>
-    ${V.extra||''}${allMaps}
-    <p class="note">Seuls les duels d'avant le plant jugent une position (après le plant : retake ou post-plant). Taux lissés : corrigés quand il y a peu de duels. Positions anonymes : aucun joueur n'est identifié.</p>`;
-}
 const mkHtml=r=>`<span class="mk ${r.kind}${r.low?' low':''}" aria-hidden="true">${r.num||''}</span>`;
 const barHtml=(v,avg,kind)=>`<span class="rbar ${kind}" aria-hidden="true"><i style="width:${Math.round(v*100)}%"></i>${avg!=null?`<s style="left:${Math.round(avg*100)}%"></s>`:''}</span>`;
-function rowHtml(r){
-const val=r.rate!=null&&r.kind!=='foe'?`<b>${pct(r.rate)}</b>${barHtml(r.rate,r.avg,r.kind)}<span class="n">${r.nTxt}</span>`:`<b>${r.val}</b><span class="n">${r.nTxt}</span>`;
-return`<li class="prow${r.low?' low':''}" data-k="${r.k}" tabindex="0">${mkHtml(r)}<b class="pz">${esc(r.z)} <span class="sr">(${VERD_FR[r.kind]||''})</span></b><span class="val">${val}</span><span class="sub2">${esc(r.sub)}${r.low?' <span class="low-b">peu de données</span>':''}</span></li>`;
-}
 const LEG={ok:'Spot à jouer (n° = liste)',neutral:'Spot correct',bad:'À éviter',foe:'D\'où ils tuent',ring:'Où ils sont au 1er contact',arw:'Angle à tenir (spot survolé)',line:'Ligne d\'ouverture (au survol)',low:'Pointillés : peu de données'};
 const legendHtml=items=>`<details class="legend" open><summary>Légende</summary><div class="lg">${items.map(([k,t])=>`<span>${mkHtml({kind:k==='low'?'neutral low':k})}${esc(t||LEG[k])}</span>`).join('')}</div></details>`;
-function listHtml(spots,foes,lines,tSpots,tFoes,foot){
-return`<h3 style="margin-top:0">${tSpots}</h3><ul class="plist">${spots.map(rowHtml).join('')}</ul>
-    ${foes.length?`<h3>${tFoes}</h3><ul class="plist">${foes.map(rowHtml).join('')}</ul>`:''}
-    ${lines.length?`<details class="mt8"><summary class="small"><b>Lignes d'ouverture</b> <span class="muted">(${lines.length})</span></summary><ul class="plist mt8">${lines.map(rowHtml).join('')}</ul></details>`:''}
-    <p class="note">Survole ou touche une ligne : son repère s'allume sur la carte (et inversement). ${foot||''}</p>`;
-}
-function posAtlasV(D,map,side,foe,cos,M,now){
-const K=atlasControl(M,cos),SP=atlasSpots(M,side,cos,K).filter(s=>coPlay(cos,s.z)),ev=posDuels(D,map,side,now);
-const spread=(L,n,R=600)=>{const o=[];for(const s of L){if(o.length>=n)break;if(!o.some(q=>Math.hypot(q.x-s.x,q.y-s.y)<R))o.push(s);}return o;};
-const best=spread(SP.filter(s=>s.setup&&s.n>=30&&s.verdict[1]!=='bad'),6),worst=spread(SP.filter(s=>s.verdict[1]==='bad').reverse(),3);
-if(!best.length&&!worst.length)return{empty:stateHtml(ico('tactique'),'Pas encore assez de duels ici',`Les parties collectées n'ont pas encore assez de duels sur ${map} en ${SIDE_FR[side]}. Essaie l'autre côté, une autre carte ou tes propres parties.`,['Voir mes parties','possrc:moi'])};
-const thr=spread(atlasSpots(M,foe,cos,K).filter(s=>s.n>=30&&coPlay(cos,s.z)).sort((a,b)=>b.w-a.w),5);
-const pres=atlasZones(M,foe).filter(z=>z.pres!=null&&coPlay(cos,z.z)).slice(0,5),lines=atlasLines(M,side).filter(l=>coPlay(cos,l.me)&&coPlay(cos,l.foe)).slice(0,8),sites=atlasSites(M,rgOf(APP.prof.mmr.tier));
-[...best,...worst,...thr].forEach(s=>{if(s.ang===s.z)s.ang='bout portant, même zone';});
-const near=s=>{const n=ev.filter(e=>Math.hypot(e.x-s.x,e.y-s.y)<=450),k=n.filter(e=>e.win).length;return n.length?` · toi ici ${k}-${n.length-k}`:'';};
-const p0=(best[0]||worst[0]).p0;
-const spot=(s,i,bad)=>({k:(bad?'w':'s')+i,kind:bad?'bad':kindOf(s),num:bad?'':String(i+1),x:s.x,y:s.y,z:s.z,rate:s.sh,avg:p0,nTxt:`${s.n} duels`,
-sub:`vers ${s.ang||'?'} · ~${s.dist} m${near(s)}`,tip:`${s.z} : ${pct(s.sh)} de duels gagnés (${s.n} duels, brut ${pct(s.raw)})`});
-const spots=[...best.map((s,i)=>spot(s,i)),...worst.map((s,i)=>spot(s,i,true))];
-const foes=[...thr.map((t,i)=>({k:'t'+i,kind:'foe',x:t.x,y:t.y,z:t.z,size:t.w,val:String(t.w),nTxt:`kills · ${pct(t.raw)} de leurs duels`,sub:`ils regardent vers ${t.ang||'?'}`,tip:`D'où ils tuent : ${t.z}, ${t.w} kills (${t.n} duels)`})),
-...pres.map((z,i)=>{const c=coXY(map,z.z);return c&&{k:'p'+i,kind:'ring',x:c.x,y:c.y,z:z.z,pres:z.pres,val:pct(z.pres),nTxt:'des rounds',sub:z.rate!=null&&z.ev>=30?`présents au 1er contact · ils y gagnent ${pct(z.rate)} de leurs duels (${z.ev})`:'présents au 1er contact',tip:`${z.z} : au moins un ${foe==='A'?'attaquant':'défenseur'} y est dans ${pct(z.pres)} des rounds au premier contact`};}).filter(Boolean)];
-const lr=lines.map((l,i)=>{const a=coXY(map,l.foe),b=coXY(map,l.me);return a&&b&&{k:'l'+i,kind:'line',a,b,z:`${l.me} contre ${l.foe}`,rate:l.rate,avg:.5,nTxt:`${l.n} duels`,low:l.n<30,sub:`${pct(l.share)} des ouvertures de la carte · gagnée par ton côté`};}).filter(Boolean);
-const b0=best[0],st=sites[0],kW=ev.filter(e=>e.win).length;
-const verdict=b0?{cls:'ok',h:`Joue ${b0.z}, regarde vers ${b0.ang}`,p:`Le spot n° 1 de la liste : celui qui gagne le plus de duels de ce côté, sur toutes les parties collectées.${side==='D'?' Seules les zones tenables avant l\'ouverture des barrières sont proposées.':''}`}
-:{cls:'bad',h:`Évite ${worst[0].z}`,p:'Aucun spot ne ressort nettement de ce côté : commence par éviter celui-ci.'};
-verdict.facts=[st&&['Site le plus attaqué',`<b>${esc(st.s)}</b>`,`${pct(st.share)} des plants · ${M.n} parties${st.win!=null?` · l'attaque gagne ensuite ${pct(st.win)}`:''}`],
-['Moyenne de ce côté',`<b>${pct(p0)}</b>`,'de duels gagnés (le trait des barres)'],
-ev.length&&['Toi sur cette carte',`<b class="${ev.length<POS_LOW?'low':''}">${pct(kW/ev.length)}</b>`,`de tes duels avant le plant · ${nTag(ev.length,'duels',POS_LOW)}`]].filter(Boolean);
-const legend=[...new Set(spots.map(s=>s.kind))].map(k=>[k]).concat(thr.length?[['foe']]:[],pres.length?[['ring']]:[],b0?[['arw']]:[],lr.length?[['line']]:[],lr.some(l=>l.low)?[['low']]:[]);
-const L={spots,foes:foes.filter(f=>f.kind==='foe'),rings:foes.filter(f=>f.kind==='ring'),
-arrows:best.map((s,i)=>({k:'s'+i,x1:s.x,y1:s.y,x2:s.ex,y2:s.ey,top:!i,max:90})),lines:lr.map(l=>({k:l.k,x1:l.a.x,y1:l.a.y,x2:l.b.x,y2:l.b.y,dash:true}))};
-return{verdict,L,legend,list:listHtml(spots,foes,lr,`Où te placer en ${SIDE_FR[side]}`,'Adversaires')};
-}
-function posMineV(D,map,side,cos,now,M,nMe){
-if(!nMe)return{empty:stateHtml(ico('tactique'),`Aucune de tes parties détaillées sur ${map}`,'Analyse au moins 3 parties sur cette carte pour voir tes propres spots.',moreAct())};
-const ctl=posControl(D,map,cos),Z=posZones(D,map,side,cos,now,ctl),SP=posSpots(D,map,side,cos,now,ctl),TH=posThreats(D,map,side,'moi');
-const sure=(a,b)=>(a.n<POS_LOW)-(b.n<POS_LOW)||b.sh-a.sh;
-const show=SP.filter(s=>s.setup&&s.verdict[1]!=='bad').sort(sure).slice(0,6),bad=SP.filter(s=>s.verdict[1]==='bad').sort(sure).slice(0,3);
-if(!show.length&&!bad.length)return{empty:stateHtml(ico('tactique'),'Pas encore assez de duels',`${nMe} partie${nMe>1?'s':''} sur ${map}, mais pas assez de duels avec une position exacte en ${SIDE_FR[side]}. Analyse au moins 3 parties sur cette carte.`,moreAct())};
-const ref=z=>{const v=M&&M.z[z]?M.z[z][side]:null;return v&&v[0]+v[1]>=30?v[0]/(v[0]+v[1]):null;};
-const spot=(s,i,isBad)=>({k:(isBad?'w':'s')+i,kind:kindOf(s),low:s.n<POS_LOW,num:isBad?'':String(i+1),x:s.x,y:s.y,z:s.z,rate:s.sh,avg:Z.pM,nTxt:`${s.k}-${s.d} en duels`,
-sub:isBad?(s.kc?`tes morts viennent de ${s.kc.z} (${s.kc.n})`:'tu y perds tes duels'):angTxt(s)==='—'?'angle pas encore connu':`regarde ${angTxt(s)}`,tip:`${s.z} : ${pct(s.sh)} de duels gagnés (${s.k}-${s.d}, brut ${pct(s.raw)})`});
-const spots=[...show.map((s,i)=>spot(s,i)),...bad.map((s,i)=>spot(s,i,true))];
-const foes=TH.slice(0,5).map((t,i)=>({k:'t'+i,kind:'foe',x:t.x,y:t.y,z:coZone(cos,t.x,t.y),size:t.n*4,val:String(t.n),nTxt:'fois',low:t.n<3,sub:'l\'adversaire t\'a tué d\'ici avant le plant',tip:`D'où on te tue : ${coZone(cos,t.x,t.y)} (${t.n} fois)`}));
-const b=show.find(s=>s.verdict[1]==='ok'&&s.n>=POS_LOW),gap=posGap(Z.list),all=M?(atlasSpots(M,side,cos)[0]||{}).p0:null;
-const pp=Z.list.filter(z=>z.kp+z.dp>=4&&(side!=='D'||z.ctl.kind!=='atk')).map(z=>Object.assign({},z,{pr:(z.kp+1)/(z.kp+z.dp+2)})).sort((x,y)=>y.pr-x.pr)[0];
-const verdict=b?{cls:'ok',h:`Ton spot : ${b.z}, ${angTxt(b)}`,p:'Ton spot n° 1 : celui où tu gagnes le plus de duels (taux lissé, les parties récentes comptent plus).'}
-:gap?{cls:'foe',h:`Joue plus ${gap.hi.z} que ${gap.lo.z}`,p:`Tu y gagnes ${pct(gap.hi.raw)} de tes duels (${gap.hi.k}-${gap.hi.d}) contre ${pct(gap.lo.raw)} (${gap.lo.k}-${gap.lo.d}).`}
-:{cls:'neutral',h:'Pas encore de spot sûr',p:'Tes spots ont encore trop peu de duels pour conclure. L\'analyse se met à jour toute seule après chaque partie.'};
-const mb=(n,v,me)=>`<div class="mbar${me?' me':''}"><span>${n}</span><i><i style="width:${Math.round(v*100)}%"></i></i><b>${pct(v)}</b></div>`;
-verdict.facts=[['Duels avant le plant',`<div class="mbars mt8">${mb('Toi',Z.pM,true)}${all!=null?mb('Tous',all):''}</div>`,`${Z.mine.K+Z.mine.D} duels · ${nMe} partie${nMe>1?'s':''}`],
-pp&&[side==='D'?'Retake : ta meilleure zone':'Après ton plant',`<b>${esc(pp.z)}</b>`,`${pp.kp}-${pp.dp} en duels après le plant`]].filter(Boolean);
-const legend=[...new Set(spots.map(s=>s.kind))].map(k=>[k,{ok:'Ton spot à jouer (n° = liste)',neutral:'Correct',bad:'Tu y perds tes duels'}[k]])
-.concat(foes.length?[['foe','D\'où on te tue']]:[],show.some(s=>s.ang)||bad.some(s=>s.kc)?[['arw','Angle à tenir / d\'où on te tue (au survol)']]:[],spots.some(s=>s.low)||foes.some(f=>f.low)?[['low']]:[]);
-const L={spots,foes,arrows:[...show.map((s,i)=>s.ang&&{k:'s'+i,x1:s.x,y1:s.y,x2:s.ang.x,y2:s.ang.y,top:s===b,max:90}),...bad.map((s,i)=>s.kc&&{k:'w'+i,x1:s.kc.x,y1:s.kc.y,x2:s.x,y2:s.y,bad:true,dash:true})].filter(Boolean)};
-const extra=`<details class="card mt"><summary><b>Détail par zone</b> <span class="muted small">(comparé aux autres joueurs de tes parties et à tous les joueurs collectés, même côté, même endroit)</span></summary>${zoneTable(Z.list,ref)}
-    ${side==='D'?'<p class="note">En défense, les zones intenables avant l\'ouverture des barrières sont grisées (« Hors setup » : push ou fin de round).</p>':''}</details>`;
-return{verdict,L,legend,extra,list:listHtml(spots,foes,[],'Tes spots','D\'où on te tue',`${nMe} partie${nMe>1?'s':''} détaillée${nMe>1?'s':''} sur ${esc(map)}, ${Z.mine.n} rounds en ${SIDE_FR[side]}. Une partie d'il y a 45 jours compte moitié moins. ${moreBtn()}`)};
-}
-function zoneTable(Z,ref){
-if(!Z.length)return empty('Pas encore assez de données sur cette carte et ce côté.');
-return`<div class="tbl"><table class="small"><thead><tr><th>Zone</th><th>Type</th><th>Duels avant plant</th><th>Gagnés</th><th>Tes lobbys ici</th><th>Tous ici</th><th>Ouvertures</th><th>Rounds gagnés présent</th><th>Après plant</th><th>Verdict</th><th>Fiabilité</th></tr></thead><tbody>
-    ${Z.map(z=>`<tr class="${z.setup?'':'off'}"><td><b>${esc(z.z)}</b></td><td>${KIND_FR[z.ctl.kind]||''}</td><td>${z.k}-${z.d}</td><td>${pct(z.raw)} <small class="muted">(lissé ${pct(z.duel)})</small></td><td>${z.oth[0]?`${pct(z.oth[1]/z.oth[0])} <small class="muted">(${z.oth[0]})</small>`:'—'}</td><td>${ref&&ref(z.z)!=null?pct(ref(z.z)):'—'}</td><td>${z.fk}-${z.fd}</td><td>${z.n?`${z.w}/${z.n}`:'—'}</td><td>${z.kp}-${z.dp}</td><td>${z.verdict[0]?`<span class="pill ${z.verdict[1]}">${z.verdict[0]}</span>`:''}</td><td><span class="pill ${z.rel[1]}">${z.rel[0]}</span></td></tr>`).join('')}</tbody></table></div>`;
-}
-function posOverview(D,maps,now){
-return`<div class="ovw">${maps.slice(0,10).map(m=>{const cos=cosOf(m.map),ctl=posControl(D,m.map,cos);
-const best=side=>{const z=posZones(D,m.map,side,cos,now,ctl).list.filter(x=>x.setup&&x.ev>=4)[0];return z?`<b>${esc(z.z)}</b> <small class="muted">${z.k}-${z.d}</small>`:'<span class="muted">—</span>';};
-return`<button type="button" class="ovw-i" data-act="posgo:${esc(m.map)}" style="--mbg:url('${IMG.map(m.map,'listviewicon')}')"><span class="ovw-n">${esc(m.map)} <small>${m.n} p.</small></span><span><small class="muted">Attaque</small> ${best('A')}</span><span><small class="muted">Défense</small> ${best('D')}</span></button>`;}).join('')}</div>`;
-}
-function siteGeo(map,cos,ctl,S,path){
-const sa=coSpawn(cos,true),sd=coSpawn(cos,false),dist=(c,p)=>p?Math.hypot(c[2]-p[2],c[3]-p[3]):0;
-const sCos=cos.filter(c=>c[0]===S),site=sCos.find(c=>c[1]==='Site')||sCos[0];if(!site)return null;
-const atkZ=sCos.filter(c=>c!==site&&((ctl[coLabel(c)]||{}).kind==='atk'||/Main|Lobby|Long/i.test(c[1])));
-const used=tallyZ((path||[]).filter(z=>coSite(cos,z)===S)).map(([z])=>coFind(cos,z)).filter(c=>c&&atkZ.includes(c));
-const main=used[0]||atkZ.sort((a,b)=>dist(a,site)-dist(b,site))[0]||sCos.filter(c=>c!==site).sort((a,b)=>dist(a,sa)-dist(b,sa))[0]||site;
-const entry={x:Math.round(site[2]+(main[2]-site[2])*.45),y:Math.round(site[3]+(main[3]-site[3])*.45)};
-const back=sCos.filter(c=>c!==site&&c!==main&&(ctl[coLabel(c)]||{}).kind!=='atk').sort((a,b)=>dist(a,sd)-dist(b,sd));
-return{S,site,main,entry,back,sa,sd};
-}
-function planAtk(I,map,cos,ag,D,now){
-const A=I.atk,sites=coSites(cos),ctl=posControl(D,map,cos),heldBy=s=>A.hold.filter(z=>coSite(cos,z)===s).length;
-const st=sites.map(s=>{const x=A.sites[s]||{n:0,w:0,cn:0,cw:0,pl:0,tw:[],loc:[],post:[]};return{s,n:x.cn,w:x.cw,lo:wilson(x.w,x.n)[0],x};});
-let pick=st.filter(s=>s.n>=3).sort((a,b)=>b.lo-a.lo)[0],why;
-if(pick)why=`Site ${pick.s} : ${pick.w} rounds gagnés sur ${pick.n} quand ton équipe l'attaque. C'est le meilleur résultat en tenant compte du nombre de rounds (les rounds récents et achetés comptent plus).`;
-else{pick=st.slice().sort((a,b)=>heldBy(a.s)-heldBy(b.s))[0]||{s:sites[0]||'A',n:0,w:0,x:{tw:[],loc:[],post:[]}};why=A.hold.length?`Pas encore assez de rounds par site : site ${pick.s}, le moins tenu par les défenseurs de tes parties au premier contact.`:`Pas encore de données sur cette carte : site ${pick.s} pour commencer (à tester).`;}
-const G=siteGeo(map,cos,ctl,pick.s,I.def.path);if(!G)return null;
-const inS=z=>[pick.s,'Mid'].includes(coSite(cos,z));
-const seen=new Set(),uniq=t=>!seen.has(t.z)&&seen.add(t.z);
-let smokes=posThreats(D,map,'A','equipe',3).map(t=>Object.assign(t,{z:coZone(cos,t.x,t.y)})).filter(t=>inS(t.z)&&t.z!==coLabel(G.main)).filter(uniq).slice(0,2);const nk=smokes.length;
-if(smokes.length<2)smokes=smokes.concat(tallyZ(A.hold.filter(z=>inS(z)&&z!==coLabel(G.site)&&z!==coLabel(G.main)&&!seen.has(z))).slice(0,2-smokes.length).map(([z,n])=>{const p=coXY(map,z);seen.add(z);return p?Object.assign(p,{z,n}):null;}).filter(Boolean));
-let smokeSrc=!nk?'holds':nk<smokes.length?'mix':'kills';
-if(!smokes.length){smokeSrc='regle';smokes=G.back.slice(0,2).map(c=>({x:c[2],y:c[3],z:coLabel(c),n:0}));}
-const loc=pick.x.loc.length?{x:Math.round(pick.x.loc.reduce((s,p)=>s+p[0],0)/pick.x.loc.length),y:Math.round(pick.x.loc.reduce((s,p)=>s+p[1],0)/pick.x.loc.length)}:{x:G.site[2],y:G.site[3]};
-const post=tallyZ(pick.x.post).slice(0,3),tmed=pick.x.tw.length?pick.x.tw.slice().sort((a,b)=>a-b)[Math.floor(pick.x.tw.length/2)]:null;
-const lurk=cos.filter(c=>c[0]==='Mid'&&(ctl[coLabel(c)]||{}).kind!=='def').sort((a,b)=>Math.hypot(a[2]-G.sa[2],a[3]-G.sa[3])-Math.hypot(b[2]-G.sa[2],b[3]-G.sa[3]))[0];
-const holds=tallyZ(A.hold.filter(z=>inS(z))),danger=tallyZ(A.fd.filter(z=>inS(z))).slice(0,2),fdBy=tallyZ(A.fdBy.filter(z=>inS(z))).slice(0,2);
-const R=ROLE_OF[ag]||'',sm=abil(ag,'smoke'),fl=abil(ag,'flash'),rc=abil(ag,'recon'),ml=abil(ag,'molly'),wl=abil(ag,'wall'),tr=abil(ag,'trap'),mv=abil(ag,'ab');
-const sTxt=smokes.map(t=>t.z).join(' + '),siteL=coLabel(G.site),mainL=coLabel(G.main);
-const steps=[
-['Départ',`Ton équipe joue le site ${pick.s}. ${R==='Duelist'?`Place-toi en tête vers ${mainL}.`:R==='Initiator'?`Reste juste derrière ton duelliste vers ${mainL}.`:R==='Controller'?`Reste entre le spawn et ${mainL} : tes smokes doivent atteindre le site.`:R==='Sentinel'?`Couvre le flanc${lurk?` depuis ${coLabel(lurk)}`:''}${tr?` et pose ${abN(tr)} derrière ton équipe`:''} : de l'info, pas de duel seul.`:`Va vers ${mainL} avec ton équipe.`}${holds.length?` Les défenseurs de tes parties sont vus le plus souvent à ${top3(holds)}.`:''}`],
-['Exécution',`${tmed?`Vos plants gagnants en ${pick.s} arrivent vers ${Math.round(tmed)} s. `:''}${R==='Controller'&&sm?`Toi : ${abN(sm)} sur ${sTxt}`:`Smokes sur ${sTxt} (ton contrôleur)`}${smokeSrc==='kills'?' : les positions exactes d\'où les défenseurs tuent ton équipe.':smokeSrc==='mix'?' : d\'où les défenseurs tuent ton équipe et où ils sont vus le plus souvent.':smokeSrc==='holds'?' : là où les défenseurs sont vus le plus souvent.':' (règle générale : couper la vue depuis le spawn défense).'} ${R==='Initiator'&&(fl||rc)?`Toi : ${abN(fl||rc)} sur ${siteL} au même moment.`:fl&&R!=='Duelist'?`${abN(fl)} sur ${siteL} au même moment.`:''}`],
-['Entrée',`${R==='Duelist'?`Tu entres en premier${mv?` (${abN(mv)})`:''}${fl||sm?`, avec ${abN(fl||sm)} pour ton entrée`:''} ; un coéquipier te suit dans la seconde.`:'Entre en 2e, juste derrière ton duelliste : venge-le s\'il tombe.'}${danger.length?` Attention : ton équipe meurt souvent en premier à ${top3(danger)}${fdBy.length?`, tuée depuis ${fdBy.map(x=>x[0]).join(', ')}`:''} : jamais sans utilitaire là-bas.`:''} Le spike est posé par le joueur le mieux couvert.`],
-['Après le plant',`${post.length?`Les positions qui gagnent après vos plants : ${top3(post)}.`:`Croisez-vous autour du spike, depuis ${siteL} et ${mainL}.`} ${ml?`Garde ${abN(ml)} pour empêcher le désamorçage.`:wl?`Garde ${abN(wl)} pour couper le désamorçage.`:'Joue le temps, pas de re-peek inutile.'}`]];
-const pt=c=>({x:c[2],y:c[3]}),ut=fl?'flash':'info';
-const draw={
-arrows:[{k:'p0',cls:'me',show:true,x1:G.sa[2],y1:G.sa[3],x2:G.main[2],y2:G.main[3],tip:`Départ : ton équipe va vers ${mainL}`},
-...(lurk?[{k:'p0',cls:'me',dash:true,show:true,x1:G.sa[2],y1:G.sa[3],x2:lurk[2],y2:lurk[3],tip:`Flanc : ${coLabel(lurk)}`}]:[]),
-{k:'p2',cls:'me',thick:true,show:true,x1:G.main[2],y1:G.main[3],x2:loc.x,y2:loc.y,tip:`Entrée sur le site ${pick.s}`}],
-utils:[...smokes.map(t=>({k:'p1',kind:'smoke',x:t.x,y:t.y,tip:`Smoke : ${t.z}${R==='Controller'&&sm?` (toi : ${abN(sm)})`:''}`})),
-{k:'p1',kind:ut,...pt(G.site),tip:`${ut==='flash'?'Flash':'Info'} sur ${siteL}${fl||rc?` : ${abN(fl||rc)}`:''}`},{k:'p3',kind:'spike',x:loc.x,y:loc.y,tip:'Spike : point de plant moyen'}],
-foes:smokeSrc==='kills'?[]:posThreats(D,map,'A','equipe',3).slice(0,4).map((t,i)=>({k:'p2',x:t.x,y:t.y,size:t.n*4,tip:`D'où les défenseurs tuent ton équipe (${t.n} fois)`})),
-spots:post.map(([z,c],i)=>{const p=coXY(map,z);return p&&{k:'p3',kind:'ok',num:String(i+1),x:p.x,y:p.y,tip:`Après le plant : ${z} (${c} fois en position gagnante)`};}).filter(Boolean)};
-return{side:'A',S:pick.s,why,sure:pick.n>=3,st,steps,draw,n:A.n,w:A.w,smokes,loc,tmed,holds,danger,ut};
-}
-function planDef(I,map,cos,ag,D,now){
-const Df=I.def,sites=coSites(cos),ctl=posControl(D,map,cos);
-const sh=sites.map(s=>{const x=Df.sites[s]||{n:0,w:0,cn:0,cw:0,t:[]};return{s,n:x.n,cn:x.cn,cw:x.cw};}),tot=sh.reduce((a,x)=>a+x.n,0),totN=sh.reduce((a,x)=>a+x.cn,0);
-const order=sh.slice().sort((a,b)=>b.n-a.n),top=order[0]||{s:sites[0]||'A'};
-const Z=posZones(D,map,'D',cos,now,ctl).list.filter(z=>z.setup&&z.site!=='Spawn'),mine=Z.find(z=>z.verdict[1]==='ok')||Z.filter(z=>z.verdict[1]!=='bad').sort((a,b)=>b.n-a.n)[0];
-const myZone=mine?mine.z:`Site ${top.s}`,mySite=mine&&/^[A-C]$/.test(mine.site)?mine.site:top.s;
-const spot=posSpots(D,map,'D',cos,now,ctl).find(s=>s.z===myZone&&s.setup&&s.verdict[1]!=='bad'),here=spot||coXY(map,myZone)||{x:0,y:0};
-const G=siteGeo(map,cos,ctl,mySite,Df.path),GT=siteGeo(map,cos,ctl,top.s,Df.path);if(!G||!GT)return null;
-const R=ROLE_OF[ag]||'',sm=abil(ag,'smoke'),fl=abil(ag,'flash'),rc=abil(ag,'recon'),ml=abil(ag,'molly'),wl=abil(ag,'wall'),tr=abil(ag,'trap');
-const entL=`l'entrée de ${mySite} côté ${coLabel(G.main)}`,entT=`l'entrée de ${top.s} côté ${coLabel(GT.main)}`;
-const tmed=Df.pt.length?Df.pt.slice().sort((a,b)=>a-b)[Math.floor(Df.pt.length/2)]:null,path=tallyZ(Df.path).slice(0,3),danger=tallyZ(Df.fd).slice(0,2);
-const good=tallyZ(Object.values(Df.kills).flat()).slice(0,3);
-const setupTxt=R==='Sentinel'?(tr?`${abN(tr)} à ${entL} : ton piège reste près de toi, sur TON site.`:`Couvre ${entL}.`)+(ml?` Garde ${abN(ml)} pour retarder le plant.`:'')
-:R==='Controller'?`Garde ${abN(sm||ml||wl)||'ta smoke'} pour le premier contact sur ${entT} : pas au début du round.`
-:R==='Initiator'?`${abN(rc||fl)||'Ta capacité d\'info'} au début du round vers ${entT} pour savoir où ils vont.`
-:R==='Duelist'?'Prends le premier duel avec ton avantage d\'angle, puis recule : ne pousse pas seul hors du site.':'Tiens ton angle et annonce ce que tu vois.';
-const steps=[
-['Setup',`Ta position : ${myZone}${spot?` (spot exact : ${spot.k}-${spot.d} en duels, angle ${angTxt(spot)})`:''}. ${tot?`Les attaquants de tes parties vont en ${order.map(x=>`${x.s} ${Math.round(x.n/tot*100)} %`).join(', ')} (${totN} rounds observés).`:'Pas encore assez de rounds de défense observés.'} ${setupTxt}`],
-['Premier contact',`${path.length?`Ils se montrent le plus souvent à ${top3(path)}.`:''}${danger.length?` Ton équipe meurt souvent en premier à ${top3(danger)} : joue en retrait ou un angle décalé là-bas.`:''}${good.length?` Positions de ton équipe qui tuent le plus avant le plant : ${top3(good)}.`:''}`||'Annonce le nombre d\'attaquants et la direction.'],
-['Rotation',`Dès que 3 attaquants sont vus sur l'autre site, tourne${tmed?` (leurs plants arrivent vers ${Math.round(tmed)} s)`:''}. Jamais sur un seul bruit.`],
-['Retake',`Seulement à 3 ou plus${Df.re3[0]?` (à 3 ou plus : ${nA(Df.re3)} gagnés)`:''}, ensemble, avec ${abN(fl||sm||ml)||'flash et smoke'}. À 2 ou moins, sauve ton arme${Df.re2[0]?` (à 2 ou moins : ${nA(Df.re2)} gagnés)`:''}.`]];
-const kit=R==='Sentinel'&&tr?[{...G.entry,kind:'trap',label:'piège'}]:R==='Controller'?[{...GT.entry,kind:ml&&!sm?'molly':'smoke',label:sm?'smoke':'molly'}]:R==='Initiator'?[{...GT.entry,kind:'recon',label:'info'}]:[];
-const KT={trap:'Piège',molly:'Molly',smoke:'Smoke',recon:'Info'},ab={trap:tr,molly:ml,smoke:sm,recon:rc||fl};
-const draw={
-utils:[{k:'p0',kind:'me',x:here.x,y:here.y,tip:`Toi : ${myZone}`},...kit.map(m=>({k:'p0',kind:m.kind==='recon'?'info':m.kind,x:m.x,y:m.y,tip:`${KT[m.kind]}${ab[m.kind]?` : ${abN(ab[m.kind])}`:''}`}))],
-foes:posThreats(D,map,'D','moi').slice(0,4).map(t=>({k:'p1',x:t.x,y:t.y,size:t.n*4,tip:`D'où on te tue (${t.n} fois)`})),
-arrows:[...(spot&&spot.ang?[{k:'p0',show:true,x1:spot.x,y1:spot.y,x2:spot.ang.x,y2:spot.ang.y,max:90,tip:`Angle à tenir : ${spot.ang.z}`}]:[]),
-{k:'p1',cls:'foe',dash:true,show:true,x1:GT.main[2],y1:GT.main[3],x2:GT.entry.x,y2:GT.entry.y,tip:`Leur chemin le plus fréquent : ${coLabel(GT.main)}`},
-...(mySite!==top.s?[{k:'p2',cls:'me',dash:true,show:true,x1:G.site[2],y1:G.site[3],x2:GT.site[2],y2:GT.site[3],tip:`Rotation vers ${top.s}`}]:[]),
-...(G.sd?[{k:'p3',cls:'me',show:true,x1:G.sd[2],y1:G.sd[3],x2:GT.site[2],y2:GT.site[3],tip:`Retake du site ${top.s}`}]:[])]};
-return{side:'D',S:mySite,top:top.s,why:totN?`Calculé sur ${totN} rounds de défense : sites attaqués par tes adversaires, tes zones qui gagnent.`:'Pas encore assez de rounds de défense : plan de base, à affiner avec tes prochaines parties.',sure:!!mine&&!!totN,steps,draw,n:Df.n,w:Df.w,myZone,spot,order,tot,tmed};
-}
-const STRAT_LEG={me:'Toi','arw me':'Ton équipe (chemin, entrée)','arw me dash':'Flanc / rotation','arw foe':'Leur chemin',foe:'D\'où ils tuent',smoke:'Smoke',flash:'Flash',info:'Info / recon',trap:'Piège',molly:'Molly',spike:'Spike (plant moyen)',ok:'Position gagnante après le plant (n°)',arw:'Angle à tenir'};
-function tabStrat(){
-const w=detWait(3);if(w)return w;
-const D=APP.D,P=APP.prof,maps=mapsOfD(D);
-if(!maps.length)return stateHtml(ico('tactique'),'Pas encore de partie détaillée sur une carte connue','Analyse au moins 3 parties pour obtenir un plan d\'attaque et de défense.',moreAct());
-const S=pickState('strat',maps,'A'),map=S.map,side=S.side,cos=cosOf(map),now=Date.now(),I=stratIntel(D,map,cos,now);
-const picks=agentsForMap(P.rows,map),ag=myAgentOn(P.rows,map)||(picks[0]&&picks[0].a)||mainAgent(P.rows)||'';
-const plan=side==='A'?planAtk(I,map,cos,ag,D,now):planDef(I,map,cos,ag,D,now);
-const head=`<div class="card"><div class="card-h"><h2>Stratégie</h2></div>${mapPicker('strat',maps,map,side)}</div>`;
-if(!plan)return head+`<div class="mt">${stateHtml(ico('tactique'),'Zones de cette carte indisponibles','Choisis une autre carte : celle-ci n\'a pas encore ses zones (callouts).')}</div>`;
-after(()=>svgDraw($('#stMv'),map,plan.draw));
-const rel=n=>n>=40?'bonne':n>=15?'moyenne':n>0?'faible':'règles générales',role=ROLE_OF[ag]?` (${ROLE_FR[ROLE_OF[ag]]})`:'';
-const A=side==='A';
-const v=A?{cls:plan.sure?'ok':'neutral',h:`Attaque le site ${plan.S}`,p:plan.sure?'Le site où ton équipe gagne le plus de rounds, en tenant compte du nombre de rounds (récents et achetés comptent plus).':plan.why}
-:{cls:plan.sure?'ok':'neutral',h:`Défends depuis ${plan.myZone}`,p:plan.sure?'Ta meilleure zone tenable avant l\'ouverture des barrières, d\'après tes duels.':plan.why};
-v.img=agImg(ag,'ag');v.acts=`<button class="btn" data-act="brief">Briefing avant la partie</button>`;
-v.facts=[['Fiabilité du plan',`<b class="${plan.n<15?'low':''}">${rel(plan.n)}</b>`,`${plan.n} rounds ${A?'d\'attaque':'de défense'} sur ${esc(map)} · ${plan.w} gagnés`]];
-const kinds=new Set([...(plan.draw.utils||[]).map(u=>u.kind),...(plan.draw.arrows||[]).map(a=>a.cls?`arw ${a.cls}${a.dash&&a.cls==='me'?' dash':''}`:'arw'),...(plan.draw.foes||[]).length?['foe']:[],...(plan.draw.spots||[]).length?['ok']:[]]);
-const order=['me','arw me','arw me dash','arw','arw foe','foe','smoke','flash','info','trap','molly','spike','ok'];
-return`${head}${verdictHtml(v,`${esc(map)} · ${SIDE_FR[side]} · plan pour ${esc(ag||'ton agent')}${esc(role)}`)}
-  <div class="grid g2 mt" data-link="strat">
-    <div class="card">${svgMapHtml('stMv',map,`Plan ${SIDE_FR[side]} sur ${map}`)}${legendHtml(order.filter(k=>kinds.has(k)).map(k=>[k,(A?{}:{'arw me':'Retake (ton équipe)','arw me dash':'Rotation'})[k]||STRAT_LEG[k]]))}</div>
-    <div class="card"><h3 style="margin-top:0">Le plan en 4 temps</h3><ol class="steps">${plan.steps.map(([t,x],i)=>`<li data-k="p${i}" tabindex="0"><b>${esc(t)}</b><p>${esc(x)}</p></li>`).join('')}</ol>
-      <p class="note">Survole ou touche une étape : ses éléments s'allument sur la carte (et inversement).</p></div>
-  </div>
-  <div class="grid g2 mt">${A?atkIntel(plan):defIntel(plan,I)}${agentCard(picks,map,ag)}</div>
-  ${ecoCard(ecoStats(D),D.length)}
-  <p class="note">Tout vient de tes parties détaillées : tes équipes et tes adversaires, donc des joueurs de ton niveau. Aucun joueur n'est identifié et rien n'est utilisé pendant une partie en cours. ${moreBtn()}</p>`;
-}
 function statRow(t,k,n,ref,sub,me){
 const v=n?k/n:null,low=n<10,cls=n?trust(k,n,ref)||'':'';
 return`<li class="srow${me?' me':''}${low?' low':''}"><div><b>${t}</b>${me?' <span class="pill prem">ton plan</span>':''}<small>${sub}${low?' <span class="low-b">peu de données</span>':''}</small></div>
     <div class="val"><b title="${esc(rateTip(k,n))}">${v==null?'—':pct(v)}</b>${v==null?'':barHtml(v,ref,cls)}</div></li>`;
-}
-function atkIntel(p){
-return`<div class="card"><h3 style="margin-top:0">Détail par site</h3><ul class="plist">${p.st.map(s=>statRow(`Site ${esc(s.s)}`,s.w,s.n,.5,`${s.w}/${s.n} rounds gagnés · ${s.x.pl||0} plant${(s.x.pl||0)>1?'s':''}`,s.s===p.S)).join('')}</ul>
-    <p class="note">Rounds où ton équipe attaque ce site (tous achats). Trait = 50 %. Les zones où ton équipe meurt en premier sont dans l'étape « Entrée ».</p></div>`;
-}
-function defIntel(p,I){
-const Df=I.def;
-return`<div class="card"><h3 style="margin-top:0">Ce qu'ils attaquent</h3>${p.tot?`<ul class="plist">${p.order.map(x=>`<li class="srow${x.s===p.top?' me':''}"><div><b>Site ${esc(x.s)}</b><small>${x.cn} rounds · ${x.cw} gagnés par vous</small></div><div class="val"><b>${pct(x.n/p.tot)}</b>${barHtml(x.n/p.tot,null,'')}</div></li>`).join('')}</ul>`:empty('Pas encore assez de rounds de défense : joue ou analyse quelques parties de plus sur cette carte.')}
-    <h3>Retakes</h3><ul class="plist">${statRow('À 3 ou plus',Df.re3[1],Df.re3[0],.5,`${nA(Df.re3)} gagnés`)}${statRow('À 2 ou moins',Df.re2[1],Df.re2[0],.5,`${nA(Df.re2)} gagnés : sauve ton arme`)}</ul></div>`;
-}
-function agentCard(picks,map,ag){
-return`<div class="card"><h3 style="margin-top:0">Quel agent sur ${esc(map)} ?</h3>${picks.length?picks.slice(0,4).map((x,i)=>`<div class="mini">${agImg(x.a)}<div><b>${esc(x.a)}</b>${i===0&&x.sure&&x.n>=3?' <span class="pill ok">conseillé</span>':''}${x.a===ag?' <span class="pill prem">ton choix</span>':''}<small>${x.n} partie(s) ici (${x.w} V) · ${x.N} au total · note ${pct(x.s)}</small></div></div>`).join(''):empty('Pas encore assez de parties.')}
-    <p class="note">Note = taux de victoire lissé : sur cette carte, tiré vers ton taux avec l'agent, lui-même tiré vers ton taux global. Un agent joué 2 fois ne passe jamais devant un agent que tu maîtrises.</p></div>`;
-}
-function ecoCard(E,n){
-const tips=[];
-if(E.force[0]>=8&&trust(E.force[1],E.force[0],.35)==='bad')tips.push(['foe',`Tes force-buy gagnent rarement (${nA(E.force)}) : préfère une vraie éco, puis un achat complet au round suivant.`]);
-if(E.anti[0]>=8&&trust(E.anti[1],E.anti[0],.75)==='bad')tips.push(['foe',`Contre leur éco, ton équipe perd trop de rounds (${nA(E.anti)}) : jouez groupés, pas de duel seul de loin contre des pompes et des SMG.`]);
-if(E.bonus[0]>=5&&trust(E.bonus[1],E.bonus[0],.6)==='bad')tips.push(['foe',`Après un pistol gagné, vous perdez souvent le round suivant (${nA(E.bonus)}) : gardez vos armes, jouez ensemble, pas de push seul.`]);
-if(E.eco[0]>=10&&trust(E.eco[1],E.eco[0],.1)==='ok')tips.push(['ok',`Tes rounds d'éco gagnent plus souvent que la moyenne (${nA(E.eco)}) : jouer groupé à courte distance te réussit.`]);
-const line=(t,a,ref=.5)=>statRow(t,a[1],a[0],ref,`${nA(a)} rounds gagnés`);
-return`<div class="card mt"><div class="card-h"><h3 style="margin:0">Économie</h3><span class="muted small">Toutes cartes · ${n} parties détaillées</span></div><div class="grid g2">
-    <ul class="plist">${line('Pistol en attaque',E.pis.A)}${line('Pistol en défense',E.pis.D)}${line('Round d\'après un pistol gagné',E.bonus)}${line('Round d\'après un pistol perdu',E.afterLoss)}</ul>
-    <ul class="plist">${line('Ton équipe en éco',E.eco,.2)}${line('Force-buy',E.force,.35)}${line('Full contre full',E.fullFull)}${line('Full contre leur éco',E.anti,.75)}</ul></div>
-    ${tips.length?tips.map(([c,t])=>`<p class="sem ${c} mt8">${esc(t)}</p>`).join(''):'<p class="note">Rien d\'anormal à coup sûr dans ton économie.</p>'}
-    <p class="note">Trait de chaque barre = le repère (éco ≈ 20 %, force ≈ 35 %, contre leur éco ≈ 75 %, sinon 50 %). Vert ou rouge seulement quand l'écart au repère est sûr.</p></div>`;
-}
-function briefOpen(){
-const D=APP.D||[],P=APP.prof,S=APP.strat;if(!S)return;
-const map=S.map,cos=cosOf(map),now=Date.now(),I=stratIntel(D,map,cos,now),picks=agentsForMap(P.rows,map),ag=myAgentOn(P.rows,map)||(picks[0]&&picks[0].a)||mainAgent(P.rows)||'';
-const A=planAtk(I,map,cos,ag,D,now),Df=planDef(I,map,cos,ag,D,now);if(!A||!Df)return;
-const E=ecoStats(D),st=nthStats(sessionsOf(P.rows).map(s=>s.map(r=>r.res))),lim=nightLimit(st);
-const best=side=>posSpots(D,map,side,cos,now).filter(s=>s.setup&&s.verdict[1]==='ok').slice(0,2);
-const L=[`AVANT TA PARTIE SUR ${map.toUpperCase()}`,`Agent : ${ag||'—'}${picks[0]&&picks[0].a!==ag&&picks[0].sure&&picks[0].n>=3?` (meilleure note ici : ${picks[0].a})`:''}`,'',
-`ATTAQUE : site ${A.S}`,...A.steps.map(([t,x])=>`- ${t} : ${x}`),'',`DÉFENSE : ${Df.myZone}`,...Df.steps.map(([t,x])=>`- ${t} : ${x}`),'',
-`TES SPOTS : attaque ${best('A').map(s=>`${s.z} (${s.k}-${s.d})`).join(', ')||'—'} ; défense ${best('D').map(s=>`${s.z} (${s.k}-${s.d})`).join(', ')||'—'}`,
-`ÉCONOMIE : pistol attaque ${nA(E.pis.A)}, défense ${nA(E.pis.D)} ; force-buy ${nA(E.force)}`,lim?`TA LIMITE : ${lim} parties par session, pas plus.`:'TA LIMITE : arrête-toi après 3 défaites d\'affilée.'];
-APP.briefTxt=L.join('\n');
-dlgOpen(`<h2>Briefing : ${esc(map)}</h2><p class="muted small">À lire 1 minute avant de lancer. Seulement tes propres chiffres.</p>
-    <div class="brief">${L.slice(1).map(l=>{if(!l)return'';if(/^(ATTAQUE|DÉFENSE)/.test(l))return`<h3>${esc(l)}</h3>`;const m=/^([A-ZÉa-zé ]{4,20}) : (.*)$/.exec(l);return m&&!l.startsWith('-')?`<p><b>${esc(m[1])}</b> : ${esc(m[2])}</p>`:`<p>${esc(l)}</p>`;}).join('')}</div>
-    <div class="row mt"><button class="btn" data-act="briefCopy">Copier le texte</button><button class="btn ghost" data-act="dlgClose">Fermer</button></div>`);
 }
 const mvRoot=t=>t&&t.closest?t.closest('[data-link]'):null,mvKey=t=>t&&t.closest?t.closest('[data-k]'):null;
 let MVD=0;
@@ -2665,7 +2267,6 @@ z=Math.max(1,Math.min(4,z));const w=1000/z,h=w/2;cx=Math.max(h,Math.min(1000-h,c
 svg._v={z,cx,cy};svg.setAttribute('viewBox',`${(cx-h).toFixed(1)} ${(cy-h).toFixed(1)} ${w.toFixed(1)} ${w.toFixed(1)}`);svg.parentNode.classList.toggle('zoomed',z>1);svgPaint(svg);
 }
 ACT.mvZoom=arg=>{const[id,d]=arg.split(':'),s=document.getElementById(id);if(!s||!s._v)return;const v=s._v;if(+d===0)mvView(s,1,500,500);else mvView(s,v.z*(+d>0?1.6:1/1.6),v.cx,v.cy);};
-ACT.possrc=k=>{if(APP.pos&&(k==='tous'||k==='moi')){APP.pos.src=k;renderTab();}};
 const MVP=new Map();
 document.addEventListener('pointerdown',e=>{const s=e.target.closest&&e.target.closest('.mv svg');if(s&&s._v)MVP.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,s});});
 document.addEventListener('pointermove',e=>{
@@ -2676,158 +2277,6 @@ p.x=e.clientX;p.y=e.clientY;
 });
 const mvUp=e=>MVP.delete(e.pointerId);document.addEventListener('pointerup',mvUp);document.addEventListener('pointercancel',mvUp);
 document.addEventListener('wheel',e=>{const s=e.ctrlKey&&e.target.closest&&e.target.closest('.mv svg');if(!s||!s._v)return;e.preventDefault();const v=s._v;mvView(s,v.z*(e.deltaY<0?1.15:1/1.15),v.cx,v.cy);},{passive:false});
-;
-"use strict";
-const fillLv=(s,L)=>String(s||'').replace(/\{(\w+)\}/g,(m,k)=>L[k]!=null?L[k]:m);
-const trLogs=()=>{const a=ST.get('tlog',[]);return Array.isArray(a)?a.filter(x=>x&&typeof x.d==='string'):[];};
-const rxList=()=>{const a=ST.get('rx',[]);return Array.isArray(a)?a.filter(x=>x&&x.ms>0):[];};
-const evDate=ts=>{const d=new Date(ts-6*36e5);return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);};
-function trCtx(){
-const P=APP.prof,D=APP.D||[],lv=trLevel(P.mmr.tier),L=TR_LEVELS[lv],V=D.length>=3?coachData():null;
-const items=V?(V.rk?V.C.items:coachPub(coachStats())):[],next=V&&V.rk?V.C.next||[]:[];
-const keys=[...items.filter(x=>x.lvl>=2).map(x=>x.k),...next.filter(x=>x.below&&x.sure).map(x=>'up_'+x.k)],focus=trFocus(keys);
-return{P,D,lv,L,items,next,up:V&&V.rk?V.C.up:0,keys,focus,role:ROLE_OF[mainAgent(P.rows)]||'',tool:ST.get('trTool','range'),min:ST.get('trMin',20),ctx:ST.get('trCtx','echauffement')};
-}
-function playHtml(C){
-const PL=trPlaylists(C.focus,C.lv,C.ctx,C.tool,TR_PLAYLISTS);if(!PL.length)return'';
-return`<div class="card"><div class="card-h"><h2>Playlists prêtes à lancer</h2><span class="pill">${C.tool==='kovaaks'?'KovaaK\'s':'Aim Lab (gratuit)'}</span></div>
-    <p class="muted small">Pour ${C.ctx==='echauffement'?'ton échauffement':'ta séance de progression'}, réglées sur ${C.focus.length?'tes points faibles':'ton niveau'}. Dans l'appli, colle le nom dans la recherche.</p>
-    ${PL.map(p=>`<div class="coach"><span class="lvl lvl1">${p.use==='test'?'Test':p.min+' min'}</span><div><b>${esc(p.n)}</b> <small class="muted">· ${esc(p.by)}</small>
-      <p class="small">${esc(p.why)}</p><button type="button" class="btn ghost sm" data-act="plCopy:${esc(p.id)}">Copier le nom</button></div></div>`).join('')}
-    <p class="note">Noms vérifiés le 12/10/2026 (aimlabs.com ; KovaaK's : guide communautaire dodge.gg 2026). Si un nom a changé, cherche un seul mot du nom.</p></div>`;
-}
-function upHtml(C){
-if(!C.next.length)return'';const upN=RANK_FR[C.up]||'';
-const pill=x=>!x.below?'<span class="pill ok">au niveau</span>':x.sure?'<span class="pill bad">en dessous</span>':'<span class="pill warn">un peu en dessous</span>';
-return`<div class="card"><h2>Ce que ton entraînement doit faire monter</h2><p class="muted small">Les chiffres qui séparent vraiment les rangs (10 790 profils collectés) : toi contre les joueurs ${esc(upN)} de ton rôle.</p>
-    ${C.next.map(x=>{const m=Math.max(x.me||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${pill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}
-    <p class="note">La routine travaille ce qui est en dessous à coup sûr. Vérifie l'effet sur tes 20 prochaines parties.</p></div>`;
-}
-ACT.plCopy=id=>{const p=TR_PLAYLISTS.find(x=>x.id===id);if(p)copyText(p.n,'Nom copié : colle-le dans la recherche de l\'appli');};
-function tabTrain(){
-const C=trCtx(),R=trRoutine(C.focus,C.min,C.ctx,TR_DRILLS,C.role),logs=trLogs(),tot=R.reduce((s,b)=>s+b.min,0),Sv=suiviStats(logs);
-const chip=(k,v,t,cur)=>`<button type="button" class="chip${cur===v?' on':''}" data-act="tr:${k}:${v}" aria-pressed="${cur===v}">${t}</button>`;
-const blk=(b,i)=>{const d=TR_DRILLS[b.k];return`<li class="drill"><div class="drill-h"><b>${i+1}. ${esc(d.n)}</b><span class="pill">${b.min} min</span></div>
-    <p>${esc(fillLv(d.drill,C.L))}</p><p class="small"><b>Où :</b> ${esc(fillLv(d.set[C.tool]||d.set.all||d.set.range,C.L))}</p>
-    <p class="small muted"><b>Pourquoi :</b> ${esc(d.why)} · <b>Objectif :</b> ${esc(fillLv(d.goal,C.L))}</p></li>`;};
-const ef=Sv.ef&&Sv.ef.nb>=5&&Sv.ef.na>=5?Sv.ef:null;
-const v={h:`Routine du jour : ${tot} min`,p:`Réglée sur ton rang (${tierFr(C.P.mmr.tier)})${C.focus.length?' et sur tes points faibles sûrs.':C.D.length>=3?'. Aucun point faible sûr : routine équilibrée.':'. Joue quelques parties pour une routine sur mesure.'}`,
-facts:[['Série',`<b>${Sv.streak}<small> jour${Sv.streak>1?'s':''}</small></b>`,'d\'entraînement d\'affilée'],['Cette semaine',`<b>${Sv.wkMin}<small> min</small></b>`,`${Sv.wkN} séance(s) · ${logs.length} au total`],
-['Effet mesuré',`<b class="${ef?(ef.mb>=ef.ma?'up':'down'):''}">${ef?`${sg((ef.mb-ef.ma)*100,0)} %`:'—'}</b>`,ef?`d'ACS les soirs entraînés${Math.abs(ef.z)>=1.64?' (sûr)':' (pas encore sûr)'}`:'il faut 5 parties de chaque côté']],
-acts:`<button class="btn" data-act="tmStart">▶ Lancer le minuteur (${tot} min)</button><button class="btn ghost" data-act="tmLog">J'ai fait la séance sans minuteur</button>`};
-return`${verdictHtml(v,`Entraînement · niveau ${esc(C.L.n)}`,'')}
-  <div class="grid g2 mt">
-  <div class="card"><h2>Ta routine</h2>
-    <div class="chips">${chip('ctx','echauffement','Avant la ranked',C.ctx)}${chip('ctx','progression','Séance de progression',C.ctx)}</div>
-    <div class="row mt8"><div class="chips">${[10,20,30,45].map(m=>chip('min',m,m+' min',C.min)).join('')}</div><div class="chips">${Object.keys(TOOL_FR).map(t=>chip('tool',t,TOOL_FR[t],C.tool)).join('')}</div></div>
-    <ol class="drills">${R.map(blk).join('')}</ol>
-    <p class="note">Le minuteur reste visible en bas de l'écran, même si tu changes d'onglet. Un bip à chaque changement d'exercice.</p></div>
-  <div class="card"><h2>Tes priorités</h2>${C.items.length?C.items.slice(0,4).map(x=>`<div class="coach"><span class="lvl lvl${x.lvl}">${x.lvl===3?'Priorité':x.lvl===2?'Important':'Conseil'}</span><div><b>${esc(x.t)}</b><p>${x.why?esc(x.why):x.cost!=null?`Te coûte ${fmt(x.cost,1)} round par partie${x.sure?'':' (à confirmer)'}.`:esc(x.fix||'')}</p></div></div>`).join('')
-:`<p class="muted">${C.D.length>=3?'':'Il faut au moins 3 parties détaillées pour trouver tes points faibles (ouvre l\'onglet Visée ou Coach une fois).'}</p>`}
-    <h3>Test de réflexes</h3><button type="button" id="rxBox" class="rx" aria-live="polite">Clique ici pour commencer (5 essais)</button><div id="rxOut">${rxHtml()}</div>
-    <p class="note">Pour travailler la réaction : Aim Lab « Detection » (à l'œil) et « Audio Detection » (au son des pas).</p></div>
-  </div>
-  <div class="grid g2 mt">${playHtml(C)}${upHtml(C)}</div>
-  <div class="grid g2 mt">
-    <div class="card"><h2>Ta semaine</h2>${weekHtml(C)}</div>
-    <div class="card"><h2>Sensibilité</h2>${sensHtml(C)}</div>
-  </div>
-  <div class="card mt"><h2>Tes dernières séances</h2>${suiviHtml(logs)}</div>`;
-}
-function weekHtml(C){
-const rows=C.P.rows,play=habitDays(rows.map(r=>evDate(r.ts)),2),W=trWeek(C.focus,play,TR_DRILLS),td=(new Date().getDay()+6)%7;
-return`<div class="week">${W.map(([d,type,ks,min,rk])=>`<div class="wd${d===td?' today':''}${type==='repos'?' rest':''}"><span class="wd-j">${esc(JOURS[d].slice(0,3))}</span><div><b>${esc(WEEK_FR[type])}</b>${rk?' <span class="pill">soir de jeu</span>':''}
-    <small>${type==='revue'?'Revois 3 duels perdus en replay : d\'où venait l\'adversaire, où était ton viseur ?':ks.map(k=>esc(TR_DRILLS[k].n)).join(' + ')||'Le cerveau consolide ce qui a été travaillé'}</small></div><span class="wd-m">${min?min+' min':'—'}</span></div>`).join('')}</div>
-    <p class="note">${play.length?`Tes soirs de jeu habituels : ${esc(frList(play.map(i=>JOURS[i])))}.`:'Pas encore de soirs de jeu habituels détectés.'} 3 à 4 séances courtes valent mieux qu'une longue.</p>`;
-}
-function sensHtml(C){
-const S=ST.get('sens',{dpi:800,sens:.4}),cm=S.dpi>0&&S.sens>0?2.54*360/(S.dpi*S.sens*.07):null,ds=duelStats(C.D,meIdx),hint=sensHint(ds,cm),psa=ST.get('psa',null);
-const pos=cm?Math.max(0,Math.min(100,(cm-15)/(90-15)*100)):null,dir=hint.dir>0?'un peu plus haute (+5 à 10 %)':hint.dir<0?'un peu plus basse (−5 à 10 %)':'';
-const psaBox=!psa?`<button class="btn ghost" data-act="psa:go">Test guidé (7 manches, 15 min)</button>`
-:psa.step>=7?`<div class="infobox">Résultat du test : <b>${fmt((psa.pair[0]+psa.pair[1])/2,3)}</b> (tu étais à ${fmt(psa.base,3)}). <button class="btn sm" data-act="psa:keep">La garder</button> <button class="btn ghost sm" data-act="psa:stop">Fermer</button></div>`
-:`<div class="infobox"><b>Manche ${psa.step+1} sur 7</b> : joue 1 minute de Range ou de deathmatch avec <b>A = ${fmt(psa.pair[0],3)}</b>, puis 1 minute avec <b>B = ${fmt(psa.pair[1],3)}</b>. Laquelle était la plus précise ?
-      <div class="row mt8"><button class="btn sm" data-act="psa:0">A (${fmt(psa.pair[0],3)})</button><button class="btn sm" data-act="psa:1">B (${fmt(psa.pair[1],3)})</button><button class="btn ghost sm" data-act="psa:stop">Arrêter</button></div></div>`;
-return`<div class="row"><div><label class="lbl" for="tDpi">DPI de ta souris</label><input id="tDpi" type="number" min="100" max="32000" step="50" value="${esc(S.dpi)}" data-sens="dpi"></div><div><label class="lbl" for="tSens">Sensibilité en jeu</label><input id="tSens" type="number" min="0.01" max="10" step="0.001" value="${esc(S.sens)}" data-sens="sens"></div></div>
-    <p class="mt8">Un tour complet = <b>${cm?fmt(cm,1)+' cm':'—'}</b> de tapis${cm?` · eDPI ${Math.round(S.dpi*S.sens)}`:''}</p>
-    ${pos!=null?`<div class="gauge" title="De 15 cm (très rapide) à 90 cm (très lent)"><i style="left:${pos}%"></i><span>rapide</span><span>la plupart des joueurs : 30 à 75 cm</span><span>lent</span></div>`:''}
-    <div class="infobox">${dir?`Piste : essaie une sensibilité <b>${dir}</b> pendant 8 parties (${hint.why==='proche'?'tu perds tes duels proches':hint.why==='loin'?'tu perds tes duels de loin':'ta sensibilité est hors de la zone habituelle'}).`:C.D.length>=3?'Rien ne montre à coup sûr qu\'il faut changer ta sensibilité : garde-la.':'Avec quelques parties détaillées, tes duels diront si ta sensibilité te coûte des duels.'}</div>
-    <div class="mt8">${psaBox}</div>
-    <p class="note">Test guidé : on compare 2 sensibilités, la moins bonne est remplacée par le milieu des deux. Après 7 manches, il reste ta sensibilité idéale.</p>`;
-}
-function rxHtml(){
-const L=rxList(),s=rxSum(L.map(x=>({ms:x.ms})));
-if(!s)return'<p class="note">30 secondes avant de jouer : nettement plus lent que d\'habitude = fatigue probable, session courte.</p>';
-return`<p class="small">Dernier : <b>${s.last} ms</b>${s.usual?` · d'habitude ${s.usual} ms`:''} · record ${s.best} ms ${L.length>=3?spark(L.slice(-15).map(x=>-x.ms),160,30):''}</p>
-    ${s.state==='fatigue'?`<p class="small"><span class="pill bad">${sg(s.diff,0)} %</span> Plus lent que d'habitude : échauffement complet et session courte ce soir.</p>`:s.state==='forme'?'<p class="small"><span class="pill ok">en forme</span> Plus rapide que d\'habitude.</p>':''}
-    <p class="note">À comparer seulement avec toi-même : l'écran et le navigateur ajoutent leur propre délai.</p>`;
-}
-function suiviStats(logs){
-const P=APP.prof,now=new Date(),d0=new Date(now);d0.setHours(0,0,0,0);d0.setDate(d0.getDate()-(d0.getDay()+6)%7);
-const wk=logs.filter(l=>l.d>=new Date(d0-d0.getTimezoneOffset()*6e4).toISOString().slice(0,10)),days=new Set(logs.map(l=>l.d)),acs=rowsAgg(P.rows).acs,S=sessionsOf(P.rows);
-const rows=acs?S.flatMap(s=>s.map((r,i)=>({r:r.sc/r.r/acs,tr:days.has(evDate(r.ts)),first:i===0}))):[];
-return{streak:trStreak(logs.map(l=>l.d),today()),wkMin:wk.reduce((s,l)=>s+(+l.min||0),0),wkN:wk.length,ef:trainEffect(rows).all};
-}
-function suiviHtml(logs){
-return logs.length?`<div class="tbl"><table class="small"><thead><tr><th>Date</th><th>Séance</th><th>Durée</th><th>Exercices</th></tr></thead><tbody>${logs.slice(-8).reverse().map(l=>`<tr><td>${esc(dFr(Date.parse(l.d+'T12:00:00')))}</td><td>${esc(l.ctx==='progression'?'Progression':'Échauffement')}</td><td>${+l.min||0} min</td><td>${esc((l.keys||[]).map(k=>(TR_DRILLS[k]||{}).n).filter(Boolean).join(', '))}</td></tr>`).join('')}</tbody></table></div>`
-:'<p class="muted">Pas encore de séance : lance ta première routine, ta série et l\'effet sur tes parties apparaîtront ici.</p>';
-}
-let TM=null,AC=null;
-function beep(n=2){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();for(let i=0;i<n;i++){const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+i*.22;o.frequency.value=880;g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.18);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+.2);}}catch(e){}}
-function tmStart(){
-const C=trCtx(),R=trRoutine(C.focus,C.min,C.ctx,TR_DRILLS,C.role);if(!R.length)return;
-if(TM)clearInterval(TM.int);beep(1);
-TM={R,i:0,end:Date.now()+R[0].min*6e4,left:null,ctx:C.ctx,L:C.L,tool:C.tool,min:R.reduce((s,b)=>s+b.min,0)};
-TM.int=setInterval(tmTick,250);tmRender();
-}
-function tmTick(){if(!TM||TM.left!=null)return;if(Date.now()>=TM.end)tmNext();else tmRender();}
-function tmNext(){
-if(!TM)return;TM.i++;
-if(TM.i>=TM.R.length){clearInterval(TM.int);beep(3);tmLog(TM);TM=null;$('#tmBox').hidden=true;toast('✔ Séance terminée et enregistrée. Bien joué !');if(APP.tab==='entrainement')renderTab();return;}
-beep(2);TM.end=Date.now()+TM.R[TM.i].min*6e4;tmRender();
-}
-function tmRender(){
-const box=$('#tmBox');if(!box||!TM)return;const b=TM.R[TM.i],d=TR_DRILLS[b.k],left=TM.left!=null?TM.left:Math.max(0,Math.ceil((TM.end-Date.now())/1000));
-box.hidden=false;
-box.innerHTML=`<div class="tm-h"><small>Exercice ${TM.i+1}/${TM.R.length}${TM.left!=null?' · en pause':''}</small><b>${esc(d.n)}</b></div><div class="tm-c">${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</div>
-    <p class="small">${esc(fillLv(d.drill,TM.L))}</p><div class="row"><button class="btn sm" data-act="tmPause">${TM.left!=null?'▶ Reprendre':'❚❚ Pause'}</button><button class="btn ghost sm" data-act="tmNext">Suivant</button><button class="btn ghost sm" data-act="tmStop">Arrêter</button></div>`;
-}
-function tmLog(T){
-const C=T||(()=>{const c=trCtx(),R=trRoutine(c.focus,c.min,c.ctx,TR_DRILLS,c.role);return{R,ctx:c.ctx,min:R.reduce((s,b)=>s+b.min,0)};})();
-const L=trLogs();L.push({d:today(),min:C.min,ctx:C.ctx,keys:C.R.map(b=>b.k)});ST.set('tlog',L.slice(-200));
-}
-const RX={st:'idle',t0:0,to:null,res:[]};
-function rxSet(cls,txt){const b=$('#rxBox');if(!b)return;b.className='rx'+(cls?' '+cls:'');b.textContent=txt;}
-function rxArm(){RX.st='wait';rxSet('wait','Attends le vert…');clearTimeout(RX.to);RX.to=setTimeout(()=>{RX.st='go';RX.t0=performance.now();rxSet('go','MAINTENANT !');},1200+Math.random()*2300);}
-function rxHit(){
-if(RX.st==='idle'||RX.st==='done'){RX.res=[];rxArm();}
-else if(RX.st==='wait'){clearTimeout(RX.to);RX.st='early';rxSet('early','Trop tôt ! Clique pour refaire cet essai');}
-else if(RX.st==='early'||RX.st==='pause')rxArm();
-else if(RX.st==='go'){
-const ms=Math.round(performance.now()-RX.t0);RX.res.push(ms);
-if(RX.res.length>=5){RX.st='done';const s=RX.res.slice().sort((a,b)=>a-b),med=s[2];rxSet('',`Médiane : ${med} ms · clique pour refaire le test`);
-const L=rxList();L.push({d:today(),ms:med});ST.set('rx',L.slice(-60));const o=$('#rxOut');if(o)o.innerHTML=rxHtml();}
-else{RX.st='pause';rxSet('',`${ms} ms · essai ${RX.res.length}/5 : clique pour le suivant`);}
-}
-}
-document.addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('#rxBox')){e.preventDefault();rxHit();}});
-document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&document.activeElement&&document.activeElement.id==='rxBox'){e.preventDefault();rxHit();}});
-Object.assign(ACT,{
-tr:arg=>{const[k,v]=arg.split(':');if(k==='min')ST.set('trMin',+v);else if(k==='ctx'&&['echauffement','progression'].includes(v))ST.set('trCtx',v);else if(k==='tool'&&TOOL_FR[v])ST.set('trTool',v);renderTab();},
-tmStart:()=>tmStart(),
-tmPause:()=>{if(!TM)return;if(TM.left!=null){TM.end=Date.now()+TM.left*1000;TM.left=null;}else TM.left=Math.max(0,Math.ceil((TM.end-Date.now())/1000));tmRender();},
-tmNext:()=>tmNext(),
-tmStop:()=>{if(TM)clearInterval(TM.int);TM=null;$('#tmBox').hidden=true;},
-tmLog:()=>{tmLog();toast('Séance enregistrée ✔');renderTab();},
-warmup:()=>{ST.set('trCtx','echauffement');ST.set('trMin',10);ACT.tab('entrainement');tmStart();},
-psa:arg=>{
-const S=ST.get('sens',{dpi:800,sens:.4}),p=ST.get('psa',null);
-if(arg==='go')ST.set('psa',{base:S.sens,pair:psaStart(S.sens),step:0});
-else if(arg==='stop')ST.del('psa');
-else if(arg==='keep'&&p){S.sens=Math.round((p.pair[0]+p.pair[1])/2*1000)/1000;ST.set('sens',S);ST.del('psa');toast(`Sensibilité ${String(S.sens).replace('.',',')} enregistrée : mets-la dans le jeu`);}
-else if((arg==='0'||arg==='1')&&p&&p.step<7){p.pair=psaStep(p.pair,+arg);p.step++;ST.set('psa',p);}
-renderTab();
-}
-});
 ;
 "use strict";
 const AN=new Date().getFullYear();
@@ -2875,6 +2324,13 @@ return false;
 }
 const GUARD_OK=guard();
 if(GUARD_OK&&!LOCAL){try{console.log('%cStop !','color:#ff4655;font-size:42px;font-weight:800');console.log('%cNe colle jamais ici du code donné par quelqu\'un : il pourrait voler ton compte ou ton code Premium. © Elitrack, tous droits réservés.','font-size:15px');}catch(e){}}
+const LOT_SRC=((document.currentScript&&document.currentScript.src)||'').replace(/app\.js(\?|$)/,'lot.js$1');
+let LOT_P=null;
+function lotLoad(){
+if(typeof tabTrain!=='undefined')return Promise.resolve();
+return LOT_P||(LOT_P=new Promise((ok,ko)=>{const s=document.createElement('script');s.src=LOT_SRC;s.onload=()=>ok();
+s.onerror=()=>{LOT_P=null;s.remove();ko(new Error('Cette partie du site n\'a pas pu se charger : vérifie ta connexion puis réessaie.'));};document.head.appendChild(s);}));
+}
 function toast(msg,err,action){
 const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;
 if(action){const b=document.createElement('button');b.className='btn sm';b.textContent=action.label;b.onclick=()=>{action.fn();t.remove();};t.appendChild(b);}
@@ -2954,13 +2410,27 @@ async function openProfile(riot,region,opt={}){
 if(!splitRiot(riot))return toast('Écris ton Riot ID en entier : Pseudo#TAG',true);
 if(!apiReady())return keyAsk(riot,region);
 document.body.classList.add('busy');
+const old=!opt.force&&ST.get('prof:'+ridNorm(riot)),early=old&&old.v===2&&!(APP.prof&&APP.prof.rid===old.rid)?old:null;
+if(early){await profShow(early,opt);document.body.classList.remove('busy');}
 try{
-const P=await loadProfile(riot,region,opt),changed=!APP.prof||APP.prof.rid!==P.rid;
+const P=await loadProfile(riot,region,opt),same=APP.prof&&APP.prof.rid===P.rid;
+if(!same||APP.prof.at!==P.at){
+const moved=same&&(APP.prof.rows[0]||{}).id!==(P.rows[0]||{}).id;
+if(same&&!moved&&APP.prof.mmr.rr===P.mmr.rr&&APP.prof.rows.length===P.rows.length){APP.prof=P;}
+else{if(moved){APP.D=null;APP.detTried='';}await profShow(P,Object.assign({},opt,early?{noPush:true}:{}),same);}
+}
+}catch(e){
+statut('');if(e.code==='nokey')keyAsk(riot,region);
+else if(early)toast(`Service indisponible : tu vois tes données du ${dFr(early.at,{day:'numeric',month:'short'})} à ${hFr(early.at)}.`,true,{label:'Réessayer',fn:()=>openProfile(riot,region,Object.assign({},opt,{force:true}))});
+else if(!opt.quiet)toast(e.message,true,{label:'Réessayer',fn:()=>openProfile(riot,region,opt)});else render();
+}
+document.body.classList.remove('busy');
+}
+async function profShow(P,opt,refresh){
+const changed=!APP.prof||APP.prof.rid!==P.rid;
 if(changed){if(!opt.keepTab)APP.tab='vue';APP.filt=null;APP.cmp=null;APP.D=null;APP.detTried='';APP.pos=null;APP.strat=null;}
 APP.prof=P;ST.set('last',{riot:P.riot,region:P.region});
-await licRefresh();themeRefresh();render();if(changed)window.scrollTo(0,0);setHash(changed&&!opt.noPush);
-}catch(e){statut('');if(e.code==='nokey')keyAsk(riot,region);else if(!opt.quiet)toast(e.message,true,{label:'Réessayer',fn:()=>openProfile(riot,region,opt)});else render();}
-document.body.classList.remove('busy');
+await licRefresh();themeRefresh();if(!refresh||canRerender())render();if(changed)window.scrollTo(0,0);setHash(changed&&!opt.noPush);
 }
 async function openDemo(noPush,tab){APP.prof=demoProfile();APP.tab=TAB_KEYS.includes(tab)?tab:'vue';APP.filt=null;APP.cmp=null;APP.D=null;APP.pos=null;APP.strat=null;await licRefresh();themeRefresh();render();window.scrollTo(0,0);setHash(!noPush);}
 function render(){
@@ -3055,7 +2525,8 @@ dlgClose:()=>$('#dlg').close(),
 side:arg=>{const[k,s]=arg.split(':');if(APP[k]&&(s==='A'||s==='D')){APP[k].side=s;renderTab();}},
 posgo:m=>{if(APP.pos){APP.pos.map=m;renderTab();window.scrollTo({top:$('#tabIn').offsetTop-80,behavior:'smooth'});}},
 detMore:()=>detMore(),
-brief:()=>briefOpen(),
+brief:()=>lotLoad().then(()=>briefOpen()),
+retab:()=>renderTab(),
 briefCopy:()=>APP.briefTxt&&copyText(APP.briefTxt,'Briefing copié : colle-le sur Discord'),
 aide:()=>dlgOpen(glossHtml()),
 legal:k=>dlgOpen(legalHtml(k)),
@@ -3075,7 +2546,8 @@ forget:async()=>{if(!confirm('Effacer profils, détails, thème, objectifs, entr
 });
 document.addEventListener('click',e=>{
 const a=e.target.closest('[data-act]');if(!a)return;e.preventDefault();
-const[n,...arg]=a.dataset.act.split(':');if(ACT[n]){try{ACT[n](arg.join(':'),a);}catch(x){console.error(x);logErr(x);toast('Oups : '+x.message,true);}}
+const[n,...arg]=a.dataset.act.split(':'),run=()=>{if(ACT[n]){try{ACT[n](arg.join(':'),a);}catch(x){console.error(x);logErr(x);toast('Oups : '+x.message,true);}}};
+if(ACT[n])run();else lotLoad().then(run,x=>toast(x.message,true));
 });
 document.addEventListener('submit',e=>{
 e.preventDefault();
@@ -3090,6 +2562,7 @@ document.addEventListener('change',e=>{
 const f=e.target.closest('[data-filt]');if(f){APP.filt[f.dataset.filt]=f.value;return renderTab();}
 const s=e.target.closest('[data-sens]');if(s){const S=ST.get('sens',{dpi:800,sens:.4}),v=parseFloat(String(s.value).replace(',','.'));if(v>0){S[s.dataset.sens]=v;ST.set('sens',S);renderTab();}return;}
 const p=e.target.closest('[data-pick]');if(p){const k=p.dataset.pick;if(APP[k]){APP[k].map=p.value;renderTab();}return;}
+const fo=e.target.closest('[data-focus]');if(fo&&fo.value)return ACT.focusSet(fo.value);
 const g=e.target.closest('[data-goal]');if(g&&APP.prof){ST.set('goal:'+APP.prof.rid,+g.value);return renderTab();}
 const r=e.target.closest('[data-repround]');if(r)return drawRep(r.value);
 if(e.target.id==='impFile'&&e.target.files[0])dataImport(e.target.files[0]);
