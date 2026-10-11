@@ -1,0 +1,35 @@
+{
+  "format": "prohub-public",
+  "version": 1,
+  "nom": "Elitrack",
+  "slogan": "Ton tracker perso, à tes couleurs",
+  "proxy": "https://script.google.com/macros/s/AKfycbwEpOZh-cmt2PONtksVMtisFYPI9VzwHzTf5WbiGq9A7FUmNFcQUdestiTlkqz5-w-Q/exec",
+  "licKey": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "mfmJfgbohUe08bgI2Oll56GsN7rCkEyDUnfKf-V1mno",
+    "y": "H03oukNHfIeHKWwaxlgS4I1GFqJF15BSSC-4yFH7vbU"
+  },
+  "achat": {
+    "mensuel": "2,99 €",
+    "vie": "14,99 €",
+    "lien": "",
+    "contact": ""
+  },
+  "freeAll": true,
+  "premium": [
+    "historique",
+    "rapports",
+    "visee",
+    "progression",
+    "coach",
+    "comparer",
+    "perso",
+    "partage"
+  ],
+  "annonce": "",
+  "maintenance": false,
+  "revoked": [],
+  "limite": 20,
+  "maj": "2026-10-11"
+}
