@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261011-2043. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261011-2100. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1868,7 +1868,7 @@ $('#app').innerHTML=`
     <details><summary>Est-ce que je peux l'installer comme une appli ?</summary><p>Oui : sur ordinateur, bouton « Installer » dans la barre du haut (Chrome, Edge) ; sur téléphone, menu du navigateur › « Ajouter à l'écran d'accueil ».</p></details>
     <details><summary>Le positionnement et les strats, c'est autorisé ?</summary><p>Oui : tout vient de tes parties terminées, sur toi-même. Rien n'est utilisé pendant une partie et aucun adversaire n'est identifié.</p></details>
   </section>`;
-$('#recherche').hidden=true;
+$('#recherche').hidden=true;document.body.classList.remove('has-gnav');heroWatch();
 }
 function pricingHtml(){
 const C=APP.cfg,li=([k,f],on)=>`<li class="${on?'good':'badl'}">${esc(f.n)}</li>`;
@@ -1881,9 +1881,29 @@ return`<section class="pricing mt" id="offres">
       <p class="note">Indique ton Riot ID dans le message du paiement : tu reçois ton code${C.achat.contact?` (contact : ${esc(C.achat.contact)})`:''}. Le code est lié à ton compte.</p></div>
   </section>`;
 }
-const TABS_P=[['vue','Vue d\'ensemble'],['parties','Parties'],['agents','Agents & cartes'],['position','📍 Positionnement','position'],['strategie','🗺️ Stratégie','strategie'],['entrainement','🏋️ Entraînement','entrainement'],
+const TABS_P=[['vue','Vue d\'ensemble'],['parties','Parties'],['agents','Agents & cartes'],['position','Positionnement','position'],['strategie','Stratégie','strategie'],['entrainement','Entraînement','entrainement'],
 ['visee','Visée','visee'],['coach','Coach','coach'],['progression','Progression','progression'],['comparer','Comparer','comparer']];
 const TAB_KEYS=TABS_P.map(t=>t[0]);
+const GROUPS=[['moi','Moi',['vue','parties','progression']],['analyse','Analyse',['coach','visee','agents','comparer']],['tactique','Tactique',['position','strategie']],['entrainement','Entraînement',['entrainement']]];
+const groupOf=k=>GROUPS.find(g=>g[2].includes(k))||GROUPS[0];
+const ico=n=>`<svg class="ico" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+function navHtml(){
+const G=groupOf(APP.tab),P=APP.prof,M=P.mmr,av=IMG.card(P.card,'smallart')||IMG.agent((TH.last||{}).agent);
+return`<nav class="gnav" aria-label="Sections du profil">${GROUPS.map(([g,n])=>`<button type="button" data-act="grp:${g}"${G[0]===g?' aria-current="page"':''}>${ico(g)}<span>${n}</span></button>`).join('')}</nav>
+    <div class="snav"><div class="tabs" role="tablist" aria-label="${esc(G[1])}"${G[2].length<2?' hidden':''}>${G[2].map(k=>{const[,n,f]=TABS_P.find(t=>t[0]===k);
+return`<button role="tab" data-act="tab:${k}" id="tb-${k}" aria-selected="${APP.tab===k}" tabindex="${APP.tab===k?0:-1}">${n}${f?lockTag(f):''}</button>`;}).join('')}</div>
+    <div class="navid" aria-hidden="true">${av?`<img src="${av}" alt="">`:''}<b>${esc(P.name)}</b><small>${esc(tierFr(M.tier))}${M.rr!=null?` · ${clamp(M.rr,0,100)} RR`:''}</small></div></div>`;
+}
+function navRender(){
+const n=$('#pnav');if(!n||!APP.prof)return;const had=n.contains(document.activeElement)?document.activeElement.dataset.act:null;
+n.innerHTML=navHtml();n.classList.toggle('solo',groupOf(APP.tab)[2].length<2);
+if(had){const f=n.querySelector(`[data-act="${had}"]`)||$('#tb-'+APP.tab);if(f)f.focus({preventScroll:true});}
+}
+let HERO_IO=null;
+function heroWatch(){
+if(HERO_IO)HERO_IO.disconnect();HERO_IO=null;document.body.classList.remove('hero-off');const h=$('.hero');if(!h||!window.IntersectionObserver)return;
+HERO_IO=new IntersectionObserver(([e])=>document.body.classList.toggle('hero-off',!e.isIntersecting),{rootMargin:'-110px 0px 0px 0px'});HERO_IO.observe(h);
+}
 function renderProfile(){
 const P=APP.prof,th=TH.last||themeCompute(themeUsed(),P),M=P.mmr,lic=APP.lic;
 $('#recherche').hidden=false;
@@ -1903,17 +1923,17 @@ $('#app').innerHTML=`
           ${M.peak.tier?`<p class="small muted">Pic : ${esc(tierFr(M.peak.tier))}${M.peak.season?` (${esc(M.peak.season)})`:''}</p>`:''}</div></div>
       </div>
       <div class="hero-act">
-        ${P.demo?'':`<button class="btn ghost sm" data-act="refresh" title="Recharger depuis le service">↻ Actualiser</button>`}
-        <button class="btn ghost sm" data-act="perso">🎨 Personnaliser</button>
-        <button class="btn ghost sm" data-act="share">📸 Partager${lockTag('partage')}</button>
-        ${P.demo?'':'<button class="btn ghost sm" data-act="linkCopy" title="Copier le lien direct vers ce profil">🔗 Lien</button>'}
-        ${APP.plan==='free'?'<button class="btn sm" data-act="premium">★ Passer Premium</button>':`<span class="pill prem" title="${lic&&lic.exp?`Jusqu'au ${esc(lic.exp)}`:'À vie'}">★ ${APP.plan==='dieu'?'Mode Dieu':'Premium'}${lic&&lic.days!=null?` · ${lic.days} j`:''}</span>`}
+        ${P.demo?'':`<button class="btn ghost sm" data-act="refresh" title="Recharger depuis le service" aria-label="Actualiser">${ico('refresh')}<span class="lbl-m">Actualiser</span></button>`}
+        <button class="btn ghost sm" data-act="perso" aria-label="Personnaliser">${ico('palette')}<span class="lbl-m">Personnaliser</span></button>
+        <button class="btn ghost sm" data-act="share" title="Image de ton profil à partager" aria-label="Partager">${ico('share')}<span class="lbl-m">Partager</span>${lockTag('partage')}</button>
+        ${P.demo?'':`<button class="btn ghost sm" data-act="linkCopy" title="Copier le lien direct vers ce profil" aria-label="Copier le lien">${ico('link')}<span class="lbl-m">Lien</span></button>`}
+        ${APP.plan==='free'?'':`<span class="pill prem" title="${lic&&lic.exp?`Jusqu'au ${esc(lic.exp)}`:'À vie'}">★ ${APP.plan==='dieu'?'Mode Dieu':'Premium'}${lic&&lic.days!=null?` · ${lic.days} j`:''}</span>`}
       </div>
     </div>
   </section>
-  <nav class="tabs" role="tablist" aria-label="Sections du profil">${TABS_P.map(([k,n,f])=>`<button role="tab" data-act="tab:${k}" aria-selected="${APP.tab===k}" id="tb-${k}">${n}${f?lockTag(f):''}</button>`).join('')}</nav>
+  <div id="pnav" class="pnav${groupOf(APP.tab)[2].length<2?' solo':''}">${navHtml()}</div>
   <div id="tabIn" role="tabpanel" aria-labelledby="tb-${APP.tab}"></div>`;
-tabShow();renderTab();
+document.body.classList.add('has-gnav');heroWatch();tabShow();renderTab();
 }
 function tabShow(){const nav=$('.tabs'),b=$('#tb-'+APP.tab);if(nav&&b)nav.scrollLeft=Math.max(0,b.offsetLeft-(nav.clientWidth-b.clientWidth)/2);}
 function renderTab(){
@@ -2839,7 +2859,7 @@ document.body.classList.remove('busy');
 }
 async function openDemo(noPush,tab){APP.prof=demoProfile();APP.tab=TAB_KEYS.includes(tab)?tab:'vue';APP.filt=null;APP.cmp=null;APP.D=null;APP.pos=null;APP.strat=null;await licRefresh();themeRefresh();render();window.scrollTo(0,0);setHash(!noPush);}
 function render(){
-if(APP.cfg.maintenance&&APP.plan!=='dieu'){$('#app').innerHTML=`<div class="card teaser"><div class="tz-ic">🛠️</div><h2>Maintenance</h2><p class="lead">${esc(APP.cfg.nom)} revient très vite. ${esc(APP.cfg.annonce)}</p></div>`;return;}
+if(APP.cfg.maintenance&&APP.plan!=='dieu'){document.body.classList.remove('has-gnav');$('#app').innerHTML=`<div class="card teaser"><div class="tz-ic">🛠️</div><h2>Maintenance</h2><p class="lead">${esc(APP.cfg.nom)} revient très vite. ${esc(APP.cfg.annonce)}</p></div>`;return;}
 if(!APP.prof)renderLanding();else renderProfile();
 const P=APP.prof;$('#qRiot').value=P&&!P.demo?P.riot:'';if(P&&!P.demo)$('#qReg').value=P.region;
 }
@@ -2904,8 +2924,10 @@ Object.assign(ACT,{
 accueil:()=>{APP.prof=null;APP.plan='free';APP.lic=null;APP.licCode='';setHash(true);licRefresh().then(()=>{themeRefresh();render();window.scrollTo(0,0);});},
 demo:()=>{if($('#dlg').open)$('#dlg').close();openDemo();},
 tab:(k,el,noHash)=>{if(k==='cartes'){k='agents';setTimeout(()=>{const c=$('#cartes');if(c)c.scrollIntoView({behavior:'smooth'});},60);}
-if(!TAB_KEYS.includes(k))return;APP.tab=k;$$('.tabs [role=tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.act==='tab:'+k));const tp=$('#tabIn');if(tp)tp.setAttribute('aria-labelledby','tb-'+k);
-tabShow();renderTab();if(!noHash)setHash(false);},
+if(!TAB_KEYS.includes(k))return;APP.tab=k;(APP.grpLast=APP.grpLast||{})[groupOf(k)[0]]=k;navRender();const tp=$('#tabIn');if(tp)tp.setAttribute('aria-labelledby','tb-'+k);
+tabShow();renderTab();if(!noHash)setHash(false);
+const nav=$('#pnav');if(el&&tp&&nav){const d=tp.getBoundingClientRect().top-Math.max(0,nav.getBoundingClientRect().bottom)-8;if(d<0)window.scrollBy(0,d);}},
+grp:g=>{const G=GROUPS.find(x=>x[0]===g);if(G)ACT.tab(G[2].includes(APP.tab)?APP.tab:(APP.grpLast||{})[g]||G[2][0],true);},
 refresh:()=>APP.prof&&openProfile(APP.prof.riot,APP.prof.region,{force:true,pages:APP.prof.pages,keepTab:true}),
 more:()=>featOn('historique',APP.plan,APP.cfg)?openProfile(APP.prof.riot,APP.prof.region,{force:true,pages:5,keepTab:true}):premiumOpen('historique'),
 rapport:id=>openReport(id),
@@ -2969,6 +2991,8 @@ if(e.target.id==='impFile'&&e.target.files[0])dataImport(e.target.files[0]);
 });
 document.addEventListener('keydown',e=>{
 if(e.key==='Escape'&&!$('#perso').hidden)return persoClose();
+const tb=e.target&&e.target.closest&&e.target.closest('[role=tab]');
+if(tb&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){const L=$$('[role=tab]',tb.parentNode),n=L[(L.indexOf(tb)+(e.key==='ArrowRight'?1:-1)+L.length)%L.length];e.preventDefault();ACT.tab(n.dataset.act.split(':')[1],n);const f=$('#tb-'+APP.tab);if(f)f.focus();return;}
 const typing=/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')||(e.target&&e.target.isContentEditable);
 if(typing||e.ctrlKey||e.metaKey||e.altKey||$('#dlg').open)return;
 if(e.key==='/'){const i=$('#recherche').hidden?$('#landRiot'):$('#qRiot');if(i){e.preventDefault();i.focus();i.select();}}
@@ -2988,6 +3012,7 @@ if(GUARD_OK&&'serviceWorker'in navigator&&(location.protocol==='https:'||locatio
 (async function boot(){
 if(!GUARD_OK)return;
 $('#qReg').innerHTML=REGIONS.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
+const hdr=()=>document.documentElement.style.setProperty('--hdr',$('header.top').offsetHeight+'px');window.addEventListener('resize',hdr);hdr();
 const net=()=>{$('#horsLigne').hidden=navigator.onLine!==false;};window.addEventListener('online',net);window.addEventListener('offline',net);net();
 await loadCfg();applyCfg();liveCfg().catch(logErr);await licRefresh();themeRefresh();
 if(await openFromHash())return;
