@@ -1,0 +1,13 @@
+Elitrack - © 2026. Tous droits réservés.
+
+Ce dépôt contient la version publiée du site Elitrack. Le code, le design, les textes, les calculs et les méthodes
+d'analyse sont protégés par le droit d'auteur (Code de la propriété intellectuelle, articles L.111-1, L.122-4 et L.335-2).
+
+AUCUNE LICENCE N'EST ACCORDÉE. Il est interdit de copier, modifier, republier, héberger ailleurs, revendre ou réutiliser
+tout ou partie de ce site ou de son code, y compris pour créer un service similaire, sans l'accord écrit de l'auteur.
+Le fait que ce code soit visible publiquement ne donne aucun droit de l'utiliser.
+
+Toute copie fera l'objet d'une demande de retrait (DMCA) auprès de l'hébergeur et, si besoin, de poursuites.
+Empreinte de l'œuvre : ELT-7f3a9c21-DIMC-2026, version 20261011-1528.
+
+Elitrack n'est pas approuvé par Riot Games. Riot Games et toutes les propriétés associées sont des marques de Riot Games, Inc.
