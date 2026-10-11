@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261011-2343. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0001. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1733,7 +1733,8 @@ const src=t.bg!=='auto'?t.bg:t.mode==='carte'?'splash':t.mode==='cartejoueur'?'c
 const mapBg=map||(MAP_ID[t.map]?t.map:bestMap(rows));
 const bgImg=src==='art'?IMG.agent(agent,'background'):src==='portrait'?IMG.agent(agent,'fullportrait'):src==='splash'?IMG.map(mapBg):src==='card'?IMG.card(card,'largeart')
 :src==='image'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(custom)?custom:'';
-return{accent,accentT:readable(accent,bg,4.5),accent2:mixHex(readable(accent,bg,4.5),'#ffffff',.25),onAccent:contrast('#ffffff',accent)>=contrast('#0b0710',accent)?'#ffffff':'#0b0710',
+const accT=readable(accent,bg2,4.5);
+return{accent,accentT:accT,accent2:mixHex(accT,'#ffffff',.25),onAccent:contrast('#ffffff',accent)>=contrast('#0b0710',accent)?'#ffffff':'#0b0710',
 bg,bg2,bgImg,bgSrc:src,portrait:t.mode==='neutre'?'':IMG.agent(agent||main,'fullportrait'),agent,map:mapBg,role,
 fontT:t.fontT==='auto'?'teko':t.fontT,fontB:t.fontB,fx:t.fx==='auto'?rs.fx||'aucun':t.fx,
 cards:t.cards,radius:t.radius,density:t.density,anim:t.anim,streamer:t.streamer,blur:t.blur,dark:t.dark,label};
@@ -1844,6 +1845,7 @@ const skel=(lines=3,cls='')=>`<div class="card ${cls}" role="status" aria-busy="
 const stateHtml=(ic,t,p,btn,err)=>`<div class="card state${err?' err':''}"><div class="state-i" aria-hidden="true">${ic}</div><h2>${esc(t)}</h2>${p?`<p>${esc(p)}</p>`:''}${btn?`<button class="btn" data-act="${esc(btn[1])}">${esc(btn[0])}</button>`:''}</div>`;
 const verdictHtml=(v,eb,cls='mt')=>`<div class="card hi verdict ${v.cls||''} ${cls}"><div class="verdict-i${v.img?' ag':''}" aria-hidden="true">${v.img||''}</div><div><p class="eyebrow">${eb}</p><h2>${esc(v.h)}</h2><p>${esc(v.p)}</p></div>
   ${(v.facts||[]).length?`<div class="kpis">${v.facts.map(([n,b,s])=>`<div class="kpi"><span>${n}</span>${b}<small>${s}</small></div>`).join('')}</div>`:''}${v.acts?`<div class="acts">${v.acts}</div>`:''}</div>`;
+const mbarH=(n,v,max,txt,me)=>`<div class="mbar${me?' me':''}"><span>${esc(n)}</span><i><i style="width:${v==null||!max?0:Math.round(Math.min(1,v/max)*100)}%"></i></i><b>${txt}</b></div>`;
 const CH_RO=window.ResizeObserver?new ResizeObserver(es=>es.forEach(e=>{const el=e.target;if(el._ch&&el.isConnected&&Math.abs(el.clientWidth-(el._chw||0))>4){el._chw=el.clientWidth;el.innerHTML=el._ch(el.clientWidth);}})):null;
 function chartMount(id,fn){after(()=>{const el=$('#'+id);if(!el)return;el._ch=fn;el._chw=el.clientWidth;el.innerHTML=fn(el.clientWidth||600);if(CH_RO)CH_RO.observe(el);});}
 const nTag=(n,unit='rounds',min=10)=>`<span class="n">(${n} ${esc(unit)})</span>${n<min?' <span class="low-b">peu de données</span>':''}`;
@@ -1870,12 +1872,12 @@ $('#app').innerHTML=`
     <div class="wall" aria-hidden="true">${wall.map((a,i)=>`<img src="${IMG.agent(a,'fullportrait')}" alt="" style="--i:${i};--c:${AGENT_COL[a]}" loading="lazy">`).join('')}</div>
   </section>
   <section class="grid g3 feats">
-    <div class="card"><h3>📍 Positionnement optimal</h3><p>Tes meilleurs spots, carte par carte, avec l'angle à tenir et d'où on te tue. Comparé aux joueurs de ton niveau, jamais une position intenable.</p></div>
-    <div class="card"><h3>🗺️ Stratégie par carte</h3><p>Quel site attaquer, où smoker, où te placer en défense, quand tourner, quel agent prendre. Écrit pour TON agent, avec un briefing d'1 minute.</p></div>
-    <div class="card"><h3>🏋️ Entraînement sur mesure</h3><p>Routine réglée sur ton rang et tes vrais points faibles, minuteur, test de réflexes, sensibilité idéale et plan de la semaine.</p></div>
-    <div class="card"><h3>📊 Plus que des chiffres</h3><p>Chaque partie expliquée : rounds gagnés contre attendus, ton impact en rounds, tes duels sur la carte, les moments qui ont tout changé.</p></div>
-    <div class="card"><h3>🎯 Un coach honnête</h3><p>Ta place réelle dans tes lobbys et tes vrais points faibles, seulement quand les chiffres sont sûrs. Objectif de rang, défis et succès.</p></div>
-    <div class="card"><h3>🎨 Ton interface, ton agent</h3><p>Joue Jett ? Tout passe en bleu ciel avec son art en fond. Main Omen ? Violet et fumée. Ça change tout seul avec ton profil.</p></div>
+    <div class="card"><h3>${ico('tactique')}Positionnement optimal</h3><p>Tes meilleurs spots, carte par carte, avec l'angle à tenir et d'où on te tue. Comparé aux joueurs de ton niveau, jamais une position intenable.</p></div>
+    <div class="card"><h3>${ico('map')}Stratégie par carte</h3><p>Quel site attaquer, où smoker, où te placer en défense, quand tourner, quel agent prendre. Écrit pour TON agent, avec un briefing d'1 minute.</p></div>
+    <div class="card"><h3>${ico('entrainement')}Entraînement sur mesure</h3><p>Routine réglée sur ton rang et tes vrais points faibles, minuteur, test de réflexes, sensibilité idéale et plan de la semaine.</p></div>
+    <div class="card"><h3>${ico('analyse')}Plus que des chiffres</h3><p>Chaque partie expliquée : rounds gagnés contre attendus, ton impact en rounds, tes duels sur la carte, les moments qui ont tout changé.</p></div>
+    <div class="card"><h3>${ico('coach')}Un coach honnête</h3><p>Ta place réelle dans tes lobbys et tes vrais points faibles, seulement quand les chiffres sont sûrs. Objectif de rang, défis et succès.</p></div>
+    <div class="card"><h3>${ico('palette')}Ton interface, ton agent</h3><p>Joue Jett ? Tout passe en bleu ciel avec son art en fond. Main Omen ? Violet et fumée. Ça change tout seul avec ton profil.</p></div>
   </section>
   ${pricingHtml()}
   <section class="card faq mt">
@@ -1896,7 +1898,7 @@ return`<section class="pricing mt" id="offres">
     <div class="card plan"><h3>Gratuit</h3><p class="price">0 €</p><ul class="ul">${all.map(x=>li(x,featOn(x[0],'free',C))).join('')}</ul></div>
     <div class="card plan best"><h3>Premium <span class="pill">tout débloqué</span></h3><p class="price">${esc(C.achat.vie||'—')} <small>à vie</small>${C.achat.mensuel?` <span class="muted small">ou ${esc(C.achat.mensuel)} / mois</span>`:''}</p>
       <ul class="ul">${all.map(x=>li(x,true)).join('')}</ul>
-      ${C.freeAll?'<div class="infobox">🎉 Lancement : tout est gratuit en ce moment !</div>':`<div class="row mt8">${C.achat.lien?`<a class="btn" href="${esc(C.achat.lien)}" target="_blank" rel="noopener noreferrer">Acheter Premium</a>`:'<span class="muted small">Achat bientôt disponible.</span>'}<button class="btn ghost" data-act="codeAsk">J'ai un code</button></div>`}
+      ${C.freeAll?'<div class="infobox">Lancement : tout est gratuit en ce moment.</div>':`<div class="row mt8">${C.achat.lien?`<a class="btn" href="${esc(C.achat.lien)}" target="_blank" rel="noopener noreferrer">Acheter Premium</a>`:'<span class="muted small">Achat bientôt disponible.</span>'}<button class="btn ghost" data-act="codeAsk">J'ai un code</button></div>`}
       <p class="note">Indique ton Riot ID dans le message du paiement : tu reçois ton code${C.achat.contact?` (contact : ${esc(C.achat.contact)})`:''}. Le code est lié à ton compte.</p></div>
   </section>`;
 }
@@ -1928,7 +1930,7 @@ const P=APP.prof,th=TH.last||themeCompute(themeUsed(),P),M=P.mmr,lic=APP.lic;
 $('#recherche').hidden=false;
 const rr=M.rr==null?null:clamp(M.rr,0,100),banner=IMG.card(P.card,'wideart')||IMG.agent(th.agent,'background'),bannerM=IMG.card(P.card,'largeart')||banner,av=IMG.card(P.card,'smallart')||IMG.agent(th.agent);
 $('#app').innerHTML=`
-  ${P.demo?'<div class="infobox demo">👀 <b>Démo</b> : profil inventé, tout est débloqué pour te montrer le site. <a href="#" data-act="accueil">Voir mon vrai profil</a></div>':''}
+  ${P.demo?'<div class="infobox demo"><b>Démo</b> : profil inventé, tout est débloqué pour te montrer le site. <a href="#" data-act="accueil">Voir mon vrai profil</a></div>':''}
   <section class="hero" style="--banner:url('${banner}');--banner-m:url('${bannerM}');--rk:${tierCol(M.tier)}">
     <div class="banner"></div><div class="motif" aria-hidden="true"></div>${th.portrait&&matchMedia('(min-width:761px)').matches?`<img class="portrait" src="${th.portrait}" alt="" decoding="async" fetchpriority="low">`:''}
     <div class="hero-in">
@@ -1976,9 +1978,10 @@ entrainement:['🏋️','Une routine réglée sur ton rang et tes points faibles
 progression:['📈','Ta courbe de RR complète, tes semaines, et surtout ta limite du soir : à partir de combien de parties tu commences à perdre.'],
 coach:['🧠','Ta place réelle dans tes lobbys (mieux que X % des joueurs), tes points faibles sûrs, et les exercices qui vont avec.'],
 comparer:['⚔️','Toi contre un ami : victoires, K/D, ACS, précision, agents en commun.'],rapports:['📋','Le rapport de chaque partie.'],historique:['🗂️','Jusqu\'à 100 parties.'],partage:['📸','Une image de ton profil à tes couleurs.'],perso:['🎨','Tout personnaliser.']};
+const TEASE_IC={visee:'analyse',position:'tactique',strategie:'map',entrainement:'entrainement',progression:'moi',coach:'coach',comparer:'analyse',rapports:'analyse',historique:'moi',partage:'share',perso:'palette'};
 function teaser(f){
-const[ic,txt]=TEASE[f]||['★',''];
-return`<div class="card teaser"><div class="tz-ic">${ic}</div><h2>${esc(FEATURES[f].n)}</h2><p class="lead">${esc(txt)}</p>
+const txt=(TEASE[f]||[])[1]||'';
+return`<div class="card state"><div class="state-i" aria-hidden="true">${ico(TEASE_IC[f]||'moi')}</div><h2>${esc(FEATURES[f].n)}</h2><p>${esc(txt)}</p>
     <div class="row center"><button class="btn big" data-act="premium:${f}">Débloquer avec Premium</button><button class="btn ghost" data-act="demo">Voir dans la démo</button></div></div>`;
 }
 function tabVue(){
@@ -2165,26 +2168,34 @@ const D=APP.D||[];
 if(D.length>=min)return'';
 return`<div class="card"><h2>Analyse en cours</h2><p id="detProg">${APP.prof.demo?'':apiReady()?'Récupération du détail de tes parties (1 toutes les 2 s)…':'Service indisponible.'}</p><p class="note">Il faut au moins ${min} parties détaillées. Elles sont gardées : la prochaine fois, c'est immédiat.</p></div>`;
 }
+const BAND_V=['proches (moins de 10 m)','à moyenne distance (10 à 25 m)','de loin (25 m et plus)'];
 function tabVisee(){
 const w=detWait();if(w)return w;
 const D=APP.D,ds=duelStats(D,meIdx),W=weaponStats(D,'moi').filter(x=>GUN[x.w]).slice(0,8),R=APP.prof.rows,A=rowsAgg(R),S=ST.get('sens',{dpi:800,sens:.4});
 const cm=S.dpi>0&&S.sens>0?2.54*360/(S.dpi*S.sens*.07):null,hint=sensHint(ds,cm);
-const band=(b,i)=>{const t=rateCls(b[1],b[0]);return`<div class="band"><span>${esc(BAND_FR[i])}</span><b class="${t||''}">${b[0]?pc0(b[1]/b[0]*100):'—'}</b><small title="${esc(rateTip(b[1],b[0]))}">${b[1]}/${b[0]} duels</small><div class="bar"><i style="width:${b[0]?b[1]/b[0]*100:0}%"></i></div></div>`;};
 const hsSeries=R.slice(0,30).reverse().map(r=>{const s=r.hs+r.bs+r.ls;return s?r.hs/s*100:null;}).filter(v=>v!=null);
 const dir=hint.dir>0?'un peu plus haute (+5 à 10 %)':hint.dir<0?'un peu plus basse (−5 à 10 %)':'';
-return`<div class="grid g2">
-  <div class="card"><h2>Duels selon la distance</h2><p class="muted small">Duels à l'arme sur ${D.length} parties détaillées (capacités exclues). Couleur seulement si l'écart à 50 % est sûr.</p>
-    <div class="bands">${ds.b.map(band).join('')}</div>
-    <p class="mt8">Duels d'ouverture : <b class="${rateCls(ds.op[1],ds.op[0])||''}">${ds.op[0]?pc0(ds.op[1]/ds.op[0]*100):'—'}</b> <span class="muted small">(${ds.op[1]}/${ds.op[0]})</span> · Tous les duels : <b>${ds.all[0]?pc0(ds.all[1]/ds.all[0]*100):'—'}</b></p></div>
+const B=ds.b.map((b,i)=>({i,n:b[0],k:b[1],t:b[0]?trust(b[1],b[0],.5):''})),r=x=>x.k/x.n;
+const weak=B.filter(x=>x.t==='bad').sort((a,b)=>r(a)-r(b))[0],strong=B.filter(x=>x.t==='ok').sort((a,b)=>r(b)-r(a))[0];
+const v=weak?{cls:'bad',h:`Point faible : tes duels ${BAND_V[weak.i]}`,p:'C\'est la distance où tu perds le plus de duels, à coup sûr. La routine de visée la travaille en priorité.'}
+:strong?{cls:'ok',h:`Ta force : les duels ${BAND_V[strong.i]}`,p:'Aucune distance faible à coup sûr : entretiens ta visée et garde ta sensibilité.'}
+:{cls:'neutral',h:'Aucune distance ne ressort',p:'Tes duels sont équilibrés selon la distance : pas de point faible sûr pour l\'instant.'};
+v.facts=[['Duels d\'ouverture',`<b class="${ds.op[0]?trust(ds.op[1],ds.op[0],.5)||'':''}">${ds.op[0]?pc0(ds.op[1]/ds.op[0]*100):'—'}</b>`,`${ds.op[1]}/${ds.op[0]} gagnés (premier duel du round)`],
+['Tous les duels',`<b>${ds.all[0]?pc0(ds.all[1]/ds.all[0]*100):'—'}</b>`,`${ds.all[1]}/${ds.all[0]} à l'arme · ${D.length} parties détaillées`]];
+v.acts='<button class="btn" data-act="tab:entrainement">Routine de visée avec minuteur</button>';
+return`${verdictHtml(v,'Visée','')}
+  <div class="grid g2 mt">
+  <div class="card"><h2>Duels selon la distance</h2><ul class="plist">${B.map(x=>statRow(esc(BAND_FR[x.i]),x.k,x.n,.5,`${x.k}/${x.n} duels gagnés`)).join('')}</ul>
+    <p class="note">Duels à l'arme (capacités exclues). Trait = 50 %. Vert ou rouge seulement si l'écart est sûr.</p></div>
   <div class="card"><h2>Précision</h2><div class="kpis">
-    <div class="kpi"><span>Tête</span><b>${pc0(A.hsP)}</b><small>des balles touchées</small></div><div class="kpi"><span>Corps</span><b>${pc0(A.sh?(A.sh-A.hs-A.ls)/A.sh*100:null)}</b></div><div class="kpi"><span>Jambes</span><b>${pc0(A.lsP)}</b><small>${A.lsP>12?'viseur trop bas':'ok'}</small></div></div>
-    <p class="lbl mt">Tête % sur tes ${hsSeries.length} dernières parties</p>${spark(hsSeries)}</div>
+    <div class="kpi"><span>Tête</span><b>${pc0(A.hsP)}</b><small>des balles touchées</small></div><div class="kpi"><span>Corps</span><b>${pc0(A.sh?(A.sh-A.hs-A.ls)/A.sh*100:null)}</b></div><div class="kpi"><span>Jambes</span><b>${pc0(A.lsP)}</b><small class="${A.lsP>12?'down':''}">${A.lsP>12?'viseur trop bas':'normal'}</small></div></div>
+    <p class="lbl mt">Tête % sur tes ${hsSeries.length} dernières parties <small class="muted">(trait pointillé : ta moyenne)</small></p>${spark(hsSeries)}</div>
   <div class="card"><h2>Armes</h2><div class="tbl"><table><thead><tr><th>Arme</th><th>Kills</th><th>Morts</th><th>K/D</th><th>1er kill</th></tr></thead><tbody>
-    ${W.map(x=>`<tr><td><b>${esc(x.w)}</b> <small class="muted">${esc(GUN[x.w]||'')}</small></td><td>${x.k}</td><td>${x.d}</td><td>${fmt(x.d?x.k/x.d:x.k,2)}</td><td>${x.fk}</td></tr>`).join('')||'<tr><td colspan="5">—</td></tr>'}</tbody></table></div></div>
+    ${W.map(x=>`<tr><td><b>${esc(x.w)}</b> <small class="muted">${esc(GUN[x.w]||'')}</small></td><td>${x.k}</td><td>${x.d}</td><td class="${x.k+x.d>=10?(x.k>=x.d?'up':'down'):''}">${fmt(x.d?x.k/x.d:x.k,2)}</td><td>${x.fk}</td></tr>`).join('')||'<tr><td colspan="5">—</td></tr>'}</tbody></table></div></div>
   <div class="card"><h2>Sensibilité</h2>
     <div class="row"><div><label class="lbl" for="sDpi">DPI de ta souris</label><input id="sDpi" type="number" min="100" max="32000" step="50" value="${esc(S.dpi)}" data-sens="dpi"></div><div><label class="lbl" for="sSens">Sensibilité en jeu</label><input id="sSens" type="number" min="0.01" max="10" step="0.001" value="${esc(S.sens)}" data-sens="sens"></div></div>
     <p class="mt8">Un tour complet = <b>${cm?fmt(cm,1)+' cm':'—'}</b> de tapis${cm?` (eDPI ${Math.round(S.dpi*S.sens)})`:''}. ${hint.zone==='haute'?'C\'est très rapide (la plupart des joueurs sont entre 30 et 75 cm).':hint.zone==='basse'?'C\'est très lent : les duels proches deviennent durs.':cm?'Zone habituelle.':''}</p>
-    <div class="infobox">${dir?`Piste : essaie une sensibilité <b>${dir}</b> pendant 8 parties (${hint.why==='proche'?'tu perds tes duels proches':hint.why==='loin'?'tu perds tes duels de loin':'ta sensibilité est hors de la zone habituelle'}).`:'Rien ne montre à coup sûr qu\'il faut changer ta sensibilité : garde-la.'}</div>
+    <p class="sem ${dir?'foe':'ok'} mt8">${dir?`Piste : essaie une sensibilité ${dir} pendant 8 parties (${hint.why==='proche'?'tu perds tes duels proches':hint.why==='loin'?'tu perds tes duels de loin':'ta sensibilité est hors de la zone habituelle'}).`:'Rien ne montre à coup sûr qu\'il faut changer ta sensibilité : garde-la.'}</p>
     <p class="note"><a href="#" data-act="tab:entrainement">Test guidé de sensibilité et routine d'exercices</a> dans l'onglet Entraînement.</p></div>
   </div>`;
 }
@@ -2232,37 +2243,37 @@ function coachItems(){if((APP.D||[]).length<3)return[];const V=coachData();retur
 const metTxt=(k,v)=>v==null?'—':MET[k][2]===100?pc0(v):fmt(v,k==='cast'?2:0);
 function tabCoach(){
 const w=detWait();if(w)return w;
-const s=coachStats(),lp=s.place,P=s.pct,V=coachData(),C=V.C,rkN=RANK_FR[C.rk]||'',upN=C.up?RANK_FR[C.up]:'',per=x=>x==null?null:x*C.rpg;
-const items=V.rk?C.items:coachPub(s),rd=(x,col)=>x==null?'—':Math.abs(x)<.05?'0':`<b class="${col?(x>=0?'up':'down'):''}">${sg(x,1)}</b>`;
-const pbar=(n,v)=>`<div class="band"><span>${n}</span><b class="${v==null?'':v>=60?'ok':v<40?'bad':''}">${v==null?'—':`mieux que ${Math.round(v)} %`}</b><small>des joueurs de tes parties</small><div class="bar"><i style="width:${v||0}%"></i></div></div>`;
+const s=coachStats(),lp=s.place,Pc=s.pct,V=coachData(),C=V.C,rkN=RANK_FR[C.rk]||'',upN=C.up?RANK_FR[C.up]:'',per=x=>x==null?null:x*C.rpg,rv=x=>x==null?'—':Math.abs(x)<.05?'0':sg(x,1);
+const items=V.rk?C.items:coachPub(s),top=items.find(x=>x.lvl>=2),rest=top?items.filter(x=>x!==top):items.slice(1),T=C.tot||{};
 const src=V.W?`${V.W.matches.toLocaleString('fr-FR')} parties classées collectées${V.W.region?` (${esc(V.W.region.toUpperCase())})`:''}${V.W.au?`, jusqu'au ${esc(dFr(Date.parse(V.W.au+'T12:00:00'),{day:'numeric',month:'long'}))}`:''}`:`tes lobbys (les 9 autres joueurs de tes ${V.L.n||0} parties)`;
 const lvlTxt=x=>x.lvl===3?'Priorité':x.lvl===2?'Important':x.cost!=null?'À confirmer':'Conseil';
 const itemHtml=x=>`<div class="coach"><span class="lvl lvl${x.lvl}">${lvlTxt(x)}</span><div><b>${esc(x.t)}</b>
     ${x.cost!=null?`<p>Te coûte <b class="down">${fmt(x.cost,1)} round${x.cost>=2?'s':''} par partie</b> face aux joueurs ${esc(rkN)} de ton rôle${x.sure?'':' <small class="muted">(pas encore sûr : à confirmer sur plus de parties)</small>'}</p>`:x.why?`<p>${esc(x.why)}</p>`:''}
     ${(x.causes||[]).map(c=>`<p class="small">${esc(c.t)} : <b class="down">${metTxt(c.k,c.me)}</b> <span class="muted">(${esc(rkN)} : ${metTxt(c.k,c.ref)}${c.up!=null&&upN?` · ${esc(upN)} : ${metTxt(c.k,c.up)}`:''})</span>${c.sure?'':' <small class="muted">· à confirmer</small>'}</p>`).join('')}
     <p class="fix">→ ${esc(x.fix)}</p></div></div>`;
-const T=C.tot||{},rows=(C.cats||[]).map(c=>`<tr><td>${esc(c.t)}</td><td>${rd(per(c.me),true)}</td><td>${rd(per(c.ref))}</td><td>${c.cost==null?'—':Math.abs(c.cost)<.05?'0':`${rd(-c.cost,true)}${c.sure?'':' <small class="muted">(à confirmer)</small>'}`}</td></tr>`).join('');
+const v=top?{cls:top.lvl===3?'bad':'foe',h:`Priorité : ${top.t}`,p:`→ ${top.fix}`,facts:[top.cost!=null&&['Te coûte',`<b class="down">${fmt(top.cost,1)} round${top.cost>=2?'s':''}</b>`,`par partie face aux joueurs ${esc(rkN)} de ton rôle${top.sure?'':' (à confirmer)'}`]].filter(Boolean)}
+:{cls:'ok',h:'Aucun point faible sûr',p:items[0]&&items[0].fix?`→ ${items[0].fix}`:'Continue comme ça : le coach se met à jour tout seul après tes parties.',facts:[]};
+if(V.rk)v.facts.push(['Tes kills et tes morts',`<b class="${(per(T.me)||0)>=0?'up':'down'}">${rv(per(T.me))}</b>`,`round par partie pour ton équipe · joueur ${esc(rkN)} de ton rôle : ${rv(per(T.ref))}`]);
+if(lp)v.facts.push(['Place moyenne',`<b>${fmt(lp.place,1)}<small>/10</small></b>`,`dans tes ${s.n} parties détaillées`]);
+v.acts='<button class="btn" data-act="tab:entrainement">Routine complète avec minuteur</button>';
+const lvlPill=x=>!x.below?'<span class="pill ok">au niveau</span>':x.sure?'<span class="pill bad">en dessous</span>':'<span class="pill warn">un peu en dessous</span>';
 const nx=C.next||[],nextHtml=nx.length?`<div class="card"><div class="card-h"><h2>Pour passer ${esc(upN)}</h2><span class="pill">${nx.filter(x=>!x.below).length}/${nx.length} au niveau</span></div>
-    <p class="muted small">Ce qui change vraiment d'un rang à l'autre. Les autres chiffres (dégâts, duels gagnés, KAST) restent presque égaux à tous les rangs : chacun joue contre son niveau.</p>
-    <div class="tbl"><table class="small"><thead><tr><th></th><th>Toi</th><th>${esc(rkN)}</th><th>${esc(upN)}</th></tr></thead><tbody>
-    ${nx.map(x=>`<tr><td>${esc(x.t)}</td><td><b class="${!x.below?'up':x.sure?'down':''}">${!x.below?'✔ ':''}${metTxt(x.k,x.me)}</b></td><td>${metTxt(x.k,x.ref)}</td><td>${metTxt(x.k,x.up)}</td></tr>`).join('')}</tbody></table></div>
-    <p class="note">Vert : déjà au niveau ${esc(upN)} · rouge : en dessous à coup sûr (à travailler) · blanc : un peu en dessous, pas encore sûr. Joueurs ${esc(rkN)} et ${esc(upN)} qui jouaient le même rôle que toi, partie par partie.</p></div>`:'';
-return`${V.rk?`<div class="card"><div class="card-h"><h2>Ce qui te coûte des rounds</h2><span class="pill">${esc(rkN)}</span></div>
-    <p>Tes kills et tes morts rapportent ${rd(per(T.me),true)} round par partie à ton équipe · joueur ${esc(rkN)} de ton rôle : ${rd(per(T.ref))}.</p>
-    ${items.map(itemHtml).join('')}
-    ${C.strong&&C.strong.length?`<p class="mt8"><b>Tes forces</b> : ${C.strong.map(c=>`${esc(c.t)} (<b class="up">+${fmt(-c.cost,1)}</b> round/partie)`).join(', ')}.</p>`:''}
-    <p class="note">Impact = variation des chances de gagner le round à chacun de tes kills et de tes morts (modèle appris sur ${V.W&&V.W.M?'les parties collectées':'tes parties'}). Chaque partie est comparée aux joueurs ${esc(rkN)} qui jouaient le même rôle que toi. Référence : ${src}. « À confirmer » = écart encore trop petit pour exclure le hasard (seuil 90 %).</p></div>`
-:`<div class="card"><h2>Tes priorités</h2>${items.map(itemHtml).join('')}<p class="note">Rang inconnu : joue des parties classées pour être comparé aux joueurs de ton rang.</p></div>`}
+    <p class="muted small">Ce qui change vraiment d'un rang à l'autre (dégâts, duels gagnés, KAST restent presque égaux à tous les rangs : chacun joue contre son niveau). Joueurs de ton rôle, partie par partie.</p>
+    ${nx.map(x=>{const m=Math.max(x.me||0,x.ref||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${lvlPill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(rkN,x.ref,m,metTxt(x.k,x.ref))}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}</div>`:'';
+const phase=c=>{const e=c.cost==null?null:-c.cost;return`<div class="drow"><span>${esc(c.t)}<small class="muted">toi ${rv(per(c.me))} · ${esc(rkN)} ${rv(per(c.ref))}${c.cost!=null&&!c.sure?' · à confirmer':''}</small></span><span class="dbar" aria-hidden="true">${e==null?'':`<i class="${e>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(e)*40)}%"></i>`}</span><b class="${e==null||Math.abs(e)<.05?'':e>=0?'up':'down'}">${e==null?'—':rv(e)}</b></div>`;};
+const pct2=(n,x)=>`<li class="srow"><div><b>${n}</b><small>${x==null?'pas assez de parties':`mieux que ${Math.round(x)} % des joueurs de tes parties`}</small></div><div class="val"><b>${x==null?'—':Math.round(x)+' %'}</b>${x==null?'':barHtml(x/100,.5,x>=60?'ok':x<40?'bad':'')}</div></li>`;
+return`${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
+  ${rest.length||(C.strong&&C.strong.length)?`<div class="card mt"><h2>${rest.length?(top?'Tes autres priorités':'Autres conseils'):'Tes forces'}</h2>${rest.map(itemHtml).join('')}
+    ${C.strong&&C.strong.length?`<p class="sem ok mt8">Tes forces : ${C.strong.map(c=>`${esc(c.t)} (+${fmt(-c.cost,1)} round/partie)`).join(', ')}</p>`:''}</div>`:''}
   <div class="grid g2 mt">${nextHtml}
-  ${V.rk?`<div class="card"><h2>Détail par phase du round</h2><p class="muted small">Rounds par partie gagnés (+) ou perdus (−) par tes kills et tes morts, sur ${C.n} parties détaillées.</p>
-    <div class="tbl"><table class="small"><thead><tr><th>Phase</th><th>Toi</th><th>${esc(rkN)}</th><th>Écart</th></tr></thead><tbody>${rows}</tbody></table></div></div>`:''}
+  ${V.rk?`<div class="card"><h2>Détail par phase du round</h2><p class="muted small">Rounds par partie gagnés (+) ou perdus (−) par tes kills et tes morts, contre un joueur ${esc(rkN)} de ton rôle, sur ${C.n} parties détaillées.</p>${(C.cats||[]).map(phase).join('')}</div>`:''}
   <div class="card"><h2>Ta place dans tes parties</h2><p class="muted small">${s.n} parties détaillées, comparé aux 9 autres joueurs de chaque partie (anonymes).</p>
-    ${lp?`<div class="kpis"><div class="kpi"><span>Place moyenne</span><b>${fmt(lp.place,1)}<small>/10</small></b></div><div class="kpi"><span>MVP de la partie</span><b>${pc0(lp.mvp)}</b></div><div class="kpi"><span>Meilleur de ton équipe</span><b>${pc0(lp.top)}</b></div><div class="kpi"><span>KAST</span><b>${pc0(s.kast)}</b></div></div>`:''}
-    <div class="bands mt8">${pbar('Score de combat',P.sc)}${pbar('Dégâts',P.dmg)}${pbar('Kills − morts',P.kd)}${pbar('Tête %',P.hs)}</div></div>
+    ${lp?`<div class="kpis"><div class="kpi"><span>MVP de la partie</span><b>${pc0(lp.mvp)}</b></div><div class="kpi"><span>Meilleur de ton équipe</span><b>${pc0(lp.top)}</b></div><div class="kpi"><span>KAST</span><b>${pc0(s.kast)}</b></div></div>`:''}
+    <ul class="plist mt8">${pct2('Score de combat',Pc.sc)}${pct2('Dégâts',Pc.dmg)}${pct2('Kills − morts',Pc.kd)}${pct2('Tête %',Pc.hs)}</ul></div>
   <div class="card"><h2>Les exercices qui vont avec</h2><ol class="plan">${items.slice(0,3).map(x=>(DRILL[x.k]||DRILL[x.cat]||DRILL.ok).slice(0,2).map(d=>`<li>${esc(d)} <small class="muted">(${esc(x.t)})</small></li>`).join('')).join('')}</ol>
-    <div class="row mt8"><button class="btn sm" data-act="tab:entrainement">🏋️ Routine complète avec minuteur</button></div>
-    <p class="note">Les exercices se font en Range, en Deathmatch ou avec un aim trainer gratuit. Le coach se met à jour tout seul après tes parties.</p></div>
-  </div>`;
+    <p class="note">En Range, en Deathmatch ou avec un aim trainer gratuit. La routine complète avec minuteur est dans l'onglet Entraînement.</p></div>
+  </div>
+  <p class="note">Impact = variation des chances de gagner le round à chacun de tes kills et de tes morts (modèle appris sur ${V.W&&V.W.M?'les parties collectées':'tes parties'}). Référence : ${src}. « À confirmer » = écart encore trop petit pour exclure le hasard (seuil 90 %).${V.rk?'':' Rang inconnu : joue des parties classées pour être comparé aux joueurs de ton rang.'}</p>`;
 }
 function tabComparer(){
 const C=APP.cmp,P=APP.prof;
@@ -2270,13 +2281,12 @@ const form=`<form id="cmpForm" class="row" autocomplete="off"><input id="cmpRiot
     <label class="chk small mt8"><input type="checkbox" id="cmpOk"> Mon ami est d'accord pour que je regarde ses stats.</label>`;
 if(!C)return`<div class="card"><h2>Comparer avec un ami</h2>${form}<p class="note">Même région que toi. Ses 20 dernières parties classées.</p></div>`;
 const a=rowsAgg(P.rows.slice(0,20)),b=rowsAgg(C.rows.slice(0,20)),la=aggBy(P.rows,'agent')[0],lb=aggBy(C.rows,'agent')[0];
-const line=(n,x,y,d=1,low)=>{const bx=x!=null&&y!=null&&(low?x<y:x>y),by=x!=null&&y!=null&&(low?y<x:y>x);return`<tr><td>${n}</td><td class="${bx?'best':''}">${x==null?'—':fmt(x,d)}</td><td class="${by?'best':''}">${y==null?'—':fmt(y,d)}</td></tr>`;};
+const pair=(n,x,y,d=1)=>{const m=Math.max(Math.abs(x||0),Math.abs(y||0))||1,bx=x!=null&&y!=null&&x>y,by=x!=null&&y!=null&&y>x;
+return`<div class="cmpx"><p class="small"><b>${n}</b></p><div class="mbars">${mbarH(P.name,x==null?0:Math.abs(x),m,(x==null?'—':fmt(x,d))+(bx?' ✓':''),true)}${mbarH(C.name,y==null?0:Math.abs(y),m,(y==null?'—':fmt(y,d))+(by?' ✓':''))}</div></div>`;};
 return`<div class="card"><h2>Toi contre ${esc(C.name)}</h2>${form}
-  <div class="tbl mt"><table class="cmp"><thead><tr><th></th><th>${esc(P.name)}</th><th>${esc(C.name)}</th></tr></thead><tbody>
-    <tr><td>Rang</td><td>${esc(tierFr(P.mmr.tier))}</td><td>${esc(tierFr(C.mmr.tier))}</td></tr>
-    ${line('Victoires %',a.wr,b.wr,0)}${line('K/D',a.kd,b.kd,2)}${line('ACS',a.acs,b.acs,0)}${line('ADR',a.adr,b.adr,0)}${line('Tête %',a.hsP,b.hsP,1)}${line('DDΔ',a.dd,b.dd,0)}${line('Kills / round',a.kpr,b.kpr,2)}
-    <tr><td>Agent principal</td><td>${la?agImg(la.key)+' '+esc(la.key):'—'}</td><td>${lb?agImg(lb.key)+' '+esc(lb.key):'—'}</td></tr></tbody></table></div>
-  <p class="note">Sur les 20 dernières parties classées de chacun. En gras : le meilleur.</p></div>`;
+    <div class="grid g2 mt"><div class="mini">${la?agImg(la.key):''}<div><b>${esc(P.name)}</b><small>${esc(tierFr(P.mmr.tier))}${la?` · ${esc(la.key)}`:''}</small></div></div><div class="mini">${lb?agImg(lb.key):''}<div><b>${esc(C.name)}</b><small>${esc(tierFr(C.mmr.tier))}${lb?` · ${esc(lb.key)}`:''}</small></div></div></div>
+    <div class="cmpgrid mt">${pair('Victoires %',a.wr,b.wr,0)}${pair('K/D',a.kd,b.kd,2)}${pair('ACS',a.acs,b.acs,0)}${pair('ADR',a.adr,b.adr,0)}${pair('Tête %',a.hsP,b.hsP,1)}${pair('DDΔ',a.dd,b.dd,0)}${pair('Kills / round',a.kpr,b.kpr,2)}</div>
+    <p class="note">Sur les 20 dernières parties classées de chacun · ✓ = le meilleur des deux · ta barre est à ta couleur.</p></div>`;
 }
 async function openReport(id){
 const P=APP.prof,r=P.rows.find(x=>x.id===id);if(!r)return;
@@ -2481,7 +2491,7 @@ return`<div class="tbl"><table class="small"><thead><tr><th>Zone</th><th>Type</t
 function posOverview(D,maps,now){
 return`<div class="ovw">${maps.slice(0,10).map(m=>{const cos=cosOf(m.map),ctl=posControl(D,m.map,cos);
 const best=side=>{const z=posZones(D,m.map,side,cos,now,ctl).list.filter(x=>x.setup&&x.ev>=4)[0];return z?`<b>${esc(z.z)}</b> <small class="muted">${z.k}-${z.d}</small>`:'<span class="muted">—</span>';};
-return`<button type="button" class="ovw-i" data-act="posgo:${esc(m.map)}" style="--mbg:url('${IMG.map(m.map,'listviewicon')}')"><span class="ovw-n">${esc(m.map)} <small>${m.n} p.</small></span><span>⚔️ ${best('A')}</span><span>🛡️ ${best('D')}</span></button>`;}).join('')}</div>`;
+return`<button type="button" class="ovw-i" data-act="posgo:${esc(m.map)}" style="--mbg:url('${IMG.map(m.map,'listviewicon')}')"><span class="ovw-n">${esc(m.map)} <small>${m.n} p.</small></span><span><small class="muted">Attaque</small> ${best('A')}</span><span><small class="muted">Défense</small> ${best('D')}</span></button>`;}).join('')}</div>`;
 }
 function siteGeo(map,cos,ctl,S,path){
 const sa=coSpawn(cos,true),sd=coSpawn(cos,false),dist=(c,p)=>p?Math.hypot(c[2]-p[2],c[3]-p[3]):0;
@@ -2684,24 +2694,29 @@ return`<div class="card"><div class="card-h"><h2>Playlists prêtes à lancer</h2
 }
 function upHtml(C){
 if(!C.next.length)return'';const upN=RANK_FR[C.up]||'';
+const pill=x=>!x.below?'<span class="pill ok">au niveau</span>':x.sure?'<span class="pill bad">en dessous</span>':'<span class="pill warn">un peu en dessous</span>';
 return`<div class="card"><h2>Ce que ton entraînement doit faire monter</h2><p class="muted small">Les chiffres qui séparent vraiment les rangs (10 790 profils collectés) : toi contre les joueurs ${esc(upN)} de ton rôle.</p>
-    <div class="bands">${C.next.map(x=>`<div class="band"><span>${esc(x.t)}</span><b class="${!x.below?'ok':x.sure?'bad':''}">${metTxt(x.k,x.me)}</b><small>objectif ${esc(upN)} : ${metTxt(x.k,x.up)}</small><div class="bar"><i style="width:${Math.min(100,x.up?x.me/x.up*100:0)}%"></i></div></div>`).join('')}</div>
-    <p class="note">Vert : déjà au niveau · rouge : en dessous à coup sûr, la routine le travaille. Vérifie l'effet sur tes 20 prochaines parties.</p></div>`;
+    ${C.next.map(x=>{const m=Math.max(x.me||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${pill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}
+    <p class="note">La routine travaille ce qui est en dessous à coup sûr. Vérifie l'effet sur tes 20 prochaines parties.</p></div>`;
 }
 ACT.plCopy=id=>{const p=TR_PLAYLISTS.find(x=>x.id===id);if(p)copyText(p.n,'Nom copié : colle-le dans la recherche de l\'appli');};
 function tabTrain(){
-const C=trCtx(),R=trRoutine(C.focus,C.min,C.ctx,TR_DRILLS,C.role),logs=trLogs();
+const C=trCtx(),R=trRoutine(C.focus,C.min,C.ctx,TR_DRILLS,C.role),logs=trLogs(),tot=R.reduce((s,b)=>s+b.min,0),Sv=suiviStats(logs);
 const chip=(k,v,t,cur)=>`<button type="button" class="chip${cur===v?' on':''}" data-act="tr:${k}:${v}" aria-pressed="${cur===v}">${t}</button>`;
 const blk=(b,i)=>{const d=TR_DRILLS[b.k];return`<li class="drill"><div class="drill-h"><b>${i+1}. ${esc(d.n)}</b><span class="pill">${b.min} min</span></div>
     <p>${esc(fillLv(d.drill,C.L))}</p><p class="small"><b>Où :</b> ${esc(fillLv(d.set[C.tool]||d.set.all||d.set.range,C.L))}</p>
     <p class="small muted"><b>Pourquoi :</b> ${esc(d.why)} · <b>Objectif :</b> ${esc(fillLv(d.goal,C.L))}</p></li>`;};
-return`<div class="grid g2">
-  <div class="card"><div class="card-h"><h2>Routine du jour</h2><span class="pill">niveau ${esc(C.L.n)}</span></div>
-    <p class="muted small">Réglée sur ton rang (${esc(tierFr(C.P.mmr.tier))})${C.focus.length?' et sur tes points faibles sûrs':''}. ${C.focus.length?'':(C.D.length>=3?'Aucun point faible sûr : routine équilibrée.':'Joue quelques parties pour une routine sur mesure.')}</p>
-    <div class="row mt8"><div class="chips">${chip('ctx','echauffement','🔥 Avant la ranked',C.ctx)}${chip('ctx','progression','📈 Séance de progression',C.ctx)}</div></div>
+const ef=Sv.ef&&Sv.ef.nb>=5&&Sv.ef.na>=5?Sv.ef:null;
+const v={h:`Routine du jour : ${tot} min`,p:`Réglée sur ton rang (${tierFr(C.P.mmr.tier)})${C.focus.length?' et sur tes points faibles sûrs.':C.D.length>=3?'. Aucun point faible sûr : routine équilibrée.':'. Joue quelques parties pour une routine sur mesure.'}`,
+facts:[['Série',`<b>${Sv.streak}<small> jour${Sv.streak>1?'s':''}</small></b>`,'d\'entraînement d\'affilée'],['Cette semaine',`<b>${Sv.wkMin}<small> min</small></b>`,`${Sv.wkN} séance(s) · ${logs.length} au total`],
+['Effet mesuré',`<b class="${ef?(ef.mb>=ef.ma?'up':'down'):''}">${ef?`${sg((ef.mb-ef.ma)*100,0)} %`:'—'}</b>`,ef?`d'ACS les soirs entraînés${Math.abs(ef.z)>=1.64?' (sûr)':' (pas encore sûr)'}`:'il faut 5 parties de chaque côté']],
+acts:`<button class="btn" data-act="tmStart">▶ Lancer le minuteur (${tot} min)</button><button class="btn ghost" data-act="tmLog">J'ai fait la séance sans minuteur</button>`};
+return`${verdictHtml(v,`Entraînement · niveau ${esc(C.L.n)}`,'')}
+  <div class="grid g2 mt">
+  <div class="card"><h2>Ta routine</h2>
+    <div class="chips">${chip('ctx','echauffement','Avant la ranked',C.ctx)}${chip('ctx','progression','Séance de progression',C.ctx)}</div>
     <div class="row mt8"><div class="chips">${[10,20,30,45].map(m=>chip('min',m,m+' min',C.min)).join('')}</div><div class="chips">${Object.keys(TOOL_FR).map(t=>chip('tool',t,TOOL_FR[t],C.tool)).join('')}</div></div>
     <ol class="drills">${R.map(blk).join('')}</ol>
-    <div class="row"><button class="btn big" data-act="tmStart">▶ Lancer le minuteur (${R.reduce((s,b)=>s+b.min,0)} min)</button><button class="btn ghost" data-act="tmLog">J'ai fait la séance sans minuteur</button></div>
     <p class="note">Le minuteur reste visible en bas de l'écran, même si tu changes d'onglet. Un bip à chaque changement d'exercice.</p></div>
   <div class="card"><h2>Tes priorités</h2>${C.items.length?C.items.slice(0,4).map(x=>`<div class="coach"><span class="lvl lvl${x.lvl}">${x.lvl===3?'Priorité':x.lvl===2?'Important':'Conseil'}</span><div><b>${esc(x.t)}</b><p>${x.why?esc(x.why):x.cost!=null?`Te coûte ${fmt(x.cost,1)} round par partie${x.sure?'':' (à confirmer)'}.`:esc(x.fix||'')}</p></div></div>`).join('')
 :`<p class="muted">${C.D.length>=3?'':'Il faut au moins 3 parties détaillées pour trouver tes points faibles (ouvre l\'onglet Visée ou Coach une fois).'}</p>`}
@@ -2713,7 +2728,7 @@ return`<div class="grid g2">
     <div class="card"><h2>Ta semaine</h2>${weekHtml(C)}</div>
     <div class="card"><h2>Sensibilité</h2>${sensHtml(C)}</div>
   </div>
-  <div class="card mt"><h2>Ton suivi</h2>${suiviHtml(logs)}</div>`;
+  <div class="card mt"><h2>Tes dernières séances</h2>${suiviHtml(logs)}</div>`;
 }
 function weekHtml(C){
 const rows=C.P.rows,play=habitDays(rows.map(r=>evDate(r.ts)),2),W=trWeek(C.focus,play,TR_DRILLS),td=(new Date().getDay()+6)%7;
@@ -2724,7 +2739,7 @@ return`<div class="week">${W.map(([d,type,ks,min,rk])=>`<div class="wd${d===td?'
 function sensHtml(C){
 const S=ST.get('sens',{dpi:800,sens:.4}),cm=S.dpi>0&&S.sens>0?2.54*360/(S.dpi*S.sens*.07):null,ds=duelStats(C.D,meIdx),hint=sensHint(ds,cm),psa=ST.get('psa',null);
 const pos=cm?Math.max(0,Math.min(100,(cm-15)/(90-15)*100)):null,dir=hint.dir>0?'un peu plus haute (+5 à 10 %)':hint.dir<0?'un peu plus basse (−5 à 10 %)':'';
-const psaBox=!psa?`<button class="btn ghost" data-act="psa:go">🎯 Test guidé (7 manches, 15 min)</button>`
+const psaBox=!psa?`<button class="btn ghost" data-act="psa:go">Test guidé (7 manches, 15 min)</button>`
 :psa.step>=7?`<div class="infobox">Résultat du test : <b>${fmt((psa.pair[0]+psa.pair[1])/2,3)}</b> (tu étais à ${fmt(psa.base,3)}). <button class="btn sm" data-act="psa:keep">La garder</button> <button class="btn ghost sm" data-act="psa:stop">Fermer</button></div>`
 :`<div class="infobox"><b>Manche ${psa.step+1} sur 7</b> : joue 1 minute de Range ou de deathmatch avec <b>A = ${fmt(psa.pair[0],3)}</b>, puis 1 minute avec <b>B = ${fmt(psa.pair[1],3)}</b>. Laquelle était la plus précise ?
       <div class="row mt8"><button class="btn sm" data-act="psa:0">A (${fmt(psa.pair[0],3)})</button><button class="btn sm" data-act="psa:1">B (${fmt(psa.pair[1],3)})</button><button class="btn ghost sm" data-act="psa:stop">Arrêter</button></div></div>`;
@@ -2742,16 +2757,15 @@ return`<p class="small">Dernier : <b>${s.last} ms</b>${s.usual?` · d'habitude $
     ${s.state==='fatigue'?`<p class="small"><span class="pill bad">${sg(s.diff,0)} %</span> Plus lent que d'habitude : échauffement complet et session courte ce soir.</p>`:s.state==='forme'?'<p class="small"><span class="pill ok">en forme</span> Plus rapide que d\'habitude.</p>':''}
     <p class="note">À comparer seulement avec toi-même : l'écran et le navigateur ajoutent leur propre délai.</p>`;
 }
-function suiviHtml(logs){
+function suiviStats(logs){
 const P=APP.prof,now=new Date(),d0=new Date(now);d0.setHours(0,0,0,0);d0.setDate(d0.getDate()-(d0.getDay()+6)%7);
-const wk=logs.filter(l=>l.d>=new Date(d0-d0.getTimezoneOffset()*6e4).toISOString().slice(0,10)),streak=trStreak(logs.map(l=>l.d),today());
-const days=new Set(logs.map(l=>l.d)),acs=rowsAgg(P.rows).acs,S=sessionsOf(P.rows);
-const rows=acs?S.flatMap(s=>s.map((r,i)=>({r:r.sc/r.r/acs,tr:days.has(evDate(r.ts)),first:i===0}))):[],ef=trainEffect(rows).all;
-return`<div class="kpis"><div class="kpi"><span>Série</span><b>${streak}<small> jour${streak>1?'s':''}</small></b><small>d'entraînement d'affilée</small></div>
-    <div class="kpi"><span>Cette semaine</span><b>${wk.reduce((s,l)=>s+(+l.min||0),0)}<small> min</small></b><small>${wk.length} séance(s)</small></div>
-    <div class="kpi"><span>Au total</span><b>${logs.length}</b><small>séances</small></div>
-    <div class="kpi"><span>Effet mesuré</span><b>${ef&&ef.nb>=5&&ef.na>=5?`${sg((ef.mb-ef.ma)*100,0)} %`:'—'}</b><small>${ef&&ef.nb>=5&&ef.na>=5?`ACS les soirs entraînés${Math.abs(ef.z)>=1.64?' (sûr)':' (pas encore sûr)'}`:'il faut 5 parties de chaque côté'}</small></div></div>
-    ${logs.length?`<div class="tbl mt8"><table class="small"><thead><tr><th>Date</th><th>Séance</th><th>Durée</th><th>Exercices</th></tr></thead><tbody>${logs.slice(-8).reverse().map(l=>`<tr><td>${esc(dFr(Date.parse(l.d+'T12:00:00')))}</td><td>${esc(l.ctx==='progression'?'Progression':'Échauffement')}</td><td>${+l.min||0} min</td><td>${esc((l.keys||[]).map(k=>(TR_DRILLS[k]||{}).n).filter(Boolean).join(', '))}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">Lance ta première routine : ta série et l\'effet sur tes parties apparaîtront ici.</p>'}`;
+const wk=logs.filter(l=>l.d>=new Date(d0-d0.getTimezoneOffset()*6e4).toISOString().slice(0,10)),days=new Set(logs.map(l=>l.d)),acs=rowsAgg(P.rows).acs,S=sessionsOf(P.rows);
+const rows=acs?S.flatMap(s=>s.map((r,i)=>({r:r.sc/r.r/acs,tr:days.has(evDate(r.ts)),first:i===0}))):[];
+return{streak:trStreak(logs.map(l=>l.d),today()),wkMin:wk.reduce((s,l)=>s+(+l.min||0),0),wkN:wk.length,ef:trainEffect(rows).all};
+}
+function suiviHtml(logs){
+return logs.length?`<div class="tbl"><table class="small"><thead><tr><th>Date</th><th>Séance</th><th>Durée</th><th>Exercices</th></tr></thead><tbody>${logs.slice(-8).reverse().map(l=>`<tr><td>${esc(dFr(Date.parse(l.d+'T12:00:00')))}</td><td>${esc(l.ctx==='progression'?'Progression':'Échauffement')}</td><td>${+l.min||0} min</td><td>${esc((l.keys||[]).map(k=>(TR_DRILLS[k]||{}).n).filter(Boolean).join(', '))}</td></tr>`).join('')}</tbody></table></div>`
+:'<p class="muted">Pas encore de séance : lance ta première routine, ta série et l\'effet sur tes parties apparaîtront ici.</p>';
 }
 let TM=null,AC=null;
 function beep(n=2){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();for(let i=0;i<n;i++){const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+i*.22;o.frequency.value=880;g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.18);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+.2);}}catch(e){}}
@@ -2946,7 +2960,7 @@ document.body.classList.remove('busy');
 }
 async function openDemo(noPush,tab){APP.prof=demoProfile();APP.tab=TAB_KEYS.includes(tab)?tab:'vue';APP.filt=null;APP.cmp=null;APP.D=null;APP.pos=null;APP.strat=null;await licRefresh();themeRefresh();render();window.scrollTo(0,0);setHash(!noPush);}
 function render(){
-if(APP.cfg.maintenance&&APP.plan!=='dieu'){document.body.classList.remove('has-gnav');$('#app').innerHTML=`<div class="card teaser"><div class="tz-ic">🛠️</div><h2>Maintenance</h2><p class="lead">${esc(APP.cfg.nom)} revient très vite. ${esc(APP.cfg.annonce)}</p></div>`;return;}
+if(APP.cfg.maintenance&&APP.plan!=='dieu'){document.body.classList.remove('has-gnav');$('#app').innerHTML=`<div class="card state"><div class="state-i" aria-hidden="true">${ico('settings')}</div><h2>Maintenance</h2><p>${esc(APP.cfg.nom)} revient très vite. ${esc(APP.cfg.annonce)}</p></div>`;return;}
 if(!APP.prof)renderLanding();else renderProfile();
 const P=APP.prof;$('#qRiot').value=P&&!P.demo?P.riot:'';if(P&&!P.demo)$('#qReg').value=P.region;
 }
