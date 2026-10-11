@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0001. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0012. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1213,7 +1213,7 @@ const mixHex=(a,b,t)=>{const A=hexRgb(a),B=hexRgb(b);return A&&B?rgbHex(A.map((x
 const relLum=h=>{const c=hexRgb(h);if(!c)return 0;const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;};return.2126*f(c[0])+.7152*f(c[1])+.0722*f(c[2]);};
 const contrast=(a,b)=>{const x=relLum(a),y=relLum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 function readable(c,bg,min=4.5){if(!hexRgb(c))return'#ffffff';let x=c;for(let i=1;i<=20&&contrast(x,bg)<min;i++)x=mixHex(c,'#ffffff',i/20);return x;}
-const THEME_DEF={mode:'auto',agent:'',map:'',bg:'auto',blur:0,dark:70,fx:'aucun',accent:'',fontT:'auto',fontB:'systeme',radius:14,density:'confort',cards:'plein',anim:true,streamer:false,blocks:[],hidden:[]};
+const THEME_DEF={mode:'auto',agent:'',map:'',bg:'auto',blur:0,dark:70,fx:'aucun',accent:'',fontT:'auto',fontB:'systeme',radius:14,density:'confort',cards:'plein',anim:true,streamer:false,blocks:[],hidden:['agents','cartes','records']};
 const THEME_ENUM={mode:['auto','dernier','neutre','agent','rang','carte','cartejoueur','perso'],bg:['auto','art','portrait','splash','card','degrade','image'],
 fx:['auto','aucun','grain','scan','neon','particules'],fontT:['auto','systeme','marker','teko','bebas','rajdhani','orbitron','oxanium','russo','chakra','exo','anton'],
 fontB:['systeme','rajdhani','exo','chakra','oxanium'],density:['confort','compact'],cards:['verre','plein','neon']};
@@ -1228,7 +1228,7 @@ o.accent=hexRgb(r.accent)?'#'+String(r.accent).trim().replace('#','').toLowerCas
 o.blur=intIn(r.blur,0,20,o.blur);o.dark=intIn(r.dark,30,95,o.dark);o.radius=intIn(r.radius,0,24,o.radius);
 o.anim=r.anim!==false;o.streamer=r.streamer===true;
 o.blocks=Array.isArray(r.blocks)?[...new Set(r.blocks.filter(b=>BLOCKS.includes(b)))]:[];
-o.hidden=Array.isArray(r.hidden)?[...new Set(r.hidden.filter(b=>BLOCKS.includes(b)))]:[];
+o.hidden=Array.isArray(r.hidden)?[...new Set(r.hidden.filter(b=>BLOCKS.includes(b)))]:o.hidden;
 return o;
 }
 function themeFree(t){
@@ -1966,7 +1966,7 @@ if(f&&!featOn(f,APP.plan,APP.cfg)){el.innerHTML=teaser(f);return;}
 try{el.innerHTML=({vue:tabVue,parties:tabParties,agents:tabAgents,position:tabPosition,strategie:tabStrat,entrainement:tabTrain,visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer}[APP.tab]||tabVue)();runAfter();}
 catch(e){console.error(e);el.innerHTML=`<div class="card">${empty('Affichage impossible : '+e.message)}</div>`;logErr(e);}
 if(['visee','coach','vue','position','strategie','entrainement'].includes(APP.tab))detNeed();
-if(['position','agents'].includes(APP.tab)&&(APP.atlas===undefined||!APP.D)){
+if(APP.tab==='position'&&(APP.atlas===undefined||!APP.D)){
 const P=APP.prof,tab=APP.tab;Promise.all([atlasLoad(),APP.D?null:detAll(P).then(D=>{if(!APP.D)APP.D=D;})])
 .then(()=>{if(APP.prof===P&&APP.tab===tab&&canRerender())renderTab();}).catch(e=>logErr(e));
 }
@@ -1988,7 +1988,9 @@ function tabVue(){
 const P=APP.prof,R=P.rows,t=themeUsed(),order=(t.blocks.length?t.blocks.concat(BLOCKS.filter(b=>!t.blocks.includes(b))):BLOCKS).filter(b=>!t.hidden.includes(b));
 if(!R.length)return stateHtml(ico('moi'),'Aucune partie classée récente','Joue une partie classée, puis actualise : tes stats apparaissent ici.',P.demo?null:['Actualiser','refresh']);
 const B={kpis:bKpis,session:bSession,objectif:bObjectif,forme:bForme,rr:bRR,agents:bAgents,cartes:bCartes,records:bRecords,dernier:bDernier,defis:bDefis,succes:bSucces};
-return`<div class="vue">${order.filter(b=>B[b]).map(b=>{let h='';try{h=B[b]();}catch(e){console.error(e);logErr(e);}return h?`<div class="blk-${b}">${h}</div>`:'';}).join('')}</div>`;
+const hid=t.hidden.filter(b=>B[b]);
+return`<div class="vue">${order.filter(b=>B[b]).map(b=>{let h='';try{h=B[b]();}catch(e){console.error(e);logErr(e);}return h?`<div class="blk-${b}">${h}</div>`:'';}).join('')}</div>
+    ${hid.length?`<p class="note">Blocs masqués : ${hid.map(b=>esc(BLOCK_FR[b])).join(', ')}. <a href="#" data-act="perso">Les afficher ou changer l'ordre</a></p>`:''}`;
 }
 function sessionLimit(rows){return nightLimit(nthStats(sessionsOf(rows).map(s=>s.map(r=>r.res))));}
 function bSession(){
@@ -2124,8 +2126,8 @@ return`<div class="card"><div class="card-h"><h2>Agents</h2><span class="muted s
     ${aggTable(A,'Agent',a=>agImg(a))}
     ${featOn('perso',APP.plan,APP.cfg)?`<p class="note">Astuce : Personnaliser › « Agent au choix » pour mettre l'interface aux couleurs de n'importe quel agent.</p>`:''}</div>
   <h2 class="mt" id="cartes">Cartes</h2>${tabCartes()}
-  ${APP.atlas!==undefined?sitesCard(APP.D||[]):''}
-  ${pickTable()}`;
+  ${pickTable()}
+  <p class="note">Site le plus attaqué carte par carte et tes meilleures zones : <a href="#" data-act="tab:position">Tactique › Positionnement</a> (bloc « Toutes les cartes »).</p>`;
 }
 function tabCartes(){
 const A=aggBy(APP.prof.rows,'map');
@@ -2193,10 +2195,9 @@ return`${verdictHtml(v,'Visée','')}
   <div class="card"><h2>Armes</h2><div class="tbl"><table><thead><tr><th>Arme</th><th>Kills</th><th>Morts</th><th>K/D</th><th>1er kill</th></tr></thead><tbody>
     ${W.map(x=>`<tr><td><b>${esc(x.w)}</b> <small class="muted">${esc(GUN[x.w]||'')}</small></td><td>${x.k}</td><td>${x.d}</td><td class="${x.k+x.d>=10?(x.k>=x.d?'up':'down'):''}">${fmt(x.d?x.k/x.d:x.k,2)}</td><td>${x.fk}</td></tr>`).join('')||'<tr><td colspan="5">—</td></tr>'}</tbody></table></div></div>
   <div class="card"><h2>Sensibilité</h2>
-    <div class="row"><div><label class="lbl" for="sDpi">DPI de ta souris</label><input id="sDpi" type="number" min="100" max="32000" step="50" value="${esc(S.dpi)}" data-sens="dpi"></div><div><label class="lbl" for="sSens">Sensibilité en jeu</label><input id="sSens" type="number" min="0.01" max="10" step="0.001" value="${esc(S.sens)}" data-sens="sens"></div></div>
-    <p class="mt8">Un tour complet = <b>${cm?fmt(cm,1)+' cm':'—'}</b> de tapis${cm?` (eDPI ${Math.round(S.dpi*S.sens)})`:''}. ${hint.zone==='haute'?'C\'est très rapide (la plupart des joueurs sont entre 30 et 75 cm).':hint.zone==='basse'?'C\'est très lent : les duels proches deviennent durs.':cm?'Zone habituelle.':''}</p>
+    <p>Un tour complet = <b>${cm?fmt(cm,1)+' cm':'—'}</b> de tapis${cm?` (eDPI ${Math.round(S.dpi*S.sens)})`:''}. ${hint.zone==='haute'?'C\'est très rapide (la plupart des joueurs sont entre 30 et 75 cm).':hint.zone==='basse'?'C\'est très lent : les duels proches deviennent durs.':cm?'Zone habituelle.':''}</p>
     <p class="sem ${dir?'foe':'ok'} mt8">${dir?`Piste : essaie une sensibilité ${dir} pendant 8 parties (${hint.why==='proche'?'tu perds tes duels proches':hint.why==='loin'?'tu perds tes duels de loin':'ta sensibilité est hors de la zone habituelle'}).`:'Rien ne montre à coup sûr qu\'il faut changer ta sensibilité : garde-la.'}</p>
-    <p class="note"><a href="#" data-act="tab:entrainement">Test guidé de sensibilité et routine d'exercices</a> dans l'onglet Entraînement.</p></div>
+    <div class="row mt8"><button class="btn ghost" data-act="tab:entrainement">Régler ma sensibilité (DPI, test guidé)</button></div></div>
   </div>`;
 }
 function spark(v,w=300,h=46){
@@ -2211,17 +2212,20 @@ const weeks=Object.entries(W).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,10);
 const S=sessionsOf(R),st=nthStats(S.map(s=>s.map(r=>r.res))),lim=nightLimit(st);
 const hhmm=ts=>{const x=new Date(ts);return String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0');},hb=[0,1,2,3].map(i=>rowsAgg(R.filter(r=>hourBucket(hhmm(r.ts))===i)));
 const days=[0,1,2,3,4,5,6].map(i=>rowsAgg(R.filter(r=>(new Date(r.ts).getDay()+6)%7===i)));
+const v=lim?{cls:'foe',h:`Arrête-toi après ${lim} partie${lim>1?'s':''}`,p:'Au-delà, dans la même session, tu perds nettement plus souvent (détail par numéro de partie plus bas).'}
+:{cls:'ok',h:'Pas de limite sûre',p:'Ton taux de victoire ne baisse pas à coup sûr avec le nombre de parties : joue tant que tu te sens bien, et arrête-toi après 3 défaites d\'affilée.'};
+v.facts=[['Sessions analysées',`<b>${S.length}</b>`,'groupes de parties à moins de 3 h d\'écart'],['Parties',`<b>${R.length}</b>`,`${P.hist.length} avec leur RR`]];
 if(P.hist.length>=2)chartMount('rrP',w=>rrSvg(P.hist,w,230));
-return`<div class="card"><div class="card-h"><h2>Courbe de RR</h2><span class="muted small">${P.hist.length} parties · point plein : victoire, creux : défaite</span></div>${P.hist.length>=2?'<div class="chart" id="rrP" style="height:230px"></div>':empty('Pas assez de parties pour tracer la courbe.')}</div>
+return`${verdictHtml(v,'Progression','')}
+  <div class="card mt"><div class="card-h"><h2>Courbe de RR</h2><span class="muted small">${P.hist.length} parties · point plein : victoire, creux : défaite</span></div>${P.hist.length>=2?'<div class="chart" id="rrP" style="height:230px"></div>':empty('Pas assez de parties pour tracer la courbe.')}</div>
   <div class="grid g2 mt">
   <div class="card"><h2>Tes semaines</h2><div class="tbl"><table><thead><tr><th>Semaine du</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>Tête</th></tr></thead><tbody>
     ${weeks.map(([w,a])=>{const x=rowsAgg(a);return`<tr><td>${dFr(Date.parse(w+'T12:00:00'),{day:'numeric',month:'short'})}</td><td>${x.n}</td><td class="${rateCls(x.w,x.n)||''}">${pc0(x.wr)}</td><td>${fmt(x.kd,2)}</td><td>${fmt(x.acs,0)}</td><td>${pc0(x.hsP)}</td></tr>`;}).join('')}</tbody></table></div></div>
-  <div class="card"><h2>Ta limite par session</h2><p class="muted small">${S.length} sessions (parties à moins de 3 h d'écart). Taux de victoire selon le numéro de la partie dans la session.</p>
-    <div class="bands">${st.map((x,i)=>`<div class="band"><span>${i<st.length-1?`${i+1}${i?'e':'re'} partie`:`${i+1}e et +`}</span><b class="${rateCls(x[1],x[0])||''}">${x[0]?pc0(x[1]/x[0]*100):'—'}</b><small title="${esc(rateTip(x[1],x[0]))}">${x[1]}/${x[0]}</small><div class="bar"><i style="width:${x[0]?x[1]/x[0]*100:0}%"></i></div></div>`).join('')}</div>
-    <div class="infobox">${lim?`Au-delà de <b>${lim} partie${lim>1?'s':''}</b> dans la même session, tu perds nettement plus souvent : arrête-toi là.`:'Pas de baisse sûre selon le nombre de parties : continue à jouer tant que tu te sens bien.'}</div></div>
-  <div class="card"><h2>Heures</h2>${HOURS.map((n,i)=>`<div class="band"><span>${n}</span><b class="${rateCls(hb[i].w,hb[i].n)||''}">${pc0(hb[i].wr)}</b><small>${hb[i].n} parties · ACS ${fmt(hb[i].acs,0)}</small><div class="bar"><i style="width:${hb[i].wr||0}%"></i></div></div>`).join('')}</div>
-  <div class="card"><h2>Jours</h2>${JOURS.map((n,i)=>`<div class="band"><span>${n}</span><b class="${rateCls(days[i].w,days[i].n)||''}">${pc0(days[i].wr)}</b><small>${days[i].n} parties</small><div class="bar"><i style="width:${days[i].wr||0}%"></i></div></div>`).join('')}</div>
-  </div>`;
+  <div class="card"><h2>Victoires selon le numéro de la partie</h2><ul class="plist">${st.map((x,i)=>statRow(i<st.length-1?`${i+1}${i?'e':'re'} partie de la session`:`${i+1}e et +`,x[1],x[0],.5,`${x[1]}/${x[0]} gagnées`)).join('')}</ul></div>
+  <div class="card"><h2>Heures</h2><ul class="plist">${HOURS.map((n,i)=>statRow(esc(n),hb[i].w,hb[i].n,.5,`${hb[i].n} parties · ACS ${fmt(hb[i].acs,0)}`)).join('')}</ul></div>
+  <div class="card"><h2>Jours</h2><ul class="plist">${JOURS.map((n,i)=>statRow(esc(n),days[i].w,days[i].n,.5,`${days[i].n} parties`)).join('')}</ul></div>
+  </div>
+  <p class="note">Trait des barres = 50 % de victoires. Vert ou rouge seulement quand l'écart est sûr ; « peu de données » sous 10 parties.</p>`;
 }
 function coachStats(){
 const D=APP.D||[],ds=duelStats(D,meIdx),P={};
