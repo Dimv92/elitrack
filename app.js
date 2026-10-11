@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261011-2100. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261011-2343. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1217,7 +1217,7 @@ const THEME_DEF={mode:'auto',agent:'',map:'',bg:'auto',blur:0,dark:70,fx:'aucun'
 const THEME_ENUM={mode:['auto','dernier','neutre','agent','rang','carte','cartejoueur','perso'],bg:['auto','art','portrait','splash','card','degrade','image'],
 fx:['auto','aucun','grain','scan','neon','particules'],fontT:['auto','systeme','marker','teko','bebas','rajdhani','orbitron','oxanium','russo','chakra','exo','anton'],
 fontB:['systeme','rajdhani','exo','chakra','oxanium'],density:['confort','compact'],cards:['verre','plein','neon']};
-const BLOCKS=['kpis','session','objectif','rr','forme','dernier','defis','agents','cartes','records','succes'];
+const BLOCKS=['session','kpis','objectif','rr','forme','dernier','defis','agents','cartes','records','succes'];
 const THEME_FREE={mode:['auto','dernier','neutre'],keep:['blur','dark','density','anim','streamer']};
 function themeClean(raw){
 const r=obj(raw)?raw:{},o=JSON.parse(JSON.stringify(THEME_DEF));
@@ -1474,42 +1474,57 @@ Icebox:[7.2e-5,-7.2e-5,0.460214,0.304687],Corrode:[7e-5,-7e-5,0.526158,0.5],Have
 const cosOf=map=>(window.CALLOUTS||{})[map]||[];
 const mapOk=map=>!!(MAP_XF[map]&&cosOf(map).length);
 const toCv=(map,x,y)=>{const f=MAP_XF[map];return f?[30+(y*f[0]+f[2])*940,30+(x*f[1]+f[3])*940]:[500,500];};
-const MAPIMG={};
-function mapImg(map){
-if(MAPIMG[map])return MAPIMG[map];
-return MAPIMG[map]=new Promise(res=>{const src=IMG.map(map,'displayicon');if(!src)return res(null);const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});
-}
-const cssVar=(k,d)=>{try{return getComputedStyle(document.documentElement).getPropertyValue(k).trim()||d;}catch(e){return d;}};
-const COL={ok:'#3ee0a8',warn:'#ffc857',bad:'#ff5a6a',threat:'rgba(190,120,255,.9)',smoke:'rgba(200,205,220,.55)',flash:'#fff6a8',trap:'#ffd400',molly:'#ff8a3d',spike:'#ff4655',rot:'#4fc3f7',retake:'#3ddc97',path:'#ffe066'};
-async function drawMap(cv,map,L){
-if(!cv||!cv.getContext)return;const c=cv.getContext('2d'),acc=cssVar('--accent','#ff2e97'),bg=cssVar('--bg','#0b0710');
-c.clearRect(0,0,1000,1000);c.fillStyle=bg;c.fillRect(0,0,1000,1000);
-const im=await mapImg(map);if(!cv.isConnected)return;
-if(im){c.globalAlpha=.9;c.drawImage(im,30,30,940,940);c.globalAlpha=1;}
-else{c.fillStyle='#9a9aa8';c.font='600 26px Segoe UI, sans-serif';c.textAlign='center';c.fillText('Minimap indisponible (hors ligne ?)',500,500);}
-const P=(x,y)=>toCv(map,x,y),text=(t,x,y,size=18)=>{c.font=`700 ${size}px Segoe UI, sans-serif`;c.textAlign='center';c.textBaseline='alphabetic';c.lineWidth=5;c.strokeStyle='rgba(8,6,12,.92)';c.strokeText(t,x,y);c.fillStyle='#fff';c.fillText(t,x,y);};
-const arrow=(x1,y1,x2,y2,color,dash,max,w=4)=>{const len=Math.hypot(x2-x1,y2-y1);if(len<4)return;if(max&&len>max){x2=x1+(x2-x1)*max/len;y2=y1+(y2-y1)*max/len;}
-c.strokeStyle=c.fillStyle=color;c.lineWidth=w;c.setLineDash(dash?[10,7]:[]);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();c.setLineDash([]);
-const an=Math.atan2(y2-y1,x2-x1);c.beginPath();c.moveTo(x2,y2);c.lineTo(x2-16*Math.cos(an-.45),y2-16*Math.sin(an-.45));c.lineTo(x2-16*Math.cos(an+.45),y2-16*Math.sin(an+.45));c.closePath();c.fill();};
-(L.zones||[]).forEach(z=>{const co=coFind(cosOf(map),z.z);if(!co)return;const[x,y]=P(co[2],co[3]);c.beginPath();c.arc(x,y,z.r||26,0,7);c.fillStyle=z.fill;c.fill();c.lineWidth=3;c.strokeStyle=z.stroke;c.stroke();if(z.label)text(z.label,x,y-(z.r||26)-8,17);});
-(L.smokes||[]).forEach(s=>{const[x,y]=P(s.x,s.y);c.beginPath();c.arc(x,y,34,0,7);c.fillStyle=COL.smoke;c.fill();c.lineWidth=2;c.strokeStyle='rgba(255,255,255,.7)';c.stroke();if(s.label)text(s.label,x,y+6,15);});
-(L.threats||[]).forEach(t=>{const[x,y]=P(t.x,t.y),r=9+Math.min(10,t.n||1);c.fillStyle=COL.threat;c.beginPath();c.moveTo(x,y-r);c.lineTo(x+r,y);c.lineTo(x,y+r);c.lineTo(x-r,y);c.closePath();c.fill();c.strokeStyle='#08060c';c.lineWidth=2;c.stroke();});
-(L.arrows||[]).forEach(a=>{const[x1,y1]=P(a.x1,a.y1),[x2,y2]=P(a.x2,a.y2);arrow(x1,y1,x2,y2,a.color||'#fff',a.dash,a.max,a.w);});
-(L.deaths||[]).forEach(d=>{const[x,y]=P(d.x,d.y),r=d.r||11;c.strokeStyle=d.color||COL.bad;c.lineWidth=5;c.beginPath();c.moveTo(x-r,y-r);c.lineTo(x+r,y+r);c.moveTo(x+r,y-r);c.lineTo(x-r,y+r);c.stroke();});
-(L.marks||[]).forEach(m=>{const[x,y]=P(m.x,m.y);c.save();c.translate(x,y);c.fillStyle=COL[m.kind]||acc;c.strokeStyle='#08060c';c.lineWidth=3;c.beginPath();
-if(m.kind==='trap'){c.moveTo(0,-18);c.lineTo(17,13);c.lineTo(-17,13);c.closePath();}
-else if(m.kind==='flash'){for(let i=0;i<10;i++){const r=i%2?8:19,a=i*Math.PI/5-Math.PI/2;c.lineTo(Math.cos(a)*r,Math.sin(a)*r);}c.closePath();}
-else if(m.kind==='molly'){c.arc(0,0,22,0,7);c.globalAlpha=.75;}
-else{c.rect(-14,-14,28,28);}
-c.fill();c.globalAlpha=1;c.stroke();c.restore();if(m.label)text(m.label,x,y-26,15);});
-if(L.spike){const[x,y]=P(L.spike.x,L.spike.y);c.fillStyle=COL.spike;c.strokeStyle='#08060c';c.lineWidth=3;c.beginPath();c.moveTo(x,y-20);c.lineTo(x+14,y+14);c.lineTo(x-14,y+14);c.closePath();c.fill();c.stroke();text('Spike',x,y+38,15);}
-(L.pins||[]).forEach(p=>{const[x,y]=P(p.x,p.y),r=p.r||16;c.beginPath();c.arc(x,y,r,0,7);c.fillStyle=p.fill||acc;c.fill();c.lineWidth=3;c.strokeStyle='#08060c';c.stroke();
-if(p.inner){c.font='800 16px Segoe UI, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#08060c';c.fillText(p.inner,x,y+1);c.textBaseline='alphabetic';}if(p.label)text(p.label,x,y-r-9);});
-}
 const coXY=(map,z)=>{const c=coFind(cosOf(map),z);return c?{x:c[2],y:c[3]}:null;};
 function mapsOfD(D){const n={};(D||[]).forEach(d=>{if(mapOk(d.map))n[d.map]=(n[d.map]||0)+1;});return Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([map,k])=>({map,n:k}));}
 const SIDE_FR={A:'attaque',D:'défense'};
-const canvasHtml=(id,label)=>`<div class="mapbox"><canvas id="${id}" width="1000" height="1000" role="img" aria-label="${esc(label)}"></canvas></div>`;
+function svgMapHtml(id,map,label){
+const src=IMG.map(map,'displayicon'),z=(d,t)=>`<button type="button" class="btn ghost sm" data-act="mvZoom:${id}:${d}" aria-label="${t}">${d>0?'+':d<0?'−':'⟲'}</button>`;
+return`<div class="mapbox mv"><svg id="${id}" viewBox="0 0 1000 1000" role="img" aria-label="${esc(label)}"><rect width="1000" height="1000" class="mv-bg"/>${src?`<image href="${src}" x="30" y="30" width="940" height="940" class="mv-img"/>`:''}<g class="mv-l"></g></svg>
+    <div class="mv-tip" hidden></div><div class="mv-zoom">${z(1,'Zoomer')}${z(-1,'Dézoomer')}${z(0,'Recentrer la carte')}</div></div>`;
+}
+const MV_RO=window.ResizeObserver?new ResizeObserver(es=>es.forEach(e=>svgPaint(e.target))):null;
+function svgDraw(svg,map,L){
+if(!svg)return;svg._m={map,L};svg._v=svg._v||{z:1,cx:500,cy:500};
+const im=svg.querySelector('.mv-img');if(im)im.addEventListener('error',()=>{im.remove();svg.querySelector('.mv-l').insertAdjacentHTML('beforebegin','<text x="500" y="500" class="mv-off">Minimap indisponible (hors ligne ?)</text>');},{once:true});
+if(MV_RO&&!svg._ro){svg._ro=1;MV_RO.observe(svg);}
+svgPaint(svg);
+}
+function svgPaint(svg){
+const M=svg&&svg._m;if(!M||!svg.isConnected)return;const{map,L}=M,u=1000/svg._v.z/Math.max(120,svg.clientWidth||500);
+const P=(x,y)=>toCv(map,x,y),f=n=>n.toFixed(1),o=[],tip=t=>t?` data-tip="${esc(t)}"`:'';
+const arrow=(a,cls)=>{const[x1,y1]=P(a.x1,a.y1);let[x2,y2]=P(a.x2,a.y2);const len=Math.hypot(x2-x1,y2-y1),mx=(a.max||1e9)*u;if(len<4*u)return'';
+if(len>mx){x2=x1+(x2-x1)*mx/len;y2=y1+(y2-y1)*mx/len;}
+const an=Math.atan2(y2-y1,x2-x1),h=11*u,hd=s=>`${f(x2-h*Math.cos(an+s))},${f(y2-h*Math.sin(an+s))}`,ln=`x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"`;
+const t=a.thick?1.4:1;
+return`<g class="mv-a${cls}${a.cls?' '+a.cls:''}${a.top?' top':''}${a.show?' show':''}" data-k="${a.k}"${tip(a.tip)}><line ${ln} class="o" stroke-width="${f(7*t*u)}"/><line ${ln} class="i" stroke-width="${f(3.5*t*u)}"${a.dash?` stroke-dasharray="${f(9*u)} ${f(6*u)}"`:''}/><path d="M${f(x2)},${f(y2)}L${hd(.45)}L${hd(-.45)}Z" stroke-width="${f(2*u)}"/></g>`;};
+const poly=(x,y,pts)=>pts.map(([a,r],i)=>`${i?'L':'M'}${f(x+Math.cos(a)*r*u)},${f(y+Math.sin(a)*r*u)}`).join('')+'Z';
+const star=(n,r1,r2)=>Array.from({length:n*2},(_,i)=>[i*Math.PI/n-Math.PI/2,i%2?r2:r1]);
+const UT={smoke:(x,y)=>`<circle cx="${f(x)}" cy="${f(y)}" r="${f(18*u)}"/>`,molly:(x,y)=>`<circle cx="${f(x)}" cy="${f(y)}" r="${f(13*u)}" stroke-dasharray="${f(5*u)} ${f(4*u)}"/>`,
+flash:(x,y)=>`<path d="${poly(x,y,star(4,13,4.5))}"/>`,info:(x,y)=>`<rect x="${f(x-9*u)}" y="${f(y-9*u)}" width="${f(18*u)}" height="${f(18*u)}" rx="${f(3*u)}"/>`,
+trap:(x,y)=>`<path d="${poly(x,y,[0,1,2].map(i=>[i*2.094-Math.PI/2,13]))}"/>`,spike:(x,y)=>`<path d="${poly(x,y,[0,1,2,3,4,5].map(i=>[i*Math.PI/3,11]))}"/>`,
+me:(x,y)=>`<path d="${poly(x,y,star(5,15,6.5))}"/>`};
+(L.utils||[]).filter(m=>m.kind==='smoke').forEach(m=>{const[x,y]=P(m.x,m.y);o.push(`<g class="mv-u smoke" data-k="${m.k}"${tip(m.tip)} stroke-width="${f(2.2*u)}">${UT.smoke(x,y)}</g>`);});
+(L.rings||[]).forEach(r=>{const[x,y]=P(r.x,r.y);o.push(`<circle class="mv-ring" data-k="${r.k}"${tip(r.tip)} cx="${f(x)}" cy="${f(y)}" r="${f((14+26*Math.min(1,r.pres||0))*u)}" stroke-width="${f(2.5*u)}" stroke-dasharray="${f(6*u)} ${f(4*u)}"/>`);});
+(L.lines||[]).forEach(a=>o.push(arrow(a,' line')));
+(L.arrows||[]).forEach(a=>o.push(arrow(a,a.bad?' bad':'')));
+(L.foes||[]).forEach(t=>{const[x,y]=P(t.x,t.y),s=(8+Math.min(6,(t.size||1)/8))*u;o.push(`<path class="mv-foe${t.low?' low':''}" data-k="${t.k}"${tip(t.tip)} d="M${f(x)},${f(y-s)}L${f(x+s)},${f(y)}L${f(x)},${f(y+s)}L${f(x-s)},${f(y)}Z" stroke-width="${f(2*u)}"/>`);});
+(L.utils||[]).filter(m=>m.kind!=='smoke'&&UT[m.kind]).forEach(m=>{const[x,y]=P(m.x,m.y);o.push(`<g class="mv-u ${m.kind}" data-k="${m.k}"${tip(m.tip)} stroke-width="${f(2.2*u)}">${UT[m.kind](x,y)}</g>`);});
+(L.spots||[]).forEach(s=>{const[x,y]=P(s.x,s.y),r=(s.kind==='ok'?12:11)*u,c=4.5*u;
+const inner=s.kind==='bad'?`<path d="M${f(x-c)},${f(y-c)}L${f(x+c)},${f(y+c)}M${f(x+c)},${f(y-c)}L${f(x-c)},${f(y+c)}" stroke-width="${f(2.6*u)}"/>`:s.num?`<text x="${f(x)}" y="${f(y)}" dy=".35em" font-size="${f(13*u)}">${s.num}</text>`:'';
+o.push(`<g class="mv-s ${s.kind}${s.low?' low':''}" data-k="${s.k}"${tip(s.tip)}><circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" stroke-width="${f(2.5*u)}"${s.low?` stroke-dasharray="${f(4*u)} ${f(3*u)}"`:''}/>${inner}</g>`);});
+svg.querySelector('.mv-l').innerHTML=o.join('');
+const R=svg.closest('[data-link]');if(R&&R._hl)mvHl(R,R._hl,true);
+}
+function mvHl(R,k,on){
+R._hl=on?k:null;
+R.querySelectorAll('[data-k]').forEach(e=>e.classList.toggle('hl',!!on&&e.dataset.k===k));
+R.querySelectorAll('.mv-l').forEach(g=>g.classList.toggle('has-hl',!!on));
+const tp=R.querySelector('.mv-tip'),m=on&&R.querySelector(`.mv-l [data-k="${k}"][data-tip]`);if(!tp)return;
+if(!m){tp.hidden=true;return;}
+const box=tp.parentNode.getBoundingClientRect(),r=m.getBoundingClientRect(),below=r.top-box.top<56;
+tp.textContent=m.dataset.tip;tp.hidden=false;tp.classList.toggle('below',below);
+tp.style.left=Math.max(70,Math.min(box.width-70,r.left+r.width/2-box.left))+'px';tp.style.top=(below?r.bottom:r.top)-box.top+'px';
+}
 ;
 "use strict";
 const PX='ph_';
@@ -1827,6 +1842,10 @@ const rateCls=(k,n,ref=.5)=>trust(k,n,ref);
 const empty=t=>`<p class="muted">${esc(t)}</p>`;
 const skel=(lines=3,cls='')=>`<div class="card ${cls}" role="status" aria-busy="true"><span class="sr">Chargement…</span><div class="skel skel-t"></div>${'<div class="skel skel-l"></div>'.repeat(lines)}</div>`;
 const stateHtml=(ic,t,p,btn,err)=>`<div class="card state${err?' err':''}"><div class="state-i" aria-hidden="true">${ic}</div><h2>${esc(t)}</h2>${p?`<p>${esc(p)}</p>`:''}${btn?`<button class="btn" data-act="${esc(btn[1])}">${esc(btn[0])}</button>`:''}</div>`;
+const verdictHtml=(v,eb,cls='mt')=>`<div class="card hi verdict ${v.cls||''} ${cls}"><div class="verdict-i${v.img?' ag':''}" aria-hidden="true">${v.img||''}</div><div><p class="eyebrow">${eb}</p><h2>${esc(v.h)}</h2><p>${esc(v.p)}</p></div>
+  ${(v.facts||[]).length?`<div class="kpis">${v.facts.map(([n,b,s])=>`<div class="kpi"><span>${n}</span>${b}<small>${s}</small></div>`).join('')}</div>`:''}${v.acts?`<div class="acts">${v.acts}</div>`:''}</div>`;
+const CH_RO=window.ResizeObserver?new ResizeObserver(es=>es.forEach(e=>{const el=e.target;if(el._ch&&el.isConnected&&Math.abs(el.clientWidth-(el._chw||0))>4){el._chw=el.clientWidth;el.innerHTML=el._ch(el.clientWidth);}})):null;
+function chartMount(id,fn){after(()=>{const el=$('#'+id);if(!el)return;el._ch=fn;el._chw=el.clientWidth;el.innerHTML=fn(el.clientWidth||600);if(CH_RO)CH_RO.observe(el);});}
 const nTag=(n,unit='rounds',min=10)=>`<span class="n">(${n} ${esc(unit)})</span>${n<min?' <span class="low-b">peu de données</span>':''}`;
 const ACT={};
 const AFTER=[],after=fn=>AFTER.push(fn);
@@ -1964,25 +1983,30 @@ return`<div class="card teaser"><div class="tz-ic">${ic}</div><h2>${esc(FEATURES
 }
 function tabVue(){
 const P=APP.prof,R=P.rows,t=themeUsed(),order=(t.blocks.length?t.blocks.concat(BLOCKS.filter(b=>!t.blocks.includes(b))):BLOCKS).filter(b=>!t.hidden.includes(b));
-if(!R.length)return stateHtml('🎮','Aucune partie classée récente','Joue une partie classée, puis actualise : tes stats apparaissent ici.',P.demo?null:['Actualiser','refresh']);
+if(!R.length)return stateHtml(ico('moi'),'Aucune partie classée récente','Joue une partie classée, puis actualise : tes stats apparaissent ici.',P.demo?null:['Actualiser','refresh']);
 const B={kpis:bKpis,session:bSession,objectif:bObjectif,forme:bForme,rr:bRR,agents:bAgents,cartes:bCartes,records:bRecords,dernier:bDernier,defis:bDefis,succes:bSucces};
 return`<div class="vue">${order.filter(b=>B[b]).map(b=>{let h='';try{h=B[b]();}catch(e){console.error(e);logErr(e);}return h?`<div class="blk-${b}">${h}</div>`:'';}).join('')}</div>`;
 }
 function sessionLimit(rows){return nightLimit(nthStats(sessionsOf(rows).map(s=>s.map(r=>r.res))));}
 function bSession(){
 const P=APP.prof,R=P.rows,ses=sessionsOf(R).pop()||[],cur=ses.length&&Date.now()-ses[ses.length-1].ts<8*36e5?ses:[],lim=sessionLimit(R);
-if(!cur.length)return`<div class="card sess-card"><div class="card-h"><h2>Ce soir</h2><span class="pill">pas encore joué</span></div>
-    <p>Avant de lancer : <b>test de réflexes</b> (30 s) et <b>échauffement</b> de 10 minutes.</p><div class="row mt8"><button class="btn sm" data-act="warmup">🔥 Échauffement 10 min</button><button class="btn ghost sm" data-act="tab:entrainement">Test de réflexes</button></div>
-    <p class="note">${lim?`Ta limite habituelle : ${lim} partie${lim>1?'s':''} par session. Au-delà, tu perds nettement plus souvent.`:'Conseil : arrête-toi après 3 défaites d\'affilée.'}</p></div>`;
-const A=rowsAgg(cur),before=rowsAgg(R.filter(r=>r.ts<cur[0].ts).slice(0,30)),rr=P.hist.filter(h=>h.ts>=cur[0].ts-6e4).reduce((s,h)=>s+(h.ch||0),0);
+const rrOf=S=>P.hist.filter(h=>h.ts>=S[0].ts-6e4&&h.ts<=S[S.length-1].ts+6e4).reduce((s,h)=>s+(h.ch||0),0);
+if(!cur.length){
+const L=ses.length?rowsAgg(ses):null;
+return verdictHtml({h:'Avant de lancer',p:'Test de réflexes (30 s) puis échauffement de 10 minutes : tu commences la session à ton vrai niveau.',
+facts:[['Ta limite',`<b>${lim?`${lim} partie${lim>1?'s':''}`:'—'}</b>`,lim?'par session : au-delà, tu perds nettement plus souvent':'pas de baisse sûre : arrête-toi après 3 défaites d\'affilée'],
+L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}`]].filter(Boolean),
+acts:'<button class="btn" data-act="warmup">Échauffement 10 min</button><button class="btn ghost" data-act="tab:entrainement">Test de réflexes</button>'},'Ce soir','');
+}
+const A=rowsAgg(cur),before=rowsAgg(R.filter(r=>r.ts<cur[0].ts).slice(0,30)),rr=rrOf(cur);
 const last3=cur.slice(-3),lost3=last3.length===3&&last3.every(r=>r.res==='L'),low=cur.length>=3&&before.acs&&A.acs<before.acs*.85;
 const st=lim&&cur.length>=lim?['bad','Stop conseillé',`Tu as atteint ta limite habituelle (${lim} parties) : au-delà, tu perds nettement plus souvent.`]
 :lost3?['bad','Pause conseillée','3 défaites d\'affilée : 15 minutes de pause, ou arrête-toi pour ce soir.']
 :low?['foe','Attention',`Tu joues en dessous de ton niveau ce soir (ACS ${fmt(A.acs,0)} contre ${fmt(before.acs,0)} d'habitude).`]
 :['ok','Feu vert','Tu peux continuer : rien d\'inquiétant dans cette session.'];
-return`<div class="card sess-card"><div class="card-h"><h2>Ce soir</h2><span class="pill ${st[0]}">${st[1]}</span></div>
-    <div class="kpis"><div class="kpi"><span>Parties</span><b>${cur.length}</b><small>${A.w} V · ${A.l} D</small></div><div class="kpi"><span>RR</span><b class="${rr>=0?'up':'down'}">${sg(rr,0)}</b></div><div class="kpi"><span>ACS</span><b>${fmt(A.acs,0)}</b>${before.acs?trendTxt(A.acs,before.acs,0):''}</div></div>
-    <p class="mt8">${esc(st[2])}</p></div>`;
+return verdictHtml({cls:st[0],h:st[1],p:st[2],facts:[['Ce soir',`<b>${A.w} V · ${A.l} D</b>`,`${cur.length} partie${cur.length>1?'s':''}${lim?` sur ta limite de ${lim}`:''}`],
+P.hist.length&&['RR',`<b class="${rr>=0?'up':'down'}">${sg(rr,0)}</b>`,'gagnés ou perdus ce soir'],
+!low&&['ACS',`<b>${fmt(A.acs,0)}</b>`,before.acs?`${trendTxt(A.acs,before.acs,0)} par rapport à ton habitude (${fmt(before.acs,0)})`:'score de combat par round']].filter(Boolean)},'Session en cours','');
 }
 function bObjectif(){
 const P=APP.prof,M=P.mmr;if(!(M.tier>=3)||M.tier>=24)return'';
@@ -1998,57 +2022,60 @@ return`<div class="card"><div class="card-h"><h2>Objectif</h2><select data-goal 
 function bDefis(){
 const C=weekChallenges(APP.prof.rows,Date.now(),sessionLimit(APP.prof.rows)||5),n=C.filter(c=>c.done).length;
 return`<div class="card"><div class="card-h"><h2>Défis de la semaine</h2><span class="pill ${n===C.length?'ok':''}">${n}/${C.length}</span></div>
-    ${C.map(c=>`<div class="defi${c.done?' done':''}"><span class="defi-i">${c.done?'✔':c.inv?'⏱️':'○'}</span><div><b>${esc(c.t)}</b>${c.inv?`<small>${c.cur?`plus longue session : ${c.cur} partie${c.cur>1?'s':''}`:'pas encore joué cette semaine'}</small>`:`<div class="bar me"><i style="width:${Math.min(100,c.cur/c.goal*100)}%"></i></div><small>${Math.min(c.cur,c.goal)}/${c.goal}</small>`}</div></div>`).join('')}
+    ${C.map(c=>`<div class="defi${c.done?' done':''}"><span class="defi-i sem ${c.done?'ok':'neutral'}" aria-label="${c.done?'réussi':'en cours'}"></span><div><b>${esc(c.t)}</b>${c.inv?`<small>${c.cur?`plus longue session : ${c.cur} partie${c.cur>1?'s':''}`:'pas encore joué cette semaine'}</small>`:`<div class="bar me"><i style="width:${Math.min(100,c.cur/c.goal*100)}%"></i></div><small>${Math.min(c.cur,c.goal)}/${c.goal}</small>`}</div></div>`).join('')}
     <p class="note">Mesurés tout seuls sur tes parties classées. Nouveaux défis chaque lundi, réglés un peu au-dessus de ton habitude.</p></div>`;
 }
 function bSucces(){
 const P=APP.prof,got=badges(P.rows,APP.D||[],P.hist),key='badges:'+P.rid,saved=P.demo?{}:ST.get(key,{});
 const all=Object.assign({},saved);Object.entries(got).forEach(([k,ts])=>{if(!all[k]||ts<all[k])all[k]=ts;});if(!P.demo&&JSON.stringify(all)!==JSON.stringify(saved))ST.set(key,all);
-const n=BADGES.filter(b=>all[b[0]]).length;
-return`<div class="card"><div class="card-h"><h2>Succès</h2><span class="muted small">${n}/${BADGES.length} débloqués</span></div><div class="badges">
-    ${BADGES.map(([id,ic,nm,how])=>`<div class="badge${all[id]?' on':''}" title="${esc(how)}${all[id]?' · obtenu le '+esc(dFr(all[id],{day:'numeric',month:'short',year:'numeric'})):''}"><span class="badge-i">${ic}</span><b>${esc(nm)}</b><small>${all[id]?esc(dFr(all[id],{day:'numeric',month:'short'})):esc(how)}</small></div>`).join('')}</div></div>`;
+const on=BADGES.filter(b=>all[b[0]]),off=BADGES.filter(b=>!all[b[0]]);
+const card=([id,ic,nm,how])=>`<div class="badge${all[id]?' on':''}" title="${esc(how)}${all[id]?' · obtenu le '+esc(dFr(all[id],{day:'numeric',month:'short',year:'numeric'})):''}"><span class="badge-i" aria-hidden="true">${ic}</span><b>${esc(nm)}</b><small>${all[id]?esc(dFr(all[id],{day:'numeric',month:'short'})):esc(how)}</small></div>`;
+return`<div class="card"><div class="card-h"><h2>Succès</h2><span class="muted small">${on.length}/${BADGES.length} débloqués</span></div>
+    ${on.length?`<div class="badges">${on.map(card).join('')}</div>`:'<p class="muted">Pas encore de succès : le premier arrive vite (une série de victoires, un MVP, un ace…).</p>'}
+    ${off.length?`<details class="mt8"><summary class="small"><b>À débloquer</b> <span class="muted">(${off.length})</span></summary><div class="badges mt8">${off.map(card).join('')}</div></details>`:''}</div>`;
 }
 function bKpis(){
-const R=APP.prof.rows,h=Math.floor(R.length/2),A=rowsAgg(R),N=rowsAgg(R.slice(0,h)),O=rowsAgg(R.slice(h)),D=APP.D||[];
+const R=APP.prof.rows,h=Math.floor(R.length/2),A=rowsAgg(R),N=rowsAgg(R.slice(0,h)),O=rowsAgg(R.slice(h)),D=APP.D||[],tr=h>=4;
 const kast=D.length?D.map(d=>plLines(d).find(l=>l.p.n==='moi')).filter(Boolean):[];
 const tile=(n,v,s,tip)=>`<div class="kpi" title="${esc(tip||'')}"><span>${n}</span><b>${v}</b><small>${s||''}</small></div>`;
-return`<div class="card"><div class="card-h"><h2>Chiffres clés</h2><span class="muted small">${A.n} dernières parties classées${h>=4?' · flèches : tes '+h+' plus récentes contre les '+(R.length-h)+' d\'avant':''}</span></div>
+return`<div class="card"><div class="card-h"><h2>Chiffres clés</h2><span class="muted small">${A.n} dernières parties classées${tr?` · flèches : tes ${h} plus récentes contre les ${R.length-h} d'avant`:''}</span></div>
   <div class="kpis">
-    ${tile('Victoires',pc0(A.wr),`${A.w} V · ${A.l} D ${h>=4?trendTxt(N.wr,O.wr,0):''}`,rateTip(A.w,A.w+A.l))}
-    ${tile('K/D',fmt(A.kd,2),`${A.k} kills · ${A.d} morts ${h>=4?trendTxt(N.kd,O.kd,2):''}`)}
-    ${tile('ACS',fmt(A.acs,0),`score de combat par round ${h>=4?trendTxt(N.acs,O.acs,0):''}`)}
-    ${tile('ADR',fmt(A.adr,0),`dégâts par round ${h>=4?trendTxt(N.adr,O.adr,0):''}`)}
-    ${tile('Tête',pc0(A.hsP),`des balles touchées ${h>=4?trendTxt(N.hsP,O.hsP,1):''}`)}
+    ${tile('Victoires',pc0(A.wr),`${A.w} V · ${A.l} D ${tr?trendTxt(N.wr,O.wr,0):''}`,rateTip(A.w,A.w+A.l))}
+    ${tile('K/D',fmt(A.kd,2),`${A.k} kills · ${A.d} morts ${tr?trendTxt(N.kd,O.kd,2):''}`)}
+    ${tile('ACS',fmt(A.acs,0),`score de combat par round ${tr?trendTxt(N.acs,O.acs,0):''}`)}
+    ${tile('Tête',pc0(A.hsP),`des balles touchées ${tr?trendTxt(N.hsP,O.hsP,1):''}`)}
+  </div>
+  <details class="mt8"><summary class="small"><b>Plus de chiffres</b> <span class="muted">ADR, DDΔ, kills par round, KAST</span></summary><div class="kpis mt8">
+    ${tile('ADR',fmt(A.adr,0),`dégâts par round ${tr?trendTxt(N.adr,O.adr,0):''}`)}
     ${tile('DDΔ',sg(A.dd,0),'dégâts donnés − reçus par round','Positif : tu fais plus de dégâts que tu n\'en prends')}
     ${tile('Kills / round',fmt(A.kpr,2),`KDA ${fmt(A.kda,2)}`)}
     ${tile('KAST',kast.length?pc0(kast.reduce((s,l)=>s+l.kast,0)/kast.length):'—',kast.length?`sur ${kast.length} parties détaillées`:'calculé avec le détail des parties')}
-  </div></div>`;
+  </div></details></div>`;
 }
 function bForme(){
-const R=APP.prof.rows.slice(0,20),s=serieOf(APP.prof.rows),ses=sessionsOf(APP.prof.rows).pop()||[],todayS=ses.length&&Date.now()-ses[ses.length-1].ts<8*36e5?ses:[];
-const A=rowsAgg(todayS);
+const R=APP.prof.rows.slice(0,20),s=serieOf(APP.prof.rows);
 return`<div class="card"><div class="card-h"><h2>Forme</h2>${s?`<span class="pill ${s.res==='W'?'ok':'bad'}">${s.n} ${s.res==='W'?'victoire':'défaite'}${s.n>1?'s':''} d'affilée</span>`:''}</div>
-  <div class="strip">${R.slice().reverse().map(r=>`<i class="${r.res}" title="${esc(`${dFr(r.ts)} · ${r.map} · ${r.agent} · ${r.us}-${r.them} · ${r.k}/${r.d}/${r.a}`)}">${IMG.agent(r.agent)?`<img src="${IMG.agent(r.agent)}" alt="" loading="lazy">`:r.res}</i>`).join('')}</div>
-  <p class="note">De la plus ancienne (gauche) à la plus récente (droite).</p>
-  ${todayS.length?`<div class="sess mt8"><b>Session en cours</b> : ${A.w} V · ${A.l} D · K/D ${fmt(A.kd,2)} · ACS ${fmt(A.acs,0)}${APP.prof.hist.length?` · RR ${sg(APP.prof.hist.filter(h=>h.ts>=todayS[0].ts-6e4).reduce((s,h)=>s+(h.ch||0),0),0)}`:''}</div>`:''}</div>`;
+  <div class="strip">${R.slice().reverse().map(r=>{const t=`${dFr(r.ts)} · ${r.map} · ${r.agent} · ${r.us}-${r.them} · ${r.k}/${r.d}/${r.a}`;return`<i class="${r.res}" title="${esc(t)}" role="img" aria-label="${esc((r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité')+' : '+t)}">${IMG.agent(r.agent)?`<img src="${IMG.agent(r.agent)}" alt="" loading="lazy">`:r.res}</i>`;}).join('')}</div>
+  <p class="note">De la plus ancienne (gauche) à la plus récente (droite) · ✓ victoire · ✕ défaite.</p></div>`;
 }
 function rrSvg(H,w=640,h=170){
 if(H.length<2)return empty('Pas assez de parties pour tracer la courbe.');
-const xs=H.map((_,i)=>30+i*(w-40)/(H.length-1)),lo=Math.min(...H.map(x=>x.elo)),hi=Math.max(...H.map(x=>x.elo)),span=Math.max(50,hi-lo);
-const y=v=>12+(h-34)*(1-(v-lo+span*.05)/(span*1.1)),pts=H.map((x,i)=>`${xs[i].toFixed(1)},${y(x.elo).toFixed(1)}`);
+const L=w<420?62:74,Rt=8,T=10,B=10,xs=H.map((_,i)=>L+i*(w-L-Rt)/(H.length-1)),lo=Math.min(...H.map(x=>x.elo)),hi=Math.max(...H.map(x=>x.elo)),span=Math.max(50,hi-lo);
+const y=v=>T+(h-T-B)*(1-(v-lo+span*.05)/(span*1.1)),pts=H.map((x,i)=>`${xs[i].toFixed(1)},${y(x.elo).toFixed(1)}`),r=H.length>60?2.6:3.6;
 const divs=[];for(let e=Math.ceil(lo/100)*100;e<=hi;e+=100)divs.push(e);
-return`<svg viewBox="0 0 ${w} ${h}" class="rrsvg" role="img" aria-label="Évolution des RR sur ${H.length} parties">
-    <defs><linearGradient id="rrg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".35"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
-    ${divs.map(e=>`<line x1="30" x2="${w-10}" y1="${y(e)}" y2="${y(e)}" class="gl"/><text x="2" y="${y(e)+4}" class="gt">${esc(tierFr(Math.floor(e/100)+3))}</text>`).join('')}
-    <polygon points="${xs[0]},${h-22} ${pts.join(' ')} ${xs[xs.length-1]},${h-22}" fill="url(#rrg)"/>
+return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" class="rrsvg" role="img" aria-label="Courbe de RR sur ${H.length} parties : ${sg(H.reduce((s,x)=>s+(x.ch||0),0),0)} RR au total">
+    <defs><linearGradient id="rrg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${divs.map(e=>`<line x1="${L}" x2="${w-Rt}" y1="${y(e).toFixed(1)}" y2="${y(e).toFixed(1)}" class="gl"/><text x="${L-8}" y="${(y(e)+4).toFixed(1)}" class="gt">${esc(tierFr(Math.floor(e/100)+3))}</text>`).join('')}
+    <polygon points="${xs[0].toFixed(1)},${h-B} ${pts.join(' ')} ${xs[xs.length-1].toFixed(1)},${h-B}" fill="url(#rrg)"/>
     <polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent-t)" stroke-width="2.5" stroke-linejoin="round"/>
-    ${H.map((x,i)=>`<circle cx="${xs[i]}" cy="${y(x.elo)}" r="3.2" class="${(x.ch||0)>=0?'pw':'pl'}"><title>${esc(`${dFr(x.ts)} ${x.map?'· '+x.map:''} : ${sg(x.ch,0)} RR (${tierFr(x.t)})`)}</title></circle>`).join('')}
+    ${H.map((x,i)=>`<circle cx="${xs[i].toFixed(1)}" cy="${y(x.elo).toFixed(1)}" r="${r}" class="${(x.ch||0)>=0?'pw':'pl'}"><title>${esc(`${dFr(x.ts)} ${x.map?'· '+x.map:''} : ${sg(x.ch,0)} RR (${tierFr(x.t)})`)}</title></circle>`).join('')}
   </svg>`;
 }
 function bRR(){
-const H=APP.prof.hist,full=featOn('progression',APP.plan,APP.cfg),S=full?H:H.slice(-20);
-const net=S.reduce((s,h)=>s+(h.ch||0),0);
-return`<div class="card"><div class="card-h"><h2>RR</h2><span class="muted small">${S.length} dernières parties : <b class="${net>=0?'up':'down'}">${sg(net,0)} RR</b>${full?'':` · <a href="#" data-act="tab:progression">courbe complète ★</a>`}</span></div>${rrSvg(S,1100,210)}</div>`;
+const H=APP.prof.hist,full=featOn('progression',APP.plan,APP.cfg),S=full?H:H.slice(-20),net=S.reduce((s,h)=>s+(h.ch||0),0);
+if(S.length>=2)chartMount('rrC',w=>rrSvg(S,w,190));
+return`<div class="card"><div class="card-h"><h2>RR</h2><span class="muted small">${S.length} dernières parties : <b class="${net>=0?'up':'down'}">${sg(net,0)} RR</b>${full?'':` · <a href="#" data-act="tab:progression">courbe complète ★</a>`}</span></div>
+    ${S.length>=2?'<div class="chart" id="rrC" style="height:190px"></div><p class="note">Point plein : victoire · point creux : défaite · survole un point pour le détail.</p>':empty('Pas assez de parties pour tracer la courbe.')}</div>`;
 }
 function miniAgg(a,img,sub){
 return`<div class="mini">${img}<div><b>${esc(a.key)}</b><small>${a.n} parties · <span class="${rateCls(a.w,a.n)||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</span> · K/D ${fmt(a.kd,2)} · ACS ${fmt(a.acs,0)}</small>${sub||''}</div></div>`;
@@ -2173,7 +2200,8 @@ const weeks=Object.entries(W).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,10);
 const S=sessionsOf(R),st=nthStats(S.map(s=>s.map(r=>r.res))),lim=nightLimit(st);
 const hhmm=ts=>{const x=new Date(ts);return String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0');},hb=[0,1,2,3].map(i=>rowsAgg(R.filter(r=>hourBucket(hhmm(r.ts))===i)));
 const days=[0,1,2,3,4,5,6].map(i=>rowsAgg(R.filter(r=>(new Date(r.ts).getDay()+6)%7===i)));
-return`<div class="card"><div class="card-h"><h2>Courbe de RR</h2><span class="muted small">${P.hist.length} parties</span></div>${rrSvg(P.hist,1100,240)}</div>
+if(P.hist.length>=2)chartMount('rrP',w=>rrSvg(P.hist,w,230));
+return`<div class="card"><div class="card-h"><h2>Courbe de RR</h2><span class="muted small">${P.hist.length} parties · point plein : victoire, creux : défaite</span></div>${P.hist.length>=2?'<div class="chart" id="rrP" style="height:230px"></div>':empty('Pas assez de parties pour tracer la courbe.')}</div>
   <div class="grid g2 mt">
   <div class="card"><h2>Tes semaines</h2><div class="tbl"><table><thead><tr><th>Semaine du</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>Tête</th></tr></thead><tbody>
     ${weeks.map(([w,a])=>{const x=rowsAgg(a);return`<tr><td>${dFr(Date.parse(w+'T12:00:00'),{day:'numeric',month:'short'})}</td><td>${x.n}</td><td class="${rateCls(x.w,x.n)||''}">${pc0(x.wr)}</td><td>${fmt(x.kd,2)}</td><td>${fmt(x.acs,0)}</td><td>${pc0(x.hsP)}</td></tr>`;}).join('')}</tbody></table></div></div>
@@ -2258,36 +2286,52 @@ let d=null;try{d=await detGet(P,id);}catch(e){return dlgOpen(stateHtml('!','Rapp
 if(!d)return dlgOpen(stateHtml('!','Rapport indisponible','Le service ne donne pas le détail de cette partie (trop ancienne ou introuvable).',null,true));
 const D=await detAll(P);if(!D.some(x=>x.id===d.id))D.push(d);
 await benchLoad();const M=modelOf(D),me=meIdx(d),S=matchSum(d,M,me),L=S.me;
-const nm=i=>i===me?'Toi':d.pl[i]?`${d.pl[i].a}${d.pl[i].t===1?' (allié)':' (adverse)'}`:'?';
+const nm=i=>i===me?'Toi':d.pl[i]?`${d.pl[i].a}${d.pl[i].t===d.pl[me].t?' (allié)':' (adverse)'}`:'?';
 const pc=x=>`${Math.round(x*100)} %`,cats=Object.entries(S.cats).filter(([,v])=>Math.abs(v)>=.15).sort((a,b)=>b[1]-a[1]);
-const mine=Object.entries(S.mine).filter(([,v])=>Math.abs(v)>=.1).sort((a,b)=>a[1]-b[1]);
+const mine=Object.entries(S.mine).filter(([,v])=>Math.abs(v)>=.1).sort((a,b)=>b[1]-a[1]),best=mine[0],worst=mine[mine.length-1];
 const ev=e=>e.killer==null?'':`${e.killer===me?`<b>Tu</b> tues ${esc(nm(e.victim))}`:`${esc(nm(e.killer))} te tue`} (${e.st}, ${e.t} s${e.w?', '+esc(e.w):''})`;
-const strip=S.F.map(f=>{const x=f.r;return`<span class="rd ${x.w?'W':'L'}${f.thrown||f.stolen?' hot':''}${f.i===12?' half':''}" title="${esc(`Round ${f.i+1} · ${x.w?'gagné':'perdu'} (${END_FR[x.e]}) · chances au départ ${pc(f.p0)} · max ${pc(f.mx)} · min ${pc(f.mn)}\nAchats : vous ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.ol)]} · eux ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.tl)]}${x.p?`\nSpike posé en ${x.p} par ${x.pu===1?'vous':'eux'}`:''}`)}">${f.i+1}<small>${pc(f.p0)}</small></span>`;}).join('');
-const row=l=>{const v=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${v>=0?'up':'down'}">${sg(v)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
+const low=s=>s.toLowerCase(),imp=S.myImp||0;
+const v={cls:imp>=.3?'ok':imp<=-.3?'bad':'neutral',img:agImg(r.agent,'ag'),
+h:Math.abs(imp)<.05?'Impact neutre sur cette partie':imp>0?`Tu as rapporté ${fmt(imp)} round${imp>=2?'s':''} à ton équipe`:`Tu as coûté ${fmt(-imp)} round${-imp>=2?'s':''} à ton équipe`,
+p:best&&best[1]>0?`Surtout grâce à : ${low(CAT_FR[best[0]])}.${worst&&worst[1]<0?` À travailler : ${low(CAT_FR[worst[0]])}.`:''}`:worst&&worst[1]<0?`Surtout perdu sur : ${low(CAT_FR[worst[0]])}.`:'Peu d\'actions décisives : ni gain ni perte nette.',
+facts:[['Rounds de l\'équipe',`<b class="${S.won-S.exp>=0?'up':'down'}">${sg(S.won-S.exp)}</b>`,`${S.won} gagnés pour ${fmt(S.exp)} attendus d'après les achats des deux équipes`],L&&['Rating',`<b>${fmt(L.rating,2)}</b>`,'HLTV 2.0 approché (1,00 = moyen)']].filter(Boolean)};
+const dbar=([c,x])=>`<div class="drow"><span>${esc(CAT_FR[c])}</span><span class="dbar" aria-hidden="true"><i class="${x>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(x)*20)}%"></i></span><b class="${x>=0?'up':'down'}">${sg(x)}</b></div>`;
+const strip=S.F.map(f=>{const x=f.r;return`<button type="button" class="rd ${x.w?'W':'L'}${f.thrown||f.stolen?' hot':''}${f.i===12?' half':''}" data-act="repRound:${f.i}" data-r="${f.i}" aria-pressed="false" aria-label="Round ${f.i+1} ${x.w?'gagné':'perdu'}" title="${esc(`Round ${f.i+1} · ${x.w?'gagné':'perdu'} (${END_FR[x.e]}) · chances au départ ${pc(f.p0)} · max ${pc(f.mx)} · min ${pc(f.mn)}\nAchats : vous ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.ol)]} · eux ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.tl)]}${x.p?`\nSpike posé en ${x.p} par ${x.pu===1?'vous':'eux'}`:''}`)}">${f.i+1}<small>${pc(f.p0)}</small></button>`;}).join('');
+const row=l=>{const x=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${x>=0?'up':'down'}">${sg(x)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
 const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th>Impact</th><th>Rating</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th>FK-FD</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>(S.imp[b.i]||0)-(S.imp[a.i]||0)).map(row).join('')}</tbody></table></div>`;
-dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div>${agImg(r.agent,'ag lg')}</div><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)}</p>
+const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
+dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
       <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
       <p>${S.place===1?'<span class="pill ok">MVP de la partie</span> ':S.teamTop?'<span class="pill ok">Meilleur de ton équipe</span> ':''}${S.place}<sup>e</sup> sur ${d.pl.length} au score</p></div></div>
-    ${L?`<div class="kpis mt8"><div class="kpi"><span>Rating</span><b>${fmt(L.rating,2)}</b></div><div class="kpi"><span>Impact</span><b class="${S.myImp>=0?'up':'down'}">${sg(S.myImp)}</b><small>rounds</small></div><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b></div><div class="kpi"><span>FK-FD</span><b>${L.fk}-${L.fd}</b></div><div class="kpi"><span>3K+</span><b>${L.mk}</b></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b></div></div>`:''}
-    <p class="mt"><b>${S.won} rounds gagnés pour ${fmt(S.exp)} attendus</b> d'après les achats des deux équipes (${sg(S.won-S.exp)}). ${S.won-S.exp>=0?'Ton équipe a fait mieux que prévu.':'Ton équipe a fait moins bien que prévu.'}</p>
-    <div class="grid g2 mt8"><div><h3>D'où viennent les rounds (équipe)</h3>${cats.map(([c,v])=>`<div class="band"><span>${esc(CAT_FR[c])}</span><b class="${v>=0?'up':'down'}">${sg(v)}</b><div class="bar ${v<0?'neg':''}"><i style="width:${Math.min(100,Math.abs(v)*40)}%"></i></div></div>`).join('')||empty('Rien de marquant.')}</div>
-      <div><h3>Ton impact par phase</h3>${mine.map(([c,v])=>`<div class="band"><span>${esc(CAT_FR[c])}</span><b class="${v>=0?'up':'down'}">${sg(v)}</b><div class="bar ${v<0?'neg':''}"><i style="width:${Math.min(100,Math.abs(v)*50)}%"></i></div></div>`).join('')||empty('Peu d\'actions décisives.')}</div></div>
-    <h3 class="mt">Tes moments clés</h3><ol class="keys">${S.key.map(k=>`<li>R${k.r+1} · ${ev(k.e)} : <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pb)} → ${pc(k.e.pa)}</b> pour ton équipe</li>`).join('')||'<li>—</li>'}</ol>
-    <h3 class="mt">Rounds <small class="muted">(chances de gagner au départ ; survole pour le détail ; contour = round jeté ou volé)</small></h3><div class="rds">${strip}</div>
-    ${S.thrown.length?`<p class="small mt8"><b class="down">Rounds jetés</b> (perdus avec 75 % de chances ou plus) : ${S.thrown.map(f=>'R'+(f.i+1)).join(', ')}</p>`:''}
-    ${S.stolen.length?`<p class="small"><b class="up">Rounds volés</b> (gagnés à 25 % ou moins) : ${S.stolen.map(f=>'R'+(f.i+1)).join(', ')}</p>`:''}
-    ${mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null))?`<h3 class="mt">Tes duels sur la carte</h3><div class="row filt"><select data-repround aria-label="Round affiché"><option value="all">Tous les rounds</option>${d.rounds.map((x,i)=>`<option value="${i}">Round ${i+1} (${x.w?'gagné':'perdu'})</option>`).join('')}</select></div>
-      <div class="rep-map">${canvasHtml('repCv',`Tes duels sur ${d.map}`)}</div><p class="note"><b>Rond vert</b> : d'où tu as tué (trait vers la victime) · <b>✖ rouge</b> : où tu es mort (pointillés depuis le tueur).</p>`:''}
-    <h3 class="mt">Ton équipe</h3>${tb(1)}<h3>Adversaires</h3>${tb(0)}
-    <p class="note">Joueurs anonymes. Impact = rounds gagnés ou perdus par tes kills et tes morts, d'après un modèle appris sur tes parties.</p>`);
-APP.rep={d,me};setTimeout(()=>drawRep('all'),0);
+    ${verdictHtml(v,'Ton impact sur la partie')}
+    ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>gagnés-perdus</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b></div></div>`:''}
+    <div class="grid g2 mt"><div><h3>Ton impact par phase</h3>${mine.map(dbar).join('')||empty('Peu d\'actions décisives.')}</div><div><h3>D'où viennent les rounds (équipe)</h3>${cats.map(dbar).join('')||empty('Rien de marquant.')}</div></div>
+    <p class="note">Rounds gagnés (+) ou perdus (−) : variation des chances de gagner le round à chaque kill, mort, plant (modèle appris sur ${APP.bench&&APP.bench.M?'les parties collectées':'tes parties'}).</p>
+    <div class="grid g2 mt">
+      <div><h3>Tes moments clés</h3>${S.key.length?`<ol class="plist">${S.key.map(k=>`<li class="krow" data-act="repRound:${k.r}" tabindex="0"><span class="mk ${k.e.pa>=k.e.pb?'ok':'bad'}" aria-hidden="true"></span><div><b>R${k.r+1}</b> · ${ev(k.e)}<small>chances de ton équipe : ${pc(k.e.pb)} → <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pa)}</b></small></div></li>`).join('')}</ol>`:empty('Pas de moment décisif.')}
+        <h3 class="mt">Rounds <small class="muted">(chances de gagner au départ)</small></h3><div class="rds">${strip}</div>
+        <p class="note">Plein : gagné · pointillés : perdu · contour ambre : round jeté (perdu à 75 % ou plus) ou volé (gagné à 25 % ou moins) · touche un round pour voir tes duels sur la carte.</p>
+        ${S.thrown.length?`<p class="sem bad small">Rounds jetés : ${S.thrown.map(f=>'R'+(f.i+1)).join(', ')}</p>`:''}${S.stolen.length?`<p class="sem ok small mt8">Rounds volés : ${S.stolen.map(f=>'R'+(f.i+1)).join(', ')}</p>`:''}</div>
+      ${hasMap?`<div data-link="rep"><h3>Tes duels sur la carte <small class="muted" id="repCnt"></small></h3><div class="row filt"><select data-repround aria-label="Round affiché"><option value="all">Tous les rounds</option>${d.rounds.map((x,i)=>`<option value="${i}">Round ${i+1} (${x.w?'gagné':'perdu'})</option>`).join('')}</select></div>
+        ${svgMapHtml('repMv',d.map,`Tes duels sur ${d.map}`)}${legendHtml([['ok','D\'où tu as tué (trait : vers ta victime)'],['bad','Où tu es mort'],['foe','D\'où on t\'a tué (pointillés : son tir)']])}</div>`:'<div><h3>Tes duels sur la carte</h3>'+empty('Positions indisponibles pour cette partie.')+'</div>'}
+    </div>
+    <h3 class="mt">Ton équipe</h3>${tb(myT)}<h3>Adversaires</h3>${tb(1-myT)}
+    <p class="note">Joueurs anonymes. Impact = rounds gagnés ou perdus par les kills et les morts de chaque joueur.</p>`);
+APP.rep={d,me,nm};setTimeout(()=>drawRep('all'),0);
 }
 function drawRep(round){
-const R=APP.rep;if(!R||!$('#repCv'))return;const{d,me}=R,K=d.kills.filter(k=>round==='all'||k[0]===+round);
+const R=APP.rep,svg=$('#repMv');if(!R||!svg)return;const{d,me,nm}=R,all=round==='all'||round==null,K=d.kills.filter(k=>all||k[0]===+round);
 const win=K.filter(k=>k[2]===me&&k[6]!=null&&d.pl[k[3]]&&d.pl[k[3]].t!==d.pl[me].t),lose=K.filter(k=>k[3]===me&&k[4]!=null);
-drawMap($('#repCv'),d.map,{arrows:[...win.filter(k=>k[4]!=null).map(k=>({x1:k[6],y1:k[7],x2:k[4],y2:k[5],color:'#3ee0a8',w:3})),...lose.filter(k=>k[6]!=null).map(k=>({x1:k[6],y1:k[7],x2:k[4],y2:k[5],color:'#ff5a6a',dash:true,w:3}))],
-deaths:lose.map(k=>({x:k[4],y:k[5]})),pins:win.map(k=>({x:k[6],y:k[7],fill:'#3ee0a8',r:11}))});
+const tt=k=>`R${k[0]+1} · ${Math.round(k[1]/1000)} s${k[8]?' · '+k[8]:''}`;
+svgDraw(svg,d.map,{
+spots:[...win.map((k,i)=>({k:'k'+i,kind:'ok',x:k[6],y:k[7],tip:`${tt(k)} : tu tues ${nm(k[3])}`})),...lose.map((k,i)=>({k:'d'+i,kind:'bad',x:k[4],y:k[5],tip:`${tt(k)} : ${nm(k[2])} te tue`}))],
+foes:lose.map((k,i)=>k[6]!=null&&{k:'d'+i,x:k[6],y:k[7],size:8,tip:`${tt(k)} : ${nm(k[2])} tire d'ici`}).filter(Boolean),
+arrows:[...win.map((k,i)=>k[4]!=null&&{k:'k'+i,show:true,x1:k[6],y1:k[7],x2:k[4],y2:k[5]}),...lose.map((k,i)=>k[6]!=null&&{k:'d'+i,cls:'foe',dash:true,show:true,x1:k[6],y1:k[7],x2:k[4],y2:k[5]})].filter(Boolean)});
+$$('#dlg .rd').forEach(b=>b.setAttribute('aria-pressed',String(!all&&+b.dataset.r===+round)));
+const s=$('#dlg [data-repround]');if(s)s.value=all?'all':String(round);
+const c=$('#repCnt');if(c)c.textContent=`· ${win.length} kill${win.length>1?'s':''}, ${lose.length} mort${lose.length>1?'s':''}${all?'':` au round ${+round+1}`}`;
 }
+ACT.repRound=i=>{drawRep(i);const m=$('#repMv');if(m){const b=m.getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)m.scrollIntoView({block:'center',behavior:'smooth'});}};
 function premiumOpen(f){
 const C=APP.cfg,why=f&&FEATURES[f]?`<div class="infobox">★ <b>${esc(FEATURES[f].n)}</b> fait partie de Premium.</div>`:'';
 dlgOpen(`<h2>Premium</h2>${why}${pricingHtml().replace('class="pricing mt"','class="pricing"')}${codeHtml()}`);
@@ -2306,13 +2350,12 @@ const angTxt=s=>s&&s.ang?`vers ${s.ang.z}${s.dist?` (~${s.dist} m)`:''}`:'—';
 const tallyZ=a=>{const o={};(a||[]).forEach(k=>{if(k)o[k]=(o[k]||0)+1;});return Object.entries(o).sort((x,y)=>y[1]-x[1]);};
 const top3=t=>t.slice(0,3).map(([n,c])=>`${n} (${c})`).join(', ');
 const nA=a=>a&&a[0]?`${a[1]}/${a[0]}`:'0';
-const rateSpan=(a,ref)=>a&&a[0]?`<b class="${trust(a[1],a[0],ref==null?.5:ref)||''}" title="${esc(rateTip(a[1],a[0]))}">${pc0(a[1]/a[0]*100)}</b> <small class="muted">(${a[1]}/${a[0]})</small>`:'<span class="muted">—</span>';
 function abil(ag,type){const k=(window.KITS||{})[ag];if(!k)return null;for(const j of type==='ab'?[3,2,1]:[2,3,1,4]){const[n,c]=String(k[j]||'').split('|');if(c===type)return{n,sl:'CQEX'[j-1]};}return null;}
 const abN=a=>a?`${a.n} (${a.sl})`:'';
 function myAgentOn(rows,map){const a=aggBy((rows||[]).filter(r=>r.map===map).slice(0,30),'agent');return a.length?a[0].key:null;}
-function mapPicker(kind,maps,cur,side){
+function mapPicker(kind,maps,cur,side,extra=''){
 return`<div class="row filt"><select data-pick="${kind}" aria-label="Carte">${maps.map(m=>`<option value="${esc(m.map)}"${m.map===cur?' selected':''}>${esc(m.map)}${m.n?` · ${m.n} partie${m.n>1?'s':''} à toi`:''}</option>`).join('')}</select>
-    <div class="chips" role="group" aria-label="Côté">${['A','D'].map(s=>`<button type="button" class="chip${side===s?' on':''}" data-act="side:${kind}:${s}" aria-pressed="${side===s}">${s==='A'?'⚔️ Attaque':'🛡️ Défense'}</button>`).join('')}</div></div>`;
+    <div class="chips" role="group" aria-label="Côté">${['A','D'].map(s=>`<button type="button" class="chip${side===s?' on':''}" data-act="side:${kind}:${s}" aria-pressed="${side===s}">${s==='A'?'Attaque':'Défense'}</button>`).join('')}</div>${extra}</div>`;
 }
 function pickState(key,maps,side0){
 const S=APP[key]||(APP[key]={map:maps[0].map,side:side0});
@@ -2328,7 +2371,7 @@ const at=APP.atlas?Object.keys(APP.atlas.maps).filter(mapOk).sort((a,b)=>n(b)-n(
 return[...at,...mine.map(x=>x.map).filter(m=>!at.includes(m))].map(map=>({map,n:n(map)}));
 }
 const siteTxt=L=>L.length?L.map(s=>`<b>${esc(s.s)}</b> ${pct(s.share)}`).join(' · '):'<span class="muted">—</span>';
-function sitesCard(D,only){
+function sitesCard(D,only,bare){
 const rk=rgOf(APP.prof.mmr.tier),maps=only?[only]:posMaps(D).map(m=>m.map);
 const rows=maps.map(map=>{const M=atlasMap(map),all=atlasSites(M,rk),me=sitesMe(D,map),top=all[0];
 if(!M&&!me.A.length&&!me.D.length)return'';
@@ -2337,95 +2380,98 @@ return`<tr><td><b>${esc(map)}</b>${M?` <small class="muted">${M.n} p.</small>`:'
       <td>${me.A.length?siteTxt(me.A)+` <small class="muted">(${me.A.reduce((a,s)=>a+s.n,0)} plants)</small>`:'<span class="muted">—</span>'}</td>
       <td>${me.D.length?siteTxt(me.D)+` <small class="muted">(${me.D.reduce((a,s)=>a+s.n,0)})</small>`:'<span class="muted">—</span>'}</td></tr>`;}).join('');
 if(!rows)return'';
-return`<div class="card mt"><div class="card-h"><h3>Site le plus attaqué${only?` sur ${esc(only)}`:', carte par carte'}</h3><span class="muted small">part des plants de l'attaque</span></div>
+return`<div class="${bare?'':'card mt'}"><div class="card-h"><h3>Site le plus attaqué${only?` sur ${esc(only)}`:', carte par carte'}</h3><span class="muted small">part des plants de l'attaque</span></div>
     <div class="tbl"><table class="small"><thead><tr><th>Carte</th><th>Tous les joueurs</th><th>${rk?esc(RG_FR[rk]):'Ton niveau'}</th><th>Tes parties : ton équipe attaque</th><th>Tes parties : tu défends</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="note">« Tous » : ${APP.atlas?`${APP.atlas.matches.toLocaleString('fr-FR')} parties classées collectées (${esc((APP.atlas.region||'').toUpperCase())})`:'atlas indisponible'}. « Tes parties » : tes parties détaillées, mises à jour toutes seules après chaque partie.</p></div>`;
 }
+const POS_LOW=10;
+const kindOf=s=>s.verdict[1]==='ok'?'ok':s.verdict[1]==='bad'?'bad':'neutral';
+const VERD_FR={ok:'à jouer',bad:'à éviter',neutral:'correct',foe:'adversaire',ring:'présence adverse',line:'ligne d\'ouverture'};
+const moreAct=()=>APP.prof.demo||!apiReady()?null:['Analyser plus de parties','detMore'];
 function tabPosition(){
 if(APP.atlas===undefined)return`${skel(1)}<div class="grid g2 mt"><div class="skel skel-b" style="aspect-ratio:1;height:auto"></div>${skel(5)}</div>`;
 const D=APP.D||[],maps=posMaps(D);
-if(!maps.length)return detWait(3)||`<div class="card">${empty('Pas encore de partie détaillée avec les positions sur une carte connue.')}</div>`;
+if(!maps.length)return detWait(3)||stateHtml(ico('tactique'),'Pas encore de partie détaillée','Analyse au moins 3 parties pour voir tes positions sur une carte.',moreAct());
 const S=pickState('pos',maps,'D'),map=S.map,side=S.side,foe=side==='A'?'D':'A',cos=cosOf(map),M=atlasMap(map),now=Date.now();
-const atlasHtml=M?posAtlas(D,map,side,foe,cos,M,now):`<div class="card mt">${empty('Pas encore de données de tous les joueurs sur cette carte.')}</div>`;
-const mineHtml=D.some(d=>d.map===map)?posMine(D,map,side,cos,now,M):`<div class="card mt"><h3>Tes positions sur ${esc(map)}</h3>${empty('Aucune de tes parties détaillées sur cette carte pour l\'instant : l\'analyse se fera toute seule.')}</div>`;
-return`<div class="card"><div class="card-h"><h2>Positionnement</h2><span class="muted small">Où se placer, d'où arrivent les adversaires, quelles lignes tenir : tous les joueurs, puis toi</span></div>${mapPicker('pos',maps,map,side)}</div>
-    ${atlasHtml}${mineHtml}${sitesCard(D)}
-    ${D.length?`<div class="card mt"><div class="card-h"><h3>Toutes tes cartes</h3><span class="muted small">Ta meilleure zone de chaque côté · clique pour ouvrir</span></div>${posOverview(D,mapsOfD(D),now)}</div>`:''}
-    <p class="note">Seuls les duels d'avant le plant jugent une position (après le plant : retake ou post-plant). Spot = case de 3 m. « Lissé » = taux corrigé quand il y a peu de duels. Positions anonymes : aucun joueur n'est identifié.</p>`;
+const nMe=D.filter(d=>d.map===map).length,src=S.src==='moi'||!M?'moi':'tous';
+const V=src==='tous'?posAtlasV(D,map,side,foe,cos,M,now):posMineV(D,map,side,cos,now,M,nMe);
+const chips=`<div class="chips" role="group" aria-label="Données">${[['tous',`Tous les joueurs${M?` · ${M.n} p.`:''}`],['moi',`Toi · ${nMe} p.`]].map(([k,t])=>`<button type="button" class="chip${src===k?' on':''}" data-act="possrc:${k}" aria-pressed="${src===k}">${t}</button>`).join('')}</div>`;
+const allMaps=D.length||APP.atlas?`<details class="card mt"><summary><b>Toutes les cartes</b> <span class="muted small">site le plus attaqué et ta meilleure zone, carte par carte</span></summary>${sitesCard(D,null,true)}${D.length?`<h3>Ta meilleure zone de chaque côté</h3>${posOverview(D,mapsOfD(D),now)}`:''}</details>`:'';
+const head=`<div class="card"><div class="card-h"><h2>Positionnement</h2></div>${mapPicker('pos',maps,map,side,chips)}</div>`;
+if(V.empty)return head+`<div class="mt">${V.empty}</div>`+allMaps;
+after(()=>svgDraw($('#posMv'),map,V.L));
+const eb=`${esc(map)} · ${SIDE_FR[side]} · ${src==='tous'?'tous les joueurs':'tes parties'}`;
+return`${head}${verdictHtml(V.verdict,eb)}
+    <div class="grid g2 mt" data-link="pos"><div class="card">${svgMapHtml('posMv',map,`Minimap de ${map} en ${SIDE_FR[side]}`)}${legendHtml(V.legend)}</div><div class="card">${V.list}</div></div>
+    ${V.extra||''}${allMaps}
+    <p class="note">Seuls les duels d'avant le plant jugent une position (après le plant : retake ou post-plant). Taux lissés : corrigés quand il y a peu de duels. Positions anonymes : aucun joueur n'est identifié.</p>`;
 }
-function posAtlas(D,map,side,foe,cos,M,now){
+const mkHtml=r=>`<span class="mk ${r.kind}${r.low?' low':''}" aria-hidden="true">${r.num||''}</span>`;
+const barHtml=(v,avg,kind)=>`<span class="rbar ${kind}" aria-hidden="true"><i style="width:${Math.round(v*100)}%"></i>${avg!=null?`<s style="left:${Math.round(avg*100)}%"></s>`:''}</span>`;
+function rowHtml(r){
+const val=r.rate!=null&&r.kind!=='foe'?`<b>${pct(r.rate)}</b>${barHtml(r.rate,r.avg,r.kind)}<span class="n">${r.nTxt}</span>`:`<b>${r.val}</b><span class="n">${r.nTxt}</span>`;
+return`<li class="prow${r.low?' low':''}" data-k="${r.k}" tabindex="0">${mkHtml(r)}<b class="pz">${esc(r.z)} <span class="sr">(${VERD_FR[r.kind]||''})</span></b><span class="val">${val}</span><span class="sub2">${esc(r.sub)}${r.low?' <span class="low-b">peu de données</span>':''}</span></li>`;
+}
+const LEG={ok:'Spot à jouer (n° = liste)',neutral:'Spot correct',bad:'À éviter',foe:'D\'où ils tuent',ring:'Où ils sont au 1er contact',arw:'Angle à tenir (spot survolé)',line:'Ligne d\'ouverture (au survol)',low:'Pointillés : peu de données'};
+const legendHtml=items=>`<details class="legend" open><summary>Légende</summary><div class="lg">${items.map(([k,t])=>`<span>${mkHtml({kind:k==='low'?'neutral low':k})}${esc(t||LEG[k])}</span>`).join('')}</div></details>`;
+function listHtml(spots,foes,lines,tSpots,tFoes,foot){
+return`<h3 style="margin-top:0">${tSpots}</h3><ul class="plist">${spots.map(rowHtml).join('')}</ul>
+    ${foes.length?`<h3>${tFoes}</h3><ul class="plist">${foes.map(rowHtml).join('')}</ul>`:''}
+    ${lines.length?`<details class="mt8"><summary class="small"><b>Lignes d'ouverture</b> <span class="muted">(${lines.length})</span></summary><ul class="plist mt8">${lines.map(rowHtml).join('')}</ul></details>`:''}
+    <p class="note">Survole ou touche une ligne : son repère s'allume sur la carte (et inversement). ${foot||''}</p>`;
+}
+function posAtlasV(D,map,side,foe,cos,M,now){
 const K=atlasControl(M,cos),SP=atlasSpots(M,side,cos,K).filter(s=>coPlay(cos,s.z)),ev=posDuels(D,map,side,now);
 const spread=(L,n,R=600)=>{const o=[];for(const s of L){if(o.length>=n)break;if(!o.some(q=>Math.hypot(q.x-s.x,q.y-s.y)<R))o.push(s);}return o;};
 const best=spread(SP.filter(s=>s.setup&&s.n>=30&&s.verdict[1]!=='bad'),6),worst=spread(SP.filter(s=>s.verdict[1]==='bad').reverse(),3);
+if(!best.length&&!worst.length)return{empty:stateHtml(ico('tactique'),'Pas encore assez de duels ici',`Les parties collectées n'ont pas encore assez de duels sur ${map} en ${SIDE_FR[side]}. Essaie l'autre côté, une autre carte ou tes propres parties.`,['Voir mes parties','possrc:moi'])};
 const thr=spread(atlasSpots(M,foe,cos,K).filter(s=>s.n>=30&&coPlay(cos,s.z)).sort((a,b)=>b.w-a.w),5);
-const pres=atlasZones(M,foe).filter(z=>z.pres!=null&&coPlay(cos,z.z)).slice(0,6),lines=atlasLines(M,side).filter(l=>coPlay(cos,l.me)&&coPlay(cos,l.foe)).slice(0,8),sites=atlasSites(M,rgOf(APP.prof.mmr.tier));
-const mine=s=>{const n=ev.filter(e=>Math.hypot(e.x-s.x,e.y-s.y)<=450),k=n.filter(e=>e.win).length;return n.length?`${k}-${n.length-k}`:'—';};
+const pres=atlasZones(M,foe).filter(z=>z.pres!=null&&coPlay(cos,z.z)).slice(0,5),lines=atlasLines(M,side).filter(l=>coPlay(cos,l.me)&&coPlay(cos,l.foe)).slice(0,8),sites=atlasSites(M,rgOf(APP.prof.mmr.tier));
 [...best,...worst,...thr].forEach(s=>{if(s.ang===s.z)s.ang='bout portant, même zone';});
-after(()=>drawMap($('#posCv'),map,{
-zones:pres.slice(0,5).map(z=>({z:z.z,r:16+Math.round(z.pres*40),fill:'rgba(190,120,255,.2)',stroke:'rgba(190,120,255,.85)',label:pct(z.pres)})),
-threats:thr.map(t=>({x:t.x,y:t.y,n:Math.min(10,Math.round(t.w/8))})),deaths:worst.map(s=>({x:s.x,y:s.y})),
-arrows:[...lines.slice(0,3).map(l=>{const a=coXY(map,l.foe),b=coXY(map,l.me);return a&&b?{x1:a.x,y1:a.y,x2:b.x,y2:b.y,color:'#ffe066',dash:true,w:3}:null;}).filter(Boolean),
-...best.map(s=>({x1:s.x,y1:s.y,x2:s.ex,y2:s.ey,color:'#ffffff',max:170,w:3}))],
-pins:best.map((s,i)=>({x:s.x,y:s.y,fill:VCOL[s.verdict[1]][1],inner:String(i+1),label:pct(s.sh)}))}));
-const b0=best[0],l0=lines[0],st=sites[0];
-return`<div class="grid g2 mt">
-    <div class="card">${canvasHtml('posCv',`Minimap de ${map} : spots conseillés en ${SIDE_FR[side]}`)}
-      <p class="note"><b>Ronds numérotés</b> : meilleurs spots (case de 3 m) · <b>flèche blanche</b> : la ligne à tenir (où se trouve l'adversaire en moyenne) · <b>✖ rouge</b> : spots perdants · <b>losanges violets</b> : d'où l'adversaire tue le plus · <b>cercles violets</b> : où il est au premier contact · <b>pointillés jaunes</b> : lignes d'ouverture les plus jouées.</p></div>
-    <div class="card"><h3>${esc(map)} en ${SIDE_FR[side]} : l'essentiel</h3><div class="pos-sum">
-      ${st?`<p><span class="pill">Site le plus attaqué</span> <b>${esc(st.s)}</b> : ${pct(st.share)} des plants${st.win!=null?` · l'attaque gagne ensuite ${pct(st.win)} des rounds`:''}${sites.length>1?` <small class="muted">(${sites.slice(1).map(s=>`${esc(s.s)} ${pct(s.share)}`).join(' · ')})</small>`:''}</p>`:''}
-      ${b0?`<p><span class="pill ok">Spot n°1</span> <b>${esc(b0.z)}</b>, regarde vers <b>${esc(b0.ang||'?')}</b> (~${b0.dist} m) : ${pct(b0.sh)} de duels gagnés <small class="muted">(${b0.n} duels)</small></p>`:''}
-      ${pres.length?`<p><span class="pill">Adversaires au 1er contact</span> ${pres.slice(0,3).map(z=>`<b>${esc(z.z)}</b> ${pct(z.pres)}`).join(' · ')}</p>`:''}
-      ${l0?`<p><span class="pill">Ligne n°1</span> toi en <b>${esc(l0.me)}</b> contre <b>${esc(l0.foe)}</b> : ${pct(l0.share)} des ouvertures, gagnée ${pct(l0.rate)} du temps de ton côté</p>`:''}
-      ${worst[0]?`<p><span class="pill bad">Spots perdants</span> ${worst.map(s=>`<b>${esc(s.z)}</b> face à ${esc(s.ang||'?')} ${pct(s.sh)}`).join(' · ')}</p>`:''}
-    </div>${side==='D'?'<p class="note">En défense, seules les zones tenables avant l\'ouverture des barrières sont conseillées.</p>':''}
-    <p class="note">Tous les joueurs : ${M.n} parties classées sur ${esc(map)} (${M.r.toLocaleString('fr-FR')} rounds)${M.fsn[foe]?`, positions au premier contact sur ${M.fsn[foe].toLocaleString('fr-FR')} rounds`:''}.</p></div></div>
-  <div class="card mt"><h3>Où se placer en ${SIDE_FR[side]}</h3>${best.length?`<div class="tbl"><table class="small"><thead><tr><th>#</th><th>Zone</th><th>Regarde vers</th><th>Distance</th><th>Duels gagnés (tous)</th><th>Toi ici</th><th>Verdict</th></tr></thead><tbody>
-    ${[...best.map((s,i)=>[String(i+1),s]),...worst.map(s=>['✖',s])].map(([n,s])=>`<tr><td><b>${n}</b></td><td><b>${esc(s.z)}</b></td><td>${esc(s.ang||'—')}</td><td>~${s.dist} m</td><td>${pct(s.sh)} <small class="muted">(${pct(s.raw)} sur ${s.n})</small></td><td>${mine(s)}</td><td><span class="pill ${s.verdict[1]}">${s.verdict[0]}</span></td></tr>`).join('')}</tbody></table></div>
-    <p class="note">Moyenne de ce côté : ${pct((best[0]||worst[0]||{}).p0)} de duels gagnés. « Toi ici » : tes duels à moins de 4,5 m de ce spot.</p>`:empty('Pas encore assez de duels sur cette carte et ce côté.')}</div>
-  <div class="grid g2 mt">
-    <div class="card"><h3>Où sont les adversaires</h3>${pres.length?`<p class="muted small">Part des rounds où au moins un ${foe==='A'?'attaquant':'défenseur'} est dans la zone au premier contact.</p>
-      <ul class="ul">${pres.map(z=>`<li><b>${esc(z.z)}</b> : ${pct(z.pres)} des rounds${z.rate!=null&&z.ev>=30?` <small class="muted">· ils y gagnent ${pct(z.rate)} de leurs duels</small>`:''}</li>`).join('')}</ul>`:empty('Positions au premier contact pas encore collectées sur cette carte.')}
-      ${thr.length?`<p class="lbl mt8">D'où ils tuent le plus</p><ul class="ul">${thr.map(t=>`<li><b>${esc(t.z)}</b>, vers ${esc(t.ang||'?')} : ${t.w} kills <small class="muted">(${pct(t.raw)} de duels gagnés)</small></li>`).join('')}</ul>`:''}</div>
-    <div class="card"><h3>Lignes d'ouverture</h3>${lines.length?`<div class="tbl"><table class="small"><thead><tr><th>Toi</th><th>Contre</th><th>Part</th><th>Gagnée</th></tr></thead><tbody>
-      ${lines.map(l=>`<tr><td><b>${esc(l.me)}</b></td><td>${esc(l.foe)}</td><td>${pct(l.share)}</td><td class="${l.rate>=.55?'up':l.rate<=.45?'down':''}">${pct(l.rate)}</td></tr>`).join('')}</tbody></table></div>
-      <p class="note">Premier duel du round (à l'arme) : ta zone, celle de l'adversaire, part des ouvertures de la carte, et combien ton côté en gagne.</p>`:empty('Pas encore assez d\'ouvertures.')}</div>
-  </div>`;
+const near=s=>{const n=ev.filter(e=>Math.hypot(e.x-s.x,e.y-s.y)<=450),k=n.filter(e=>e.win).length;return n.length?` · toi ici ${k}-${n.length-k}`:'';};
+const p0=(best[0]||worst[0]).p0;
+const spot=(s,i,bad)=>({k:(bad?'w':'s')+i,kind:bad?'bad':kindOf(s),num:bad?'':String(i+1),x:s.x,y:s.y,z:s.z,rate:s.sh,avg:p0,nTxt:`${s.n} duels`,
+sub:`vers ${s.ang||'?'} · ~${s.dist} m${near(s)}`,tip:`${s.z} : ${pct(s.sh)} de duels gagnés (${s.n} duels, brut ${pct(s.raw)})`});
+const spots=[...best.map((s,i)=>spot(s,i)),...worst.map((s,i)=>spot(s,i,true))];
+const foes=[...thr.map((t,i)=>({k:'t'+i,kind:'foe',x:t.x,y:t.y,z:t.z,size:t.w,val:String(t.w),nTxt:`kills · ${pct(t.raw)} de leurs duels`,sub:`ils regardent vers ${t.ang||'?'}`,tip:`D'où ils tuent : ${t.z}, ${t.w} kills (${t.n} duels)`})),
+...pres.map((z,i)=>{const c=coXY(map,z.z);return c&&{k:'p'+i,kind:'ring',x:c.x,y:c.y,z:z.z,pres:z.pres,val:pct(z.pres),nTxt:'des rounds',sub:z.rate!=null&&z.ev>=30?`présents au 1er contact · ils y gagnent ${pct(z.rate)} de leurs duels (${z.ev})`:'présents au 1er contact',tip:`${z.z} : au moins un ${foe==='A'?'attaquant':'défenseur'} y est dans ${pct(z.pres)} des rounds au premier contact`};}).filter(Boolean)];
+const lr=lines.map((l,i)=>{const a=coXY(map,l.foe),b=coXY(map,l.me);return a&&b&&{k:'l'+i,kind:'line',a,b,z:`${l.me} contre ${l.foe}`,rate:l.rate,avg:.5,nTxt:`${l.n} duels`,low:l.n<30,sub:`${pct(l.share)} des ouvertures de la carte · gagnée par ton côté`};}).filter(Boolean);
+const b0=best[0],st=sites[0],kW=ev.filter(e=>e.win).length;
+const verdict=b0?{cls:'ok',h:`Joue ${b0.z}, regarde vers ${b0.ang}`,p:`Le spot n° 1 de la liste : celui qui gagne le plus de duels de ce côté, sur toutes les parties collectées.${side==='D'?' Seules les zones tenables avant l\'ouverture des barrières sont proposées.':''}`}
+:{cls:'bad',h:`Évite ${worst[0].z}`,p:'Aucun spot ne ressort nettement de ce côté : commence par éviter celui-ci.'};
+verdict.facts=[st&&['Site le plus attaqué',`<b>${esc(st.s)}</b>`,`${pct(st.share)} des plants · ${M.n} parties${st.win!=null?` · l'attaque gagne ensuite ${pct(st.win)}`:''}`],
+['Moyenne de ce côté',`<b>${pct(p0)}</b>`,'de duels gagnés (le trait des barres)'],
+ev.length&&['Toi sur cette carte',`<b class="${ev.length<POS_LOW?'low':''}">${pct(kW/ev.length)}</b>`,`de tes duels avant le plant · ${nTag(ev.length,'duels',POS_LOW)}`]].filter(Boolean);
+const legend=[...new Set(spots.map(s=>s.kind))].map(k=>[k]).concat(thr.length?[['foe']]:[],pres.length?[['ring']]:[],b0?[['arw']]:[],lr.length?[['line']]:[],lr.some(l=>l.low)?[['low']]:[]);
+const L={spots,foes:foes.filter(f=>f.kind==='foe'),rings:foes.filter(f=>f.kind==='ring'),
+arrows:best.map((s,i)=>({k:'s'+i,x1:s.x,y1:s.y,x2:s.ex,y2:s.ey,top:!i,max:90})),lines:lr.map(l=>({k:l.k,x1:l.a.x,y1:l.a.y,x2:l.b.x,y2:l.b.y,dash:true}))};
+return{verdict,L,legend,list:listHtml(spots,foes,lr,`Où te placer en ${SIDE_FR[side]}`,'Adversaires')};
 }
-function posMine(D,map,side,cos,now,M){
-const ctl=posControl(D,map,cos);
-const Z=posZones(D,map,side,cos,now,ctl),SP=posSpots(D,map,side,cos,now,ctl),TH=posThreats(D,map,side,'moi');
-const show=SP.filter(s=>s.setup&&s.verdict[1]!=='bad').slice(0,6),bad=SP.filter(s=>s.verdict[1]==='bad').slice(0,3);
-const go=Z.list.filter(z=>z.verdict[1]==='ok'),no=Z.list.filter(z=>z.verdict[1]==='bad'),gap=posGap(Z.list),nD=D.filter(d=>d.map===map).length;
-const pp=Z.list.filter(z=>z.kp+z.dp>=4&&(side!=='D'||z.ctl.kind!=='atk')).map(z=>Object.assign({},z,{pr:(z.kp+1)/(z.kp+z.dp+2)})).sort((a,b)=>b.pr-a.pr)[0];
-after(()=>drawMap($('#posCvMe'),map,{threats:TH.slice(0,5),deaths:bad,
-arrows:[...show.filter(s=>s.ang).map(s=>({x1:s.x,y1:s.y,x2:s.ang.x,y2:s.ang.y,color:'#ffffff',max:150,w:3})),...bad.filter(s=>s.kc).map(s=>({x1:s.kc.x,y1:s.kc.y,x2:s.x,y2:s.y,color:'#ff5a6a',dash:true,max:600,w:3}))],
-pins:show.map((s,i)=>({x:s.x,y:s.y,fill:VCOL[s.verdict[1]][1],inner:String(i+1),label:pct(s.raw)}))}));
+function posMineV(D,map,side,cos,now,M,nMe){
+if(!nMe)return{empty:stateHtml(ico('tactique'),`Aucune de tes parties détaillées sur ${map}`,'Analyse au moins 3 parties sur cette carte pour voir tes propres spots.',moreAct())};
+const ctl=posControl(D,map,cos),Z=posZones(D,map,side,cos,now,ctl),SP=posSpots(D,map,side,cos,now,ctl),TH=posThreats(D,map,side,'moi');
+const sure=(a,b)=>(a.n<POS_LOW)-(b.n<POS_LOW)||b.sh-a.sh;
+const show=SP.filter(s=>s.setup&&s.verdict[1]!=='bad').sort(sure).slice(0,6),bad=SP.filter(s=>s.verdict[1]==='bad').sort(sure).slice(0,3);
+if(!show.length&&!bad.length)return{empty:stateHtml(ico('tactique'),'Pas encore assez de duels',`${nMe} partie${nMe>1?'s':''} sur ${map}, mais pas assez de duels avec une position exacte en ${SIDE_FR[side]}. Analyse au moins 3 parties sur cette carte.`,moreAct())};
 const ref=z=>{const v=M&&M.z[z]?M.z[z][side]:null;return v&&v[0]+v[1]>=30?v[0]/(v[0]+v[1]):null;};
-const zl=a=>a.slice(0,3).map(z=>`<b>${esc(z.z)}</b> <small class="muted">(${z.k}-${z.d}${ref(z.z)!=null?` · tous ${pct(ref(z.z))}`:z.oth[0]>=5?` · les autres ${pct(z.oth[1]/z.oth[0])}`:''})</small>`).join(', ');
-return`<h2 class="mt">Toi sur ${esc(map)}</h2>
-  <div class="grid g2 mt">
-    <div class="card">${canvasHtml('posCvMe',`Minimap de ${map} : tes spots en ${SIDE_FR[side]}`)}
-      <p class="note"><b>Ronds numérotés</b> : tes meilleurs spots (vert = à jouer) · <b>flèche blanche</b> : l'angle à tenir · <b>✖ rouge</b> : spot où tu perds, <b>pointillés</b> : d'où on te tue · <b>losanges violets</b> : d'où l'adversaire te tue le plus souvent.</p></div>
-    <div class="card"><h3>En bref : ${esc(map)} en ${SIDE_FR[side]}</h3>
-      <div class="pos-sum">
-        <p><span class="pill ok">À jouer</span> ${go.length?zl(go):'<span class="muted">rien de net encore</span>'}</p>
-        <p><span class="pill bad">À éviter</span> ${no.length?zl(no):'<span class="muted">rien de net</span>'}</p>
-        ${pp?`<p><span class="pill">${side==='D'?'Retake':'Après ton plant'}</span> <b>${esc(pp.z)}</b> <small class="muted">(${pp.kp}-${pp.dp} en duels après le plant)</small></p>`:''}
-        ${show[0]?`<p><span class="pill prem">Spot n°1</span> ${esc(show[0].z)}, angle <b>${esc(angTxt(show[0]))}</b> <small class="muted">(${show[0].k}-${show[0].d})</small></p>`:''}
-      </div>
-      ${gap?`<div class="infobox">🎯 Tu gagnes <b>${pct(gap.hi.raw)}</b> de tes duels à <b>${esc(gap.hi.z)}</b> (${gap.hi.k}-${gap.hi.d}) mais seulement <b>${pct(gap.lo.raw)}</b> à <b>${esc(gap.lo.z)}</b> (${gap.lo.k}-${gap.lo.d}). Joue plus souvent la première.</div>`:''}
-      ${side==='D'?'<p class="note">En défense, seules les zones tenables avant l\'ouverture des barrières sont conseillées. Les autres sont grisées (« Hors setup » : push ou fin de round).</p>':''}
-      <p class="note">${nD} partie(s) détaillée(s) sur ${esc(map)} · ${Z.mine.n} rounds en ${SIDE_FR[side]} · ${Z.mine.K} kills et ${Z.mine.D} morts avant le plant. ${moreBtn()}</p>
-    </div></div>
-  <div class="card mt"><h3>Tes spots précis</h3>${spotTable(show,bad)}</div>
-  <details class="card mt"><summary><b>Détail par zone</b> <span class="muted small">(comparé aux autres joueurs de tes parties et à tous les joueurs collectés, même côté, même endroit)</span></summary>${zoneTable(Z.list,ref)}</details>
-  <p class="note">Tes spots = tes duels à moins de 4 m les uns des autres ; une partie d'il y a 45 jours pèse moitié moins.</p>`;
-}
-function spotTable(show,bad){
-const L=[...show.map((s,i)=>[`<b>${i+1}</b>`,s]),...bad.map(s=>['<b class="down">✖</b>',s])];
-if(!L.length)return empty('Pas encore assez de duels avec une position exacte sur cette carte et ce côté.');
-return`<div class="tbl"><table class="small"><thead><tr><th>#</th><th>Zone</th><th>Duels</th><th>Gagnés</th><th>Angle à tenir</th><th>Tes morts ici viennent de</th><th>Verdict</th><th>Fiabilité</th></tr></thead><tbody>
-    ${L.map(([n,s])=>`<tr><td>${n}</td><td><b>${esc(s.z)}</b></td><td>${s.k}-${s.d}</td><td>${pct(s.raw)} <small class="muted">(lissé ${pct(s.sh)})</small></td><td>${esc(angTxt(s))}</td><td>${s.kc?`${esc(s.kc.z)} (${s.kc.n})`:'—'}</td><td><span class="pill ${s.verdict[1]}">${s.verdict[0]}</span></td><td><span class="pill ${s.rel[1]}">${s.rel[0]}</span></td></tr>`).join('')}</tbody></table></div>`;
+const spot=(s,i,isBad)=>({k:(isBad?'w':'s')+i,kind:kindOf(s),low:s.n<POS_LOW,num:isBad?'':String(i+1),x:s.x,y:s.y,z:s.z,rate:s.sh,avg:Z.pM,nTxt:`${s.k}-${s.d} en duels`,
+sub:isBad?(s.kc?`tes morts viennent de ${s.kc.z} (${s.kc.n})`:'tu y perds tes duels'):angTxt(s)==='—'?'angle pas encore connu':`regarde ${angTxt(s)}`,tip:`${s.z} : ${pct(s.sh)} de duels gagnés (${s.k}-${s.d}, brut ${pct(s.raw)})`});
+const spots=[...show.map((s,i)=>spot(s,i)),...bad.map((s,i)=>spot(s,i,true))];
+const foes=TH.slice(0,5).map((t,i)=>({k:'t'+i,kind:'foe',x:t.x,y:t.y,z:coZone(cos,t.x,t.y),size:t.n*4,val:String(t.n),nTxt:'fois',low:t.n<3,sub:'l\'adversaire t\'a tué d\'ici avant le plant',tip:`D'où on te tue : ${coZone(cos,t.x,t.y)} (${t.n} fois)`}));
+const b=show.find(s=>s.verdict[1]==='ok'&&s.n>=POS_LOW),gap=posGap(Z.list),all=M?(atlasSpots(M,side,cos)[0]||{}).p0:null;
+const pp=Z.list.filter(z=>z.kp+z.dp>=4&&(side!=='D'||z.ctl.kind!=='atk')).map(z=>Object.assign({},z,{pr:(z.kp+1)/(z.kp+z.dp+2)})).sort((x,y)=>y.pr-x.pr)[0];
+const verdict=b?{cls:'ok',h:`Ton spot : ${b.z}, ${angTxt(b)}`,p:'Ton spot n° 1 : celui où tu gagnes le plus de duels (taux lissé, les parties récentes comptent plus).'}
+:gap?{cls:'foe',h:`Joue plus ${gap.hi.z} que ${gap.lo.z}`,p:`Tu y gagnes ${pct(gap.hi.raw)} de tes duels (${gap.hi.k}-${gap.hi.d}) contre ${pct(gap.lo.raw)} (${gap.lo.k}-${gap.lo.d}).`}
+:{cls:'neutral',h:'Pas encore de spot sûr',p:'Tes spots ont encore trop peu de duels pour conclure. L\'analyse se met à jour toute seule après chaque partie.'};
+const mb=(n,v,me)=>`<div class="mbar${me?' me':''}"><span>${n}</span><i><i style="width:${Math.round(v*100)}%"></i></i><b>${pct(v)}</b></div>`;
+verdict.facts=[['Duels avant le plant',`<div class="mbars mt8">${mb('Toi',Z.pM,true)}${all!=null?mb('Tous',all):''}</div>`,`${Z.mine.K+Z.mine.D} duels · ${nMe} partie${nMe>1?'s':''}`],
+pp&&[side==='D'?'Retake : ta meilleure zone':'Après ton plant',`<b>${esc(pp.z)}</b>`,`${pp.kp}-${pp.dp} en duels après le plant`]].filter(Boolean);
+const legend=[...new Set(spots.map(s=>s.kind))].map(k=>[k,{ok:'Ton spot à jouer (n° = liste)',neutral:'Correct',bad:'Tu y perds tes duels'}[k]])
+.concat(foes.length?[['foe','D\'où on te tue']]:[],show.some(s=>s.ang)||bad.some(s=>s.kc)?[['arw','Angle à tenir / d\'où on te tue (au survol)']]:[],spots.some(s=>s.low)||foes.some(f=>f.low)?[['low']]:[]);
+const L={spots,foes,arrows:[...show.map((s,i)=>s.ang&&{k:'s'+i,x1:s.x,y1:s.y,x2:s.ang.x,y2:s.ang.y,top:s===b,max:90}),...bad.map((s,i)=>s.kc&&{k:'w'+i,x1:s.kc.x,y1:s.kc.y,x2:s.x,y2:s.y,bad:true,dash:true})].filter(Boolean)};
+const extra=`<details class="card mt"><summary><b>Détail par zone</b> <span class="muted small">(comparé aux autres joueurs de tes parties et à tous les joueurs collectés, même côté, même endroit)</span></summary>${zoneTable(Z.list,ref)}
+    ${side==='D'?'<p class="note">En défense, les zones intenables avant l\'ouverture des barrières sont grisées (« Hors setup » : push ou fin de round).</p>':''}</details>`;
+return{verdict,L,legend,extra,list:listHtml(spots,foes,[],'Tes spots','D\'où on te tue',`${nMe} partie${nMe>1?'s':''} détaillée${nMe>1?'s':''} sur ${esc(map)}, ${Z.mine.n} rounds en ${SIDE_FR[side]}. Une partie d'il y a 45 jours compte moitié moins. ${moreBtn()}`)};
 }
 function zoneTable(Z,ref){
 if(!Z.length)return empty('Pas encore assez de données sur cette carte et ce côté.');
@@ -2471,11 +2517,16 @@ const steps=[
 ['Exécution',`${tmed?`Vos plants gagnants en ${pick.s} arrivent vers ${Math.round(tmed)} s. `:''}${R==='Controller'&&sm?`Toi : ${abN(sm)} sur ${sTxt}`:`Smokes sur ${sTxt} (ton contrôleur)`}${smokeSrc==='kills'?' : les positions exactes d\'où les défenseurs tuent ton équipe.':smokeSrc==='mix'?' : d\'où les défenseurs tuent ton équipe et où ils sont vus le plus souvent.':smokeSrc==='holds'?' : là où les défenseurs sont vus le plus souvent.':' (règle générale : couper la vue depuis le spawn défense).'} ${R==='Initiator'&&(fl||rc)?`Toi : ${abN(fl||rc)} sur ${siteL} au même moment.`:fl&&R!=='Duelist'?`${abN(fl)} sur ${siteL} au même moment.`:''}`],
 ['Entrée',`${R==='Duelist'?`Tu entres en premier${mv?` (${abN(mv)})`:''}${fl||sm?`, avec ${abN(fl||sm)} pour ton entrée`:''} ; un coéquipier te suit dans la seconde.`:'Entre en 2e, juste derrière ton duelliste : venge-le s\'il tombe.'}${danger.length?` Attention : ton équipe meurt souvent en premier à ${top3(danger)}${fdBy.length?`, tuée depuis ${fdBy.map(x=>x[0]).join(', ')}`:''} : jamais sans utilitaire là-bas.`:''} Le spike est posé par le joueur le mieux couvert.`],
 ['Après le plant',`${post.length?`Les positions qui gagnent après vos plants : ${top3(post)}.`:`Croisez-vous autour du spike, depuis ${siteL} et ${mainL}.`} ${ml?`Garde ${abN(ml)} pour empêcher le désamorçage.`:wl?`Garde ${abN(wl)} pour couper le désamorçage.`:'Joue le temps, pas de re-peek inutile.'}`]];
-const pt=c=>({x:c[2],y:c[3]});
-const draw={threats:smokeSrc==='kills'?[]:posThreats(D,map,'A','equipe',3).slice(0,4),smokes:smokes.map(t=>({x:t.x,y:t.y,label:'smoke'})),spike:loc,
-arrows:[{x1:G.sa[2],y1:G.sa[3],x2:G.main[2],y2:G.main[3],color:COL.path},{x1:G.main[2],y1:G.main[3],x2:loc.x,y2:loc.y,color:cssVar('--accent','#ff2e97'),w:5},...(lurk?[{x1:G.sa[2],y1:G.sa[3],x2:lurk[2],y2:lurk[3],color:COL.rot,dash:true}]:[])],
-marks:[{...pt(G.site),kind:fl?'flash':'recon',label:fl?'flash':'info'}],pins:post.map(([z],i)=>Object.assign(coXY(map,z)||{},{fill:COL.ok,inner:'P'+(i+1),r:15})).filter(p=>p.x!=null)};
-return{side:'A',S:pick.s,why,st,steps,draw,n:A.n,w:A.w,smokes,loc,tmed,holds,danger};
+const pt=c=>({x:c[2],y:c[3]}),ut=fl?'flash':'info';
+const draw={
+arrows:[{k:'p0',cls:'me',show:true,x1:G.sa[2],y1:G.sa[3],x2:G.main[2],y2:G.main[3],tip:`Départ : ton équipe va vers ${mainL}`},
+...(lurk?[{k:'p0',cls:'me',dash:true,show:true,x1:G.sa[2],y1:G.sa[3],x2:lurk[2],y2:lurk[3],tip:`Flanc : ${coLabel(lurk)}`}]:[]),
+{k:'p2',cls:'me',thick:true,show:true,x1:G.main[2],y1:G.main[3],x2:loc.x,y2:loc.y,tip:`Entrée sur le site ${pick.s}`}],
+utils:[...smokes.map(t=>({k:'p1',kind:'smoke',x:t.x,y:t.y,tip:`Smoke : ${t.z}${R==='Controller'&&sm?` (toi : ${abN(sm)})`:''}`})),
+{k:'p1',kind:ut,...pt(G.site),tip:`${ut==='flash'?'Flash':'Info'} sur ${siteL}${fl||rc?` : ${abN(fl||rc)}`:''}`},{k:'p3',kind:'spike',x:loc.x,y:loc.y,tip:'Spike : point de plant moyen'}],
+foes:smokeSrc==='kills'?[]:posThreats(D,map,'A','equipe',3).slice(0,4).map((t,i)=>({k:'p2',x:t.x,y:t.y,size:t.n*4,tip:`D'où les défenseurs tuent ton équipe (${t.n} fois)`})),
+spots:post.map(([z,c],i)=>{const p=coXY(map,z);return p&&{k:'p3',kind:'ok',num:String(i+1),x:p.x,y:p.y,tip:`Après le plant : ${z} (${c} fois en position gagnante)`};}).filter(Boolean)};
+return{side:'A',S:pick.s,why,sure:pick.n>=3,st,steps,draw,n:A.n,w:A.w,smokes,loc,tmed,holds,danger,ut};
 }
 function planDef(I,map,cos,ag,D,now){
 const Df=I.def,sites=coSites(cos),ctl=posControl(D,map,cos);
@@ -2499,66 +2550,75 @@ const steps=[
 ['Rotation',`Dès que 3 attaquants sont vus sur l'autre site, tourne${tmed?` (leurs plants arrivent vers ${Math.round(tmed)} s)`:''}. Jamais sur un seul bruit.`],
 ['Retake',`Seulement à 3 ou plus${Df.re3[0]?` (à 3 ou plus : ${nA(Df.re3)} gagnés)`:''}, ensemble, avec ${abN(fl||sm||ml)||'flash et smoke'}. À 2 ou moins, sauve ton arme${Df.re2[0]?` (à 2 ou moins : ${nA(Df.re2)} gagnés)`:''}.`]];
 const kit=R==='Sentinel'&&tr?[{...G.entry,kind:'trap',label:'piège'}]:R==='Controller'?[{...GT.entry,kind:ml&&!sm?'molly':'smoke',label:sm?'smoke':'molly'}]:R==='Initiator'?[{...GT.entry,kind:'recon',label:'info'}]:[];
-const draw={pins:[{x:here.x,y:here.y,fill:cssVar('--accent','#ff2e97'),inner:'★',r:18,label:'toi'}],marks:kit.filter(k=>k.kind!=='smoke'),smokes:kit.filter(k=>k.kind==='smoke'),
-threats:posThreats(D,map,'D','moi').slice(0,4),
-arrows:[...(spot&&spot.ang?[{x1:spot.x,y1:spot.y,x2:spot.ang.x,y2:spot.ang.y,color:'#ffffff',max:150,w:3}]:[]),{x1:GT.main[2],y1:GT.main[3],x2:GT.entry.x,y2:GT.entry.y,color:COL.path,dash:true},
-...(mySite!==top.s?[{x1:G.site[2],y1:G.site[3],x2:GT.site[2],y2:GT.site[3],color:COL.rot,dash:true}]:[]),...(G.sd?[{x1:G.sd[2],y1:G.sd[3],x2:GT.site[2],y2:GT.site[3],color:COL.retake}]:[])]};
-return{side:'D',S:mySite,top:top.s,why:totN?`Calculé sur ${totN} rounds de défense : sites attaqués par tes adversaires, tes zones qui gagnent.`:'Pas encore assez de rounds de défense : plan de base, à affiner avec tes prochaines parties.',steps,draw,n:Df.n,w:Df.w,myZone,spot,order,tot};
+const KT={trap:'Piège',molly:'Molly',smoke:'Smoke',recon:'Info'},ab={trap:tr,molly:ml,smoke:sm,recon:rc||fl};
+const draw={
+utils:[{k:'p0',kind:'me',x:here.x,y:here.y,tip:`Toi : ${myZone}`},...kit.map(m=>({k:'p0',kind:m.kind==='recon'?'info':m.kind,x:m.x,y:m.y,tip:`${KT[m.kind]}${ab[m.kind]?` : ${abN(ab[m.kind])}`:''}`}))],
+foes:posThreats(D,map,'D','moi').slice(0,4).map(t=>({k:'p1',x:t.x,y:t.y,size:t.n*4,tip:`D'où on te tue (${t.n} fois)`})),
+arrows:[...(spot&&spot.ang?[{k:'p0',show:true,x1:spot.x,y1:spot.y,x2:spot.ang.x,y2:spot.ang.y,max:90,tip:`Angle à tenir : ${spot.ang.z}`}]:[]),
+{k:'p1',cls:'foe',dash:true,show:true,x1:GT.main[2],y1:GT.main[3],x2:GT.entry.x,y2:GT.entry.y,tip:`Leur chemin le plus fréquent : ${coLabel(GT.main)}`},
+...(mySite!==top.s?[{k:'p2',cls:'me',dash:true,show:true,x1:G.site[2],y1:G.site[3],x2:GT.site[2],y2:GT.site[3],tip:`Rotation vers ${top.s}`}]:[]),
+...(G.sd?[{k:'p3',cls:'me',show:true,x1:G.sd[2],y1:G.sd[3],x2:GT.site[2],y2:GT.site[3],tip:`Retake du site ${top.s}`}]:[])]};
+return{side:'D',S:mySite,top:top.s,why:totN?`Calculé sur ${totN} rounds de défense : sites attaqués par tes adversaires, tes zones qui gagnent.`:'Pas encore assez de rounds de défense : plan de base, à affiner avec tes prochaines parties.',sure:!!mine&&!!totN,steps,draw,n:Df.n,w:Df.w,myZone,spot,order,tot,tmed};
 }
+const STRAT_LEG={me:'Toi','arw me':'Ton équipe (chemin, entrée)','arw me dash':'Flanc / rotation','arw foe':'Leur chemin',foe:'D\'où ils tuent',smoke:'Smoke',flash:'Flash',info:'Info / recon',trap:'Piège',molly:'Molly',spike:'Spike (plant moyen)',ok:'Position gagnante après le plant (n°)',arw:'Angle à tenir'};
 function tabStrat(){
 const w=detWait(3);if(w)return w;
 const D=APP.D,P=APP.prof,maps=mapsOfD(D);
-if(!maps.length)return`<div class="card">${empty('Pas encore de partie détaillée sur une carte connue.')}</div>`;
+if(!maps.length)return stateHtml(ico('tactique'),'Pas encore de partie détaillée sur une carte connue','Analyse au moins 3 parties pour obtenir un plan d\'attaque et de défense.',moreAct());
 const S=pickState('strat',maps,'A'),map=S.map,side=S.side,cos=cosOf(map),now=Date.now(),I=stratIntel(D,map,cos,now);
 const picks=agentsForMap(P.rows,map),ag=myAgentOn(P.rows,map)||(picks[0]&&picks[0].a)||mainAgent(P.rows)||'';
 const plan=side==='A'?planAtk(I,map,cos,ag,D,now):planDef(I,map,cos,ag,D,now);
-if(!plan)return`<div class="card">${empty('Zones de cette carte indisponibles.')}</div>`;
-after(()=>drawMap($('#stCv'),map,plan.draw));
-const rel=n=>n>=40?['bonne','ok']:n>=15?['moyenne','warn']:n>0?['faible','bad']:['règles générales',''],r=rel(plan.n);
-return`<div class="card"><div class="card-h"><h2>Stratégie : ${esc(map)}</h2><div class="row"><button class="btn sm" data-act="brief">📝 Briefing avant la partie</button></div></div>${mapPicker('strat',maps,map,side)}
-    <p class="small">${agImg(ag)} Plan écrit pour <b>${esc(ag||'ton agent')}</b>${ROLE_OF[ag]?` (${esc(ROLE_FR[ROLE_OF[ag]])})`:''}, ton agent sur cette carte. <span class="pill ${r[1]}">fiabilité ${r[0]}</span></p></div>
-  <div class="grid g2 mt">
-    <div class="card">${canvasHtml('stCv',`Plan ${SIDE_FR[side]} sur ${map}`)}
-      <p class="note">${side==='A'?'<b>Jaune</b> : chemin vers le site · <b>rose</b> : entrée · <b>gris</b> : smokes · <b>étoile</b> : flash / info · <b>triangle rouge</b> : spike · <b>P1-P3</b> : positions après le plant · <b>bleu</b> : flanc':'<b>★</b> : ta position et ton angle · <b>jaune</b> : leur chemin le plus fréquent · <b>triangle</b> : ton piège · <b>bleu</b> : rotation · <b>vert</b> : retake · <b>losanges</b> : d\'où on te tue'}</p></div>
-    <div class="card"><h3>${side==='A'?`Attaque : site ${esc(plan.S)}`:`Défense : ${esc(plan.myZone)}`}</h3>
-      <ol class="steps">${plan.steps.map(([t,x])=>`<li><b>${esc(t)}</b><p>${esc(x)}</p></li>`).join('')}</ol>
-      <p class="note">${esc(plan.why)}</p></div>
+const head=`<div class="card"><div class="card-h"><h2>Stratégie</h2></div>${mapPicker('strat',maps,map,side)}</div>`;
+if(!plan)return head+`<div class="mt">${stateHtml(ico('tactique'),'Zones de cette carte indisponibles','Choisis une autre carte : celle-ci n\'a pas encore ses zones (callouts).')}</div>`;
+after(()=>svgDraw($('#stMv'),map,plan.draw));
+const rel=n=>n>=40?'bonne':n>=15?'moyenne':n>0?'faible':'règles générales',role=ROLE_OF[ag]?` (${ROLE_FR[ROLE_OF[ag]]})`:'';
+const A=side==='A';
+const v=A?{cls:plan.sure?'ok':'neutral',h:`Attaque le site ${plan.S}`,p:plan.sure?'Le site où ton équipe gagne le plus de rounds, en tenant compte du nombre de rounds (récents et achetés comptent plus).':plan.why}
+:{cls:plan.sure?'ok':'neutral',h:`Défends depuis ${plan.myZone}`,p:plan.sure?'Ta meilleure zone tenable avant l\'ouverture des barrières, d\'après tes duels.':plan.why};
+v.img=agImg(ag,'ag');v.acts=`<button class="btn" data-act="brief">Briefing avant la partie</button>`;
+v.facts=[['Fiabilité du plan',`<b class="${plan.n<15?'low':''}">${rel(plan.n)}</b>`,`${plan.n} rounds ${A?'d\'attaque':'de défense'} sur ${esc(map)} · ${plan.w} gagnés`]];
+const kinds=new Set([...(plan.draw.utils||[]).map(u=>u.kind),...(plan.draw.arrows||[]).map(a=>a.cls?`arw ${a.cls}${a.dash&&a.cls==='me'?' dash':''}`:'arw'),...(plan.draw.foes||[]).length?['foe']:[],...(plan.draw.spots||[]).length?['ok']:[]]);
+const order=['me','arw me','arw me dash','arw','arw foe','foe','smoke','flash','info','trap','molly','spike','ok'];
+return`${head}${verdictHtml(v,`${esc(map)} · ${SIDE_FR[side]} · plan pour ${esc(ag||'ton agent')}${esc(role)}`)}
+  <div class="grid g2 mt" data-link="strat">
+    <div class="card">${svgMapHtml('stMv',map,`Plan ${SIDE_FR[side]} sur ${map}`)}${legendHtml(order.filter(k=>kinds.has(k)).map(k=>[k,(A?{}:{'arw me':'Retake (ton équipe)','arw me dash':'Rotation'})[k]||STRAT_LEG[k]]))}</div>
+    <div class="card"><h3 style="margin-top:0">Le plan en 4 temps</h3><ol class="steps">${plan.steps.map(([t,x],i)=>`<li data-k="p${i}" tabindex="0"><b>${esc(t)}</b><p>${esc(x)}</p></li>`).join('')}</ol>
+      <p class="note">Survole ou touche une étape : ses éléments s'allument sur la carte (et inversement).</p></div>
   </div>
-  <div class="grid g2 mt">
-    ${side==='A'?atkIntel(plan):defIntel(plan,I)}
-    ${agentCard(picks,map,ag)}
-  </div>
+  <div class="grid g2 mt">${A?atkIntel(plan):defIntel(plan,I)}${agentCard(picks,map,ag)}</div>
   ${ecoCard(ecoStats(D),D.length)}
   <p class="note">Tout vient de tes parties détaillées : tes équipes et tes adversaires, donc des joueurs de ton niveau. Aucun joueur n'est identifié et rien n'est utilisé pendant une partie en cours. ${moreBtn()}</p>`;
 }
+function statRow(t,k,n,ref,sub,me){
+const v=n?k/n:null,low=n<10,cls=n?trust(k,n,ref)||'':'';
+return`<li class="srow${me?' me':''}${low?' low':''}"><div><b>${t}</b>${me?' <span class="pill prem">ton plan</span>':''}<small>${sub}${low?' <span class="low-b">peu de données</span>':''}</small></div>
+    <div class="val"><b title="${esc(rateTip(k,n))}">${v==null?'—':pct(v)}</b>${v==null?'':barHtml(v,ref,cls)}</div></li>`;
+}
 function atkIntel(p){
-return`<div class="card"><h3>Ce que disent tes parties en attaque</h3><div class="tbl"><table class="small"><thead><tr><th>Site</th><th>Rounds joués</th><th>Gagnés</th><th>Plants</th></tr></thead><tbody>
-    ${p.st.map(s=>`<tr class="${s.s===p.S?'me':''}"><td><b>${esc(s.s)}</b></td><td>${s.n}</td><td>${rateSpan([s.n,s.w])}</td><td>${s.x.pl||0}</td></tr>`).join('')}</tbody></table></div>
-    <p class="small mt8">${p.holds.length?`<b>Défenseurs vus au premier contact</b> : ${esc(top3(p.holds))}`:''}${p.danger.length?`<br><b>Ton équipe meurt en premier à</b> : ${esc(top3(p.danger))}`:''}${p.tmed?`<br><b>Plant gagnant moyen</b> : vers ${Math.round(p.tmed)} s`:''}</p>
-    <p class="note">Total attaque : ${p.w}/${p.n} rounds gagnés.</p></div>`;
+return`<div class="card"><h3 style="margin-top:0">Détail par site</h3><ul class="plist">${p.st.map(s=>statRow(`Site ${esc(s.s)}`,s.w,s.n,.5,`${s.w}/${s.n} rounds gagnés · ${s.x.pl||0} plant${(s.x.pl||0)>1?'s':''}`,s.s===p.S)).join('')}</ul>
+    <p class="note">Rounds où ton équipe attaque ce site (tous achats). Trait = 50 %. Les zones où ton équipe meurt en premier sont dans l'étape « Entrée ».</p></div>`;
 }
 function defIntel(p,I){
 const Df=I.def;
-return`<div class="card"><h3>Ce que disent tes parties en défense</h3>
-    ${p.tot?`<div class="bands">${p.order.map(x=>`<div class="band"><span>Ils attaquent ${esc(x.s)}</span><b>${Math.round(x.n/p.tot*100)} %</b><small>${x.cn} rounds · ${x.cw} gagnés par vous</small><div class="bar"><i style="width:${x.n/p.tot*100}%"></i></div></div>`).join('')}</div>`:empty('Pas encore assez de rounds de défense.')}
-    <p class="small mt8"><b>Retake à 3 ou plus</b> : ${rateSpan(Df.re3)} · <b>à 2 ou moins</b> : ${rateSpan(Df.re2)}</p>
-    <p class="note">Total défense : ${p.w}/${p.n} rounds gagnés.</p></div>`;
+return`<div class="card"><h3 style="margin-top:0">Ce qu'ils attaquent</h3>${p.tot?`<ul class="plist">${p.order.map(x=>`<li class="srow${x.s===p.top?' me':''}"><div><b>Site ${esc(x.s)}</b><small>${x.cn} rounds · ${x.cw} gagnés par vous</small></div><div class="val"><b>${pct(x.n/p.tot)}</b>${barHtml(x.n/p.tot,null,'')}</div></li>`).join('')}</ul>`:empty('Pas encore assez de rounds de défense : joue ou analyse quelques parties de plus sur cette carte.')}
+    <h3>Retakes</h3><ul class="plist">${statRow('À 3 ou plus',Df.re3[1],Df.re3[0],.5,`${nA(Df.re3)} gagnés`)}${statRow('À 2 ou moins',Df.re2[1],Df.re2[0],.5,`${nA(Df.re2)} gagnés : sauve ton arme`)}</ul></div>`;
 }
 function agentCard(picks,map,ag){
-return`<div class="card"><h3>Quel agent sur ${esc(map)} ?</h3>${picks.length?picks.slice(0,4).map((x,i)=>`<div class="mini">${agImg(x.a)}<div><b>${esc(x.a)}</b>${i===0&&x.sure&&x.n>=3?' <span class="pill ok">conseillé</span>':''}${x.a===ag?' <span class="pill">ton choix</span>':''}<small>${x.n} partie(s) ici (${x.w} V) · ${x.N} au total · note ${pct(x.s)}</small></div></div>`).join(''):empty('Pas encore assez de parties.')}
+return`<div class="card"><h3 style="margin-top:0">Quel agent sur ${esc(map)} ?</h3>${picks.length?picks.slice(0,4).map((x,i)=>`<div class="mini">${agImg(x.a)}<div><b>${esc(x.a)}</b>${i===0&&x.sure&&x.n>=3?' <span class="pill ok">conseillé</span>':''}${x.a===ag?' <span class="pill prem">ton choix</span>':''}<small>${x.n} partie(s) ici (${x.w} V) · ${x.N} au total · note ${pct(x.s)}</small></div></div>`).join(''):empty('Pas encore assez de parties.')}
     <p class="note">Note = taux de victoire lissé : sur cette carte, tiré vers ton taux avec l'agent, lui-même tiré vers ton taux global. Un agent joué 2 fois ne passe jamais devant un agent que tu maîtrises.</p></div>`;
 }
 function ecoCard(E,n){
 const tips=[];
-if(E.force[0]>=8&&trust(E.force[1],E.force[0],.35)==='bad')tips.push(`Tes force-buy gagnent rarement (${nA(E.force)}) : préfère une vraie éco, puis un achat complet au round suivant.`);
-if(E.anti[0]>=8&&trust(E.anti[1],E.anti[0],.75)==='bad')tips.push(`Contre leur éco, ton équipe perd trop de rounds (${nA(E.anti)}) : jouez groupés, pas de duel seul de loin contre des pompes et des SMG.`);
-if(E.bonus[0]>=5&&trust(E.bonus[1],E.bonus[0],.6)==='bad')tips.push(`Après un pistol gagné, vous perdez souvent le round suivant (${nA(E.bonus)}) : gardez vos armes, jouez ensemble, pas de push seul.`);
-if(E.eco[0]>=10&&trust(E.eco[1],E.eco[0],.1)==='ok')tips.push(`Tes rounds d'éco gagnent plus souvent que la moyenne (${nA(E.eco)}) : jouer groupé à courte distance te réussit.`);
-const line=(t,a,ref)=>`<div class="band"><span>${t}</span>${rateSpan(a,ref)}<div class="bar"><i style="width:${a[0]?a[1]/a[0]*100:0}%"></i></div></div>`;
-return`<div class="card mt"><div class="card-h"><h3>Économie</h3><span class="muted small">Toutes cartes · ${n} parties détaillées</span></div><div class="grid g2">
-    <div class="bands">${line('Pistol en attaque',E.pis.A)}${line('Pistol en défense',E.pis.D)}${line('Round d\'après un pistol gagné',E.bonus)}${line('Round d\'après un pistol perdu',E.afterLoss)}</div>
-    <div class="bands">${line('Ton équipe en éco',E.eco,.2)}${line('Force-buy',E.force,.35)}${line('Full contre full',E.fullFull)}${line('Full contre leur éco',E.anti,.75)}</div></div>
-    ${tips.length?`<ul class="ul mt8">${tips.map(t=>`<li class="badl">${esc(t)}</li>`).join('')}</ul>`:'<p class="note">Rien d\'anormal à coup sûr dans ton économie. Couleur seulement quand l\'écart est sûr (repères : éco ≈ 20 %, force ≈ 35 %, contre leur éco ≈ 75 %).</p>'}</div>`;
+if(E.force[0]>=8&&trust(E.force[1],E.force[0],.35)==='bad')tips.push(['foe',`Tes force-buy gagnent rarement (${nA(E.force)}) : préfère une vraie éco, puis un achat complet au round suivant.`]);
+if(E.anti[0]>=8&&trust(E.anti[1],E.anti[0],.75)==='bad')tips.push(['foe',`Contre leur éco, ton équipe perd trop de rounds (${nA(E.anti)}) : jouez groupés, pas de duel seul de loin contre des pompes et des SMG.`]);
+if(E.bonus[0]>=5&&trust(E.bonus[1],E.bonus[0],.6)==='bad')tips.push(['foe',`Après un pistol gagné, vous perdez souvent le round suivant (${nA(E.bonus)}) : gardez vos armes, jouez ensemble, pas de push seul.`]);
+if(E.eco[0]>=10&&trust(E.eco[1],E.eco[0],.1)==='ok')tips.push(['ok',`Tes rounds d'éco gagnent plus souvent que la moyenne (${nA(E.eco)}) : jouer groupé à courte distance te réussit.`]);
+const line=(t,a,ref=.5)=>statRow(t,a[1],a[0],ref,`${nA(a)} rounds gagnés`);
+return`<div class="card mt"><div class="card-h"><h3 style="margin:0">Économie</h3><span class="muted small">Toutes cartes · ${n} parties détaillées</span></div><div class="grid g2">
+    <ul class="plist">${line('Pistol en attaque',E.pis.A)}${line('Pistol en défense',E.pis.D)}${line('Round d\'après un pistol gagné',E.bonus)}${line('Round d\'après un pistol perdu',E.afterLoss)}</ul>
+    <ul class="plist">${line('Ton équipe en éco',E.eco,.2)}${line('Force-buy',E.force,.35)}${line('Full contre full',E.fullFull)}${line('Full contre leur éco',E.anti,.75)}</ul></div>
+    ${tips.length?tips.map(([c,t])=>`<p class="sem ${c} mt8">${esc(t)}</p>`).join(''):'<p class="note">Rien d\'anormal à coup sûr dans ton économie.</p>'}
+    <p class="note">Trait de chaque barre = le repère (éco ≈ 20 %, force ≈ 35 %, contre leur éco ≈ 75 %, sinon 50 %). Vert ou rouge seulement quand l'écart au repère est sûr.</p></div>`;
 }
 function briefOpen(){
 const D=APP.D||[],P=APP.prof,S=APP.strat;if(!S)return;
@@ -2571,10 +2631,37 @@ const L=[`AVANT TA PARTIE SUR ${map.toUpperCase()}`,`Agent : ${ag||'—'}${picks
 `TES SPOTS : attaque ${best('A').map(s=>`${s.z} (${s.k}-${s.d})`).join(', ')||'—'} ; défense ${best('D').map(s=>`${s.z} (${s.k}-${s.d})`).join(', ')||'—'}`,
 `ÉCONOMIE : pistol attaque ${nA(E.pis.A)}, défense ${nA(E.pis.D)} ; force-buy ${nA(E.force)}`,lim?`TA LIMITE : ${lim} parties par session, pas plus.`:'TA LIMITE : arrête-toi après 3 défaites d\'affilée.'];
 APP.briefTxt=L.join('\n');
-dlgOpen(`<h2>📝 Briefing : ${esc(map)}</h2><p class="muted small">À lire 1 minute avant de lancer. Seulement tes propres chiffres.</p>
+dlgOpen(`<h2>Briefing : ${esc(map)}</h2><p class="muted small">À lire 1 minute avant de lancer. Seulement tes propres chiffres.</p>
     <div class="brief">${L.slice(1).map(l=>{if(!l)return'';if(/^(ATTAQUE|DÉFENSE)/.test(l))return`<h3>${esc(l)}</h3>`;const m=/^([A-ZÉa-zé ]{4,20}) : (.*)$/.exec(l);return m&&!l.startsWith('-')?`<p><b>${esc(m[1])}</b> : ${esc(m[2])}</p>`:`<p>${esc(l)}</p>`;}).join('')}</div>
-    <div class="row mt"><button class="btn" data-act="briefCopy">📋 Copier le texte</button><button class="btn ghost" data-act="dlgClose">Fermer</button></div>`);
+    <div class="row mt"><button class="btn" data-act="briefCopy">Copier le texte</button><button class="btn ghost" data-act="dlgClose">Fermer</button></div>`);
 }
+const mvRoot=t=>t&&t.closest?t.closest('[data-link]'):null,mvKey=t=>t&&t.closest?t.closest('[data-k]'):null;
+let MVD=0;
+document.addEventListener('pointerover',e=>{const t=mvKey(e.target),R=mvRoot(t);if(R&&!R._pin)mvHl(R,t.dataset.k,true);});
+document.addEventListener('pointerout',e=>{const t=mvKey(e.target),R=mvRoot(t);if(!R||R._pin)return;const to=mvKey(e.relatedTarget);if(to&&to.dataset.k===t.dataset.k)return;mvHl(R,null,false);});
+document.addEventListener('focusin',e=>{const t=e.target.closest&&e.target.closest('[data-k][tabindex]'),R=mvRoot(t);if(R){R._pin=null;mvHl(R,t.dataset.k,true);}});
+document.addEventListener('click',e=>{
+if(Date.now()-MVD<300)return;const t=mvKey(e.target),R=mvRoot(e.target);
+if(!R){$$('[data-link]').forEach(r=>{if(r._pin){r._pin=null;mvHl(r,null,false);}});return;}
+if(!t)return;R._pin=R._pin===t.dataset.k?null:t.dataset.k;mvHl(R,R._pin||t.dataset.k,!!R._pin);
+});
+document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('[data-k][tabindex], li[data-act][tabindex]');if(t&&(e.key==='Enter'||e.key===' ')){e.preventDefault();t.click();}});
+function mvView(svg,z,cx,cy){
+z=Math.max(1,Math.min(4,z));const w=1000/z,h=w/2;cx=Math.max(h,Math.min(1000-h,cx));cy=Math.max(h,Math.min(1000-h,cy));
+svg._v={z,cx,cy};svg.setAttribute('viewBox',`${(cx-h).toFixed(1)} ${(cy-h).toFixed(1)} ${w.toFixed(1)} ${w.toFixed(1)}`);svg.parentNode.classList.toggle('zoomed',z>1);svgPaint(svg);
+}
+ACT.mvZoom=arg=>{const[id,d]=arg.split(':'),s=document.getElementById(id);if(!s||!s._v)return;const v=s._v;if(+d===0)mvView(s,1,500,500);else mvView(s,v.z*(+d>0?1.6:1/1.6),v.cx,v.cy);};
+ACT.possrc=k=>{if(APP.pos&&(k==='tous'||k==='moi')){APP.pos.src=k;renderTab();}};
+const MVP=new Map();
+document.addEventListener('pointerdown',e=>{const s=e.target.closest&&e.target.closest('.mv svg');if(s&&s._v)MVP.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,s});});
+document.addEventListener('pointermove',e=>{
+const p=MVP.get(e.pointerId);if(!p)return;const s=p.s,v=s._v,k=1000/v.z/Math.max(1,s.clientWidth);
+if(MVP.size>=2){const[a,b]=[...MVP.values()],d0=Math.hypot(a.x-b.x,a.y-b.y);p.x=e.clientX;p.y=e.clientY;const d1=Math.hypot(a.x-b.x,a.y-b.y);if(d0>10)mvView(s,v.z*d1/d0,v.cx,v.cy);MVD=Date.now();return;}
+if(v.z>1){mvView(s,v.z,v.cx-(e.clientX-p.x)*k,v.cy-(e.clientY-p.y)*k);if(Math.hypot(e.clientX-p.x0,e.clientY-p.y0)>4)MVD=Date.now();}
+p.x=e.clientX;p.y=e.clientY;
+});
+const mvUp=e=>MVP.delete(e.pointerId);document.addEventListener('pointerup',mvUp);document.addEventListener('pointercancel',mvUp);
+document.addEventListener('wheel',e=>{const s=e.ctrlKey&&e.target.closest&&e.target.closest('.mv svg');if(!s||!s._v)return;e.preventDefault();const v=s._v;mvView(s,v.z*(e.deltaY<0?1.15:1/1.15),v.cx,v.cy);},{passive:false});
 ;
 "use strict";
 const fillLv=(s,L)=>String(s||'').replace(/\{(\w+)\}/g,(m,k)=>L[k]!=null?L[k]:m);
