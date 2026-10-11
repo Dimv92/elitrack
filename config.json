@@ -10,11 +10,12 @@
     "x": "mfmJfgbohUe08bgI2Oll56GsN7rCkEyDUnfKf-V1mno",
     "y": "H03oukNHfIeHKWwaxlgS4I1GFqJF15BSSC-4yFH7vbU"
   },
+  "editeur": "Dimv",
   "achat": {
     "mensuel": "2,99 €",
     "vie": "14,99 €",
     "lien": "",
-    "contact": ""
+    "contact": "dimv92pro@gmail.com"
   },
   "freeAll": true,
   "premium": [
@@ -23,8 +24,6 @@
     "visee",
     "progression",
     "coach",
-    "position",
-    "strategie",
     "comparer",
     "perso",
     "partage"
