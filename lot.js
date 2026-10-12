@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0132. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1036. */
 "use strict";
 const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
 const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
@@ -433,3 +433,91 @@ else if((arg==='0'||arg==='1')&&p&&p.step<7){p.pair=psaStep(p.pair,+arg);p.step+
 renderTab();
 }
 });
+;
+"use strict";
+const META_COL={S:'ok',A:'ok',B:'neutral',C:'bad',D:'bad'};
+const META_SURE={sur:['sûr','sûr à 90 % ou plus que l\'agent est au-dessus / en dessous de la moyenne'],prob:['probable','sûr à 75-90 %'],flou:['à confirmer','pas encore assez de parties pour être sûr du sens de l\'écart']};
+const ROLE_ORDER=['Duelist','Initiator','Controller','Sentinel'];
+const metaRows=sc=>sc?Object.entries(sc.a).map(([a,r])=>Object.assign({a,role:ROLE_OF[a]||''},metaTier(r))).sort((x,y)=>y.dw-x.dw):[];
+const wTxt=dw=>Math.abs(dw)<.05?'±0 %':`${sg(dw)} %`;
+function metaMine(map){const R=(APP.prof.rows||[]).filter(r=>!map||r.map===map),o={};aggBy(R,'agent').forEach(a=>{o[a.key]=a;});return o;}
+function metaState(){
+const M=APP.meta,maps=Object.keys(M.s).filter(k=>/^[A-Z]/.test(k)&&mapOk(k)).sort();
+const S=APP.metaS||(APP.metaS={map:'*',rg:'',role:''});
+if(S.map!=='*'&&!maps.includes(S.map))S.map='*';
+return{S,maps};
+}
+function tabMeta(){
+if(APP.meta===undefined)return`${skel(1)}${skel(6,'mt')}`;
+if(!APP.meta)return stateHtml('!','Méta indisponible','Le fichier de la méta n\'a pas pu se charger. Vérifie ta connexion puis réessaie.',['Réessayer','metaRetry'],true);
+const M=APP.meta,{S,maps}=metaState(),map=S.map==='*'?null:S.map,myRg=rgOf(APP.prof.mmr.tier);
+const rgKey=S.rg&&M.s[S.rg]?S.rg:'',base=M.s[rgKey||'*'],sc=map?M.s[map]:base,G=metaRows(M.s['*']),rows=metaRows(sc);
+const mine=metaMine(map),mineAll=metaMine(null),gOf=Object.fromEntries(G.map(r=>[r.a,r]));
+const moved=map?rows.filter(r=>gOf[r.a]&&Math.abs(r.dw-gOf[r.a].dw)>=.75):[];
+const shown=rows.filter(r=>!S.role||r.role===S.role);
+const sel=`<div class="row filt"><select data-pick="metaS" aria-label="Carte"><option value="*"${!map?' selected':''}>Toutes les cartes · ${M.s['*'].n.toLocaleString('fr-FR')} p.</option>${maps.map(m=>`<option value="${esc(m)}"${m===map?' selected':''}>${esc(m)} · ${M.s[m].n} p.</option>`).join('')}</select>
+    <div class="chips" role="group" aria-label="Niveau des joueurs">${[['','Tous les rangs'],['g1',RG_FR[1]],['g2',RG_FR[2]],['g3',RG_FR[3]]].filter(([k])=>!k||M.s[k]).map(([k,t])=>`<button type="button" class="chip${(S.rg||'')===k?' on':''}" data-act="metaRg:${k||'-'}" aria-pressed="${(S.rg||'')===k}">${esc(t)}${k&&+k[1]===myRg?' <small>(toi)</small>':''}</button>`).join('')}</div>
+    <div class="chips" role="group" aria-label="Rôle">${[''].concat(ROLE_ORDER).map(r=>`<button type="button" class="chip${(S.role||'')===r?' on':''}" data-act="metaRole:${r||'-'}" aria-pressed="${(S.role||'')===r}">${r?esc(ROLE_FR[r]||r):'Tous les rôles'}</button>`).join('')}</div></div>`;
+const head=`<div class="card"><div class="card-h"><h2>Méta des agents</h2><span class="muted small">${M.region?esc(M.region.toUpperCase())+' · ':''}parties classées du ${esc(dFr(M.du,{day:'numeric',month:'short'}))} au ${esc(dFr(M.au,{day:'numeric',month:'short'}))}</span></div>${sel}</div>`;
+return`${head}${metaVerdict(rows,map,mine,mineAll,gOf,moved)}
+    <div class="card mt"><div class="card-h"><h3>Tier list${map?` · ${esc(map)}`:''}${rgKey&&!map?` · ${esc(RG_FR[+rgKey[1]])}`:''}</h3><span class="muted small">victoires estimées vs un agent moyen · touche un agent pour le détail</span></div>
+      ${map&&rgKey?`<p class="note" style="margin-top:0">Sur une carte précise, le classement utilise tous les rangs (trop peu de parties par carte et par rang). Ton filtre de rang s'applique à la colonne « Ce que prennent les joueurs ».</p>`:''}
+      ${map&&!moved.length?`<p class="note" style="margin-top:0">Sur ${esc(map)}, les données ne montrent encore <b>aucun écart sûr</b> avec la méta générale : le classement est presque le même. Ce qui change vraiment d'une carte à l'autre, c'est ce que prennent les joueurs (plus bas).</p>`:''}
+      ${metaTiers(shown,mine,map)}
+      <p class="note">${Object.entries(META_SURE).map(([k,[t,d]])=>`<span class="msure ${k}" title="${esc(d)}">${t}</span>`).join(' ')} = certitude du sens de l'écart. Contour = agent que tu as joué${map?' ici':''} (ton bilan dans le détail). Pâle = moins de ${META_MIN} parties.</p></div>
+    ${metaRoles(rows,map,mine)}
+    ${map?metaPicks(M,map,S.rg||(myRg?'g'+myRg:'g3'),rows):''}
+    ${metaHow(M,G)}`;
+}
+function metaVerdict(rows,map,mine,mineAll,gOf,moved){
+const top=rows.filter(r=>(r.t==='S'||r.t==='A')&&r.sure!=='flou').slice(0,3),my=Object.values(map?mine:mineAll).sort((a,b)=>b.n-a.n)[0];
+const me=my&&rows.find(r=>r.a===my.key),alt=me&&rows.find(r=>r.role===me.role&&r.a!==me.a&&r.dw-me.dw>=1.5&&r.sure!=='flou');
+const v={cls:me?META_COL[me.t]:'',img:me?agImg(me.a,'ag lg'):'',
+h:top.length?`${map?`Sur ${map}`:'Partout'}, ce qui gagne le plus : ${top.map(r=>r.a).join(', ')}`:'Aucun agent ne sort nettement du lot pour l\'instant',
+p:me?`Ton agent ${map?'ici':'principal'}, ${me.a}, est classé ${me.t} (${wTxt(me.dw)} de victoires estimées, ${META_SURE[me.sure][0]}).${alt?` Dans son rôle, ${alt.a} fait mieux (${wTxt(alt.dw)}) : à tester en 2e agent.`:me.t==='C'||me.t==='D'?' Ton aisance avec lui compte aussi : regarde ton bilan dans le détail avant de changer.':' Bon choix d\'après les données.'}`:'Joue quelques parties pour situer tes agents dans la méta.',
+facts:[['Parties analysées',`<b>${(map?APP.meta.s[map]:APP.meta.s['*']).n.toLocaleString('fr-FR')}</b>`,'pondérées : récentes d\'abord'],['Écart S ↔ D',`<b>${fmt(rows.length?rows[0].dw-rows[rows.length-1].dw:0,1)} %</b>`,'de victoires, du 1er au dernier'],map?['Propre à la carte',`<b>${moved.length}</b>`,'agent(s) avec un écart sûr']:['Agents sûrs',`<b>${rows.filter(r=>r.sure==='sur').length}</b>`,'au-dessus ou en dessous à 90 %']]};
+return verdictHtml(v,map?`Méta · ${esc(map)}`:'Méta · toutes les cartes');
+}
+function metaTiers(rows,mine,map){
+if(!rows.length)return empty('Aucun agent dans ce filtre.');
+return`<div class="tiers">${META_TIERS.map(([t])=>{const L=rows.filter(r=>r.t===t);return`<div class="tier ${META_COL[t]}"><b class="tl">${t}</b><div class="tagents">${L.length?L.map(r=>{const m=mine[r.a];
+return`<button type="button" class="tag-a${m&&m.n>=1?' me':''}${r.low?' low':''}" data-act="metaAg:${esc(r.a)}" title="${esc(`${r.a} : ${wTxt(r.dw)} de victoires estimées (${META_SURE[r.sure][0]}) · pris par ${fmt(r.pk,0)} % des équipes`)}">${agImg(r.a)}<span><b>${esc(r.a)}</b><small>${wTxt(r.dw)} · <i class="msure ${r.sure}">${META_SURE[r.sure][0]}</i></small></span></button>`;}).join(''):'<span class="muted small">—</span>'}</div></div>`;}).join('')}</div>`;
+}
+function metaRoles(rows,map,mine){
+const L=ROLE_ORDER.map(ro=>{const R=rows.filter(r=>r.role===ro);if(!R.length)return'';const b=R[0],m=Object.values(mine).filter(a=>ROLE_OF[a.key]===ro).sort((x,y)=>y.n-x.n)[0],mr=m&&R.find(r=>r.a===m.key);
+return`<tr><td>${esc(ROLE_FR[ro]||ro)}</td><td><span class="nm">${agImg(b.a)} <b>${esc(b.a)}</b> <small class="muted">${b.t} · ${wTxt(b.dw)}</small></span></td><td>${mr?`<span class="nm">${agImg(mr.a)} ${esc(mr.a)} <small class="muted">${mr.t} · ${m.n} p. à toi</small></span>`:'<span class="muted">—</span>'}</td></tr>`;}).join('');
+return`<div class="card mt"><div class="card-h"><h3>Le meilleur de chaque rôle${map?` sur ${esc(map)}`:''}</h3><span class="muted small">pour choisir selon ce qui manque à ton équipe</span></div>
+    <div class="tbl"><table class="small"><thead><tr><th>Rôle</th><th>Le mieux classé</th><th>Ton agent${map?' ici':''}</th></tr></thead><tbody>${L}</tbody></table></div></div>`;
+}
+function metaPicks(M,map,g,rows){
+const h=(M.s[map].h||{})[g]||(M.s[map].h||{}).g3;if(!h)return'';
+const gg=(M.s[map].h||{})[g]?g:'g3',T=Object.fromEntries(rows.map(r=>[r.a,r.t])),L=Object.entries(h).sort((a,b)=>b[1]-a[1]).slice(0,10),mx=L.length?L[0][1]:1;
+return`<div class="card mt"><div class="card-h"><h3>Ce que prennent les joueurs ${esc(RG_FR[+gg[1]])} sur ${esc(map)}</h3><span class="muted small">part des équipes · populaire ≠ fort</span></div>
+    <ul class="mpicks">${L.map(([a,p])=>`<li>${agImg(a)}<b>${esc(a)}</b><span class="rbar neutral" aria-hidden="true"><i style="width:${Math.round(p/mx*100)}%"></i></span><span>${fmt(p,0)} %</span><small class="muted">${T[a]?'niveau '+T[a]:''}</small></li>`).join('')}</ul>
+    <p class="note">Les joueurs d'un niveau élevé choisissent selon la carte (vision, angles, exécutions) : un agent très pris ici et bien classé est une valeur sûre. Très pris mais mal classé : populaire, sans plus.</p></div>`;
+}
+function metaHow(M,G){
+const odd=G.filter(r=>r.n>=40&&r.raw!=null&&Math.abs(r.raw*100-50)>=4&&Math.abs(r.dw)<1).sort((a,b)=>Math.abs(b.raw-.5)-Math.abs(a.raw-.5))[0];
+return`<details class="card mt"><summary><b>Comment c'est calculé (et ses limites)</b></summary><div class="small mt8">
+    <p><b>1. Rounds, pas seulement victoires.</b> Un 13-2 et un 13-11 ne disent pas la même chose : chaque partie compte par son écart de rounds, ce qui réduit fortement le hasard. Le résultat est ensuite converti en % de victoires.</p>
+    <p class="mt8"><b>2. Chaque agent séparé de ses coéquipiers et adversaires.</b> Méthode venue de l'analyse du basket (« plus-minus ajusté ») : on estime l'effet de tous les agents en même temps, en tenant compte de l'écart de rang entre les deux équipes. Un miroir (même agent des deux côtés) ne compte pas.</p>
+    <p class="mt8"><b>3. Pas de conclusion sur peu de parties.</b> Chaque estimation est tirée vers la moyenne tant que les données ne prouvent rien ; la force de ce rappel est choisie par les données elles-mêmes (validation croisée). Chaque carte n'est séparée de la méta générale que si l'écart est prouvé.</p>
+    <p class="mt8"><b>4. Les parties récentes pèsent plus</b> (moitié moins de poids après 30 jours) : la méta suit les patchs.</p>
+    ${odd?`<p class="mt8"><b>Exemple :</b> ${esc(odd.a)} gagne ${fmt(odd.raw*100,1)} % de ses parties (${odd.n} parties hors miroir), mais une fois les coéquipiers, les adversaires et le hasard pris en compte, son effet estimé n'est que de ${wTxt(odd.dw)} : ce taux brut est surtout de la chance.</p>`:''}
+    <p class="mt8"><b>Limites.</b> ${(M.matches||M.s['*'].n).toLocaleString('fr-FR')} parties ${M.region?esc(M.region.toUpperCase()):''}, c'est assez pour la méta générale, encore peu pour chaque carte. Le classement mesure ce qui se passe <i>quand</i> un agent est pris : il ne sépare pas totalement l'agent du joueur qui le choisit. À ton rang, bien maîtriser 2-3 agents compte probablement plus que suivre la méta (hypothèse courante, pas mesurée ici).</p>
+  </div></details>`;
+}
+ACT.metaAg=a=>{
+const M=APP.meta;if(!M||!M.s['*'].a[a])return;
+const g=metaTier(M.s['*'].a[a]),maps=Object.keys(M.s).filter(k=>/^[A-Z]/.test(k)&&mapOk(k)&&M.s[k].a[a]).sort(),mine=metaMine(null)[a];
+const line=(n,r,sub)=>{const t=metaTier(r);return`<tr><td>${n}</td><td><b class="tlm ${META_COL[t.t]}">${t.t}</b> ${wTxt(t.dw)} <i class="msure ${t.sure}">${META_SURE[t.sure][0]}</i></td><td>${fmt(t.pk,0)} %</td><td>${t.n?`${fmt(t.raw*100,0)} % <small class="muted">(${t.n} p.)</small>`:'—'}</td>${sub||''}</tr>`;};
+const myMap=m=>{const x=metaMine(m)[a];return`<td>${x?`${x.w} V / ${x.n}`:'—'}</td>`;};
+dlgOpen(`<div class="card-h"><h2 class="nm">${agImg(a,'ag lg')} ${esc(a)}</h2><span class="pill ${META_COL[g.t]}">Niveau ${g.t}</span></div>
+    <p class="muted small">${esc(ROLE_FR[ROLE_OF[a]]||'')} · ${wTxt(g.dw)} de victoires estimées vs un agent moyen (${META_SURE[g.sure][0]}) · pris par ${fmt(g.pk,0)} % des équipes${mine?` · toi : ${mine.w} V / ${mine.n} parties`:''}</p>
+    <div class="tbl mt8"><table class="small"><thead><tr><th>Carte</th><th>Niveau</th><th>Pris</th><th>Victoires brutes</th><th>Toi</th></tr></thead><tbody>${maps.map(m=>line(esc(m),M.s[m].a[a],myMap(m))).join('')}</tbody></table></div>
+    ${['g1','g2','g3'].some(k=>M.s[k]&&M.s[k].a[a])?`<h3>Par niveau de joueurs</h3><div class="tbl"><table class="small"><thead><tr><th>Rangs</th><th>Niveau</th><th>Pris</th><th>Victoires brutes</th></tr></thead><tbody>${['g1','g2','g3'].filter(k=>M.s[k]&&M.s[k].a[a]).map(k=>line(esc(RG_FR[+k[1]]),M.s[k].a[a])).join('')}</tbody></table></div>`:''}
+    <p class="note">« Victoires brutes » = taux réel hors miroirs, sans correction : sur peu de parties il varie beaucoup au hasard, c'est pourquoi le niveau ne se base pas dessus.</p>`);
+};
+ACT.metaRetry=()=>{APP.meta=undefined;APP.metaP=null;renderTab();};
+ACT.metaRg=k=>{metaState().S.rg=k==='-'?'':k;renderTab();};
+ACT.metaRole=k=>{metaState().S.role=k==='-'?'':k;renderTab();};

@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-0132. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1036. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -279,6 +279,7 @@ position:{n:'Positionnement optimal : tes meilleurs spots et angles, carte par c
 strategie:{n:'Stratégie par carte : plan d\'attaque et de défense, économie, agent conseillé, briefing'},
 entrainement:{n:'Entraînement : routine du jour avec minuteur, réflexes, sensibilité, plan de la semaine',free:true},
 comparer:{n:'Comparer avec un ami'},
+meta:{n:'Méta des agents : tier list globale et carte par carte, corrigée du hasard',free:true},
 perso:{n:'Personnalisation complète : fonds, polices, couleurs, effets, disposition'},
 partage:{n:'Carte de profil à partager (image)'}
 };
@@ -876,21 +877,24 @@ function v4Keep(md){
 const m=md&&md.metadata,P=md&&Array.isArray(md.players)?md.players:[],q=m?String((m.queue||{}).id||(m.queue||{}).name||''):'';
 return!!m&&(!q||/competitive/i.test(q))&&m.is_completed!==false&&P.length===10&&(md.rounds||[]).length>=13&&!P.some(p=>((p.behavior||{}).afk_rounds||0)>=3);
 }
-const aggNew=()=>({v:1,day:'',matches:0,du:'',au:'',M:{S:{},E:{}},B:{c:{}},A:{}});
+const aggNew=()=>({v:1,day:'',matches:0,du:'',au:'',M:{S:{},E:{}},B:{c:{}},A:{},T:metaNew()});
 function aggDecay(o,f){
 if(Array.isArray(o))o.forEach((v,i)=>{if(typeof v==='number')o[i]=v*f;else if(v&&typeof v==='object')aggDecay(v,f);});
 else if(o&&typeof o==='object')Object.keys(o).forEach(k=>{const v=o[k];if(typeof v==='number')o[k]=v*f;else if(v&&typeof v==='object')aggDecay(v,f);});
 return o;
 }
 function aggAge(G,today,half=30){
-if(G.day&&today>G.day){const f=Math.pow(.5,(Date.parse(today)-Date.parse(G.day))/864e5/half);aggDecay(G.M,f);aggDecay(G.B,f);aggDecay(G.A,f);G.matches*=f;}
+if(G.day&&today>G.day){const f=Math.pow(.5,(Date.parse(today)-Date.parse(G.day))/864e5/half);aggDecay(G.M,f);aggDecay(G.B,f);aggDecay(G.A,f);if(G.T){aggDecay(G.T.S,f);aggDecay(G.T.Q||{},f);}G.matches*=f;}
 G.day=today;return G;
 }
 function aggMatch(G,md,cosOf,roleOf){
 if(!v4Keep(md))return null;
 const d=v4Detail(md,md.players[0].team_id,()=>'');if(!d.id||d.kills.length<10)return null;
+return aggDetail(G,d,cosOf,roleOf);
+}
+function aggDetail(G,d,cosOf,roleOf){
 const w=wpFit([d]);['S','E'].forEach(k=>Object.entries(w[k]).forEach(([key,v])=>{const c=G.M[k][key]||(G.M[k][key]=[0,0]);c[0]+=v[0];c[1]+=v[1];}));
-benchAdd(G.B,d,G.M,roleOf);atlasAdd(G.A,d,cosOf(d.map));G.matches++;
+benchAdd(G.B,d,G.M,roleOf);atlasAdd(G.A,d,cosOf(d.map));metaAdd(G.T||(G.T=metaNew()),d);G.matches++;
 if(d.date){if(!G.du||d.date<G.du)G.du=d.date;if(d.date>G.au)G.au=d.date;}
 return d;
 }
@@ -899,7 +903,8 @@ const M={S:{},E:{}},c={},meta={v:1,maj:today,region,matches:Math.round(G.matches
 ['S','E'].forEach(k=>Object.entries(G.M[k]).forEach(([key,v])=>{const n=Math.round(v[0]);if(n>0)M[k][key]=[n,Math.min(n,Math.round(v[1]))];}));
 Object.entries(G.B.c).forEach(([k,v])=>{const o={};Object.keys(v).forEach(f=>{o[f]=Math.round(v[f]*1000)/1000;});c[k]=o;});
 const g={},r3=x=>Math.round(x*1000)/1000;Object.entries(G.B.g||{}).forEach(([k,v])=>{if(v.n>=.5)g[k]={n:r3(v.n),r:r3(v.r),c:v.c.map(r3)};});
-return{bench:Object.assign({format:'elitrack-bench'},meta,{c,g,M}),atlas:Object.assign({format:'elitrack-atlas'},meta,{maps:atlasPack(G.A)})};
+const T=G.T?metaFit(G.T):null;
+return{bench:Object.assign({format:'elitrack-bench'},meta,{c,g,M}),atlas:Object.assign({format:'elitrack-atlas'},meta,{maps:atlasPack(G.A)}),meta:T?Object.assign({format:'elitrack-meta'},meta,T):null};
 }
 function atlasClean(raw){
 if(!obj(raw)||raw.format!=='elitrack-atlas'||raw.v!==1||!obj(raw.maps))return null;
@@ -915,6 +920,88 @@ const c=(Array.isArray(m.c)?m.c:[]).slice(0,400).filter(x=>Array.isArray(x)&&x.l
 maps[map]={n:m.n,r:m.r,s,np:arr(m.np,2)?m.np:[0,0],g,z,fsn:obj(m.fsn)&&N(m.fsn.A)&&N(m.fsn.D)?{A:m.fsn.A,D:m.fsn.D}:{A:0,D:0},L,c};
 });
 return{format:'elitrack-atlas',v:1,maj:RE_DATE.test(raw.maj||'')?raw.maj:'',region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),maps};
+}
+const META_RK='#',META_MIN=30;
+const metaNew=()=>({v:1,S:{}});
+const xxK=(a,b)=>a<b?a+'|'+b:b+'|'+a;
+function metaAdd(T,d,w=1){
+const pl=(d&&d.pl)||[],R=(d&&d.rounds)||[];
+if(pl.length!==10||[0,1].some(t=>pl.filter(p=>p.t===t&&p.a).length!==5))return T;
+const r0=R.filter(r=>r.w===0).length,r1=R.filter(r=>r.w===1).length;if(r0+r1<13)return T;
+const x={},tr=[[],[]];pl.forEach(p=>{x[p.a]=(x[p.a]||0)+(p.t?-1:1);if(p.tr>=3)tr[p.t].push(p.tr);});
+const av=v=>v.reduce((a,b)=>a+b,0)/v.length,all=tr[0].concat(tr[1]);
+if(tr[0].length&&tr[1].length)x[META_RK]=av(tr[0])-av(tr[1]);
+const y=(r0-r1)/(2*(r0+r1)),win=r0>r1?1:r0<r1?0:.5,K=Object.keys(x).filter(k=>x[k]),rg=rgOf(all.length?av(all):0);
+['*',d.map].concat(rg?['g'+rg]:[]).filter(k=>/^(\*|[A-Za-z]{3,12}|g[1-3])$/.test(k||'')).forEach(sk=>{
+const s=T.S[sk]||(T.S[sk]={n:0,w:0,yy:0,xy:{},xx:{},pk:{},rw:{}});s.n++;s.w+=w;s.yy+=w*y*y;
+K.forEach((a,i)=>{s.xy[a]=(s.xy[a]||0)+w*x[a]*y;K.slice(i).forEach(b=>{const k=xxK(a,b);s.xx[k]=(s.xx[k]||0)+w*x[a]*x[b];});});
+pl.forEach(p=>{s.pk[p.a]=(s.pk[p.a]||0)+w;});
+K.forEach(a=>{if(a===META_RK)return;const o=s.rw[a]||(s.rw[a]=[0,0]);o[0]+=w;o[1]+=w*(x[a]>0?win:1-win);});
+});
+if(rg&&/^[A-Za-z]{3,12}$/.test(d.map||'')){const q=(T.Q=T.Q||{}),k=`${d.map}|${rg}`,s=q[k]||(q[k]={w:0,pk:{}});s.w+=w;pl.forEach(p=>{s.pk[p.a]=(s.pk[p.a]||0)+w;});}
+return T;
+}
+function ftWin(p){
+const q=1-p;let s=0,c=1;for(let k=0;k<=11;k++){if(k)c=c*(12+k)/k;s+=c*Math.pow(p,13)*Math.pow(q,k);}
+return s+2704156*Math.pow(p*q,12)*(p*p/(p*p+q*q));
+}
+const normCdf=z=>{const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p;};
+function cholSolve(A,B){
+const n=A.length,L=A.map(r=>r.map(()=>0));
+for(let i=0;i<n;i++)for(let j=0;j<=i;j++){let s=A[i][j];for(let k=0;k<j;k++)s-=L[i][k]*L[j][k];L[i][j]=i===j?Math.sqrt(Math.max(s,1e-12)):s/L[j][j];}
+const sol=b=>{const y=b.slice();for(let i=0;i<n;i++){for(let k=0;k<i;k++)y[i]-=L[i][k]*y[k];y[i]/=L[i][i];}for(let i=n-1;i>=0;i--){for(let k=i+1;k<n;k++)y[i]-=L[k][i]*y[k];y[i]/=L[i][i];}return y;};
+return{x:B.map(sol),inv:Array.from({length:n},(_,j)=>sol(Array.from({length:n},(_,i)=>+(i===j))))};
+}
+function metaRidge(s,P,pen,b0){
+const xx=(a,b)=>s.xx[xxK(a,b)]||0,B0=Object.entries(b0||{}).filter(([,v])=>v);
+const X=P.map(a=>P.map(b=>xx(a,b))),A=X.map((r,i)=>r.map((v,j)=>v+(i===j?pen[i]:0)));
+const c=P.map(a=>(s.xy[a]||0)-B0.reduce((t,[k,v])=>t+xx(a,k)*v,0));
+const yy=s.yy-2*B0.reduce((t,[k,v])=>t+v*(s.xy[k]||0),0)+B0.reduce((t,[k,v])=>t+B0.reduce((u,[l,z])=>u+v*z*xx(k,l),0),0);
+const{x:[b],inv}=cholSolve(A,[c]),n=P.length;
+let rss=yy,df=0;for(let i=0;i<n;i++){rss-=2*b[i]*c[i];for(let j=0;j<n;j++){rss+=b[i]*X[i][j]*b[j];df+=inv[i][j]*X[j][i];}}
+return{b,inv,rss:Math.max(rss,0),df,w:s.w};
+}
+const GCV=(w,rss,df)=>w>df?w*rss/((w-df)*(w-df)):Infinity;
+function metaFit(T,opt){
+const o=Object.assign({grid:[3,10,30,100,300,1000,3000,1e4,3e4,1e5],min:100},opt),S=(T&&T.S)||{},G=S['*'];
+if(!G||G.w<o.min)return null;
+const A=Object.keys(G.pk).filter(a=>/^[A-Za-z][A-Za-z/ ]{1,11}$/.test(a)).sort(),P=A.concat(G.xx[xxK(META_RK,META_RK)]?[META_RK]:[]),idx=Object.fromEntries(P.map((a,i)=>[a,i]));
+const fitG=l=>metaRidge(G,P,P.map(a=>a===META_RK?1e-3:l));
+let lg=o.grid[0],best=Infinity;o.grid.forEach(l=>{const f=fitG(l),g=GCV(f.w,f.rss,f.df);if(g<best){best=g;lg=l;}});
+const F=fitG(lg),s2=F.rss/Math.max(1,F.w-F.df),bG=Object.fromEntries(P.map((a,i)=>[a,F.b[i]]));
+const contrast=(s,b,inv,idxOf,sc)=>{const tot=A.reduce((t,a)=>t+(s.pk[a]||0),0)||1,pi=A.map(a=>(s.pk[a]||0)/tot),m=A.reduce((t,a,i)=>t+pi[i]*b(a),0);
+const I=A.map(a=>idxOf[a]),vM=A.reduce((t,a,i)=>t+pi[i]*A.reduce((u,z,j)=>u+pi[j]*inv[I[i]][I[j]],0),0);
+return A.map((a,i)=>{const ia=I[i],v=inv[ia][ia]-2*A.reduce((t,z,j)=>t+pi[j]*inv[ia][I[j]],0)+vM;return[b(a)-m,Math.sqrt(Math.max(v,0)*sc)];});};
+const row=(s,eff)=>{const out={};A.forEach((a,i)=>{const pk=s.pk[a]||0;if(!pk)return;const r=s.rw[a]||[0,0];
+out[a]=[Math.round(eff[i][0]*1e4)/100,Math.round(eff[i][1]*1e4)/100,Math.round(pk/(2*s.w)*1000)/10,Math.round(r[0]),Math.min(Math.round(r[0]),Math.round(r[1]))];});return out;};
+const effG=contrast(G,a=>bG[a],F.inv,idx,s2),out={'*':{n:Math.round(G.w),a:row(G,effG)}},lams=[];
+[k=>/^[A-Za-z]{3,12}$/.test(k),k=>/^g[1-3]$/.test(k)].forEach(isK=>{
+const kids=Object.keys(S).filter(k=>isK(k)&&S[k].w>=20);if(!kids.length)return;
+const fitK=(k,l)=>metaRidge(S[k],A,A.map(()=>l),bG);
+let lk=o.grid[o.grid.length-1],bk=Infinity;o.grid.forEach(l=>{let W=0,R=0,D=0;kids.forEach(k=>{const f=fitK(k,l);W+=f.w;R+=f.rss;D+=f.df;});const g=GCV(W,R,D);if(g<bk){bk=g;lk=l;}});
+kids.forEach(k=>{const s=S[k],f=fitK(k,lk),ix=Object.fromEntries(A.map((a,i)=>[a,i])),d=Object.fromEntries(A.map((a,i)=>[a,f.b[i]]));
+const eD=contrast(s,a=>d[a],f.inv,ix,s2),eT=contrast(s,a=>bG[a]+d[a],F.inv,idx,s2);
+out[k]={n:Math.round(s.w),a:row(s,eT.map((e,i)=>[e[0],Math.hypot(e[1],eD[i][1])]))};
+[1,2,3].forEach(g=>{const q=((T.Q||{})[`${k}|${g}`]);if(q&&q.w>=40)(out[k].h=out[k].h||{})['g'+g]=Object.fromEntries(Object.entries(q.pk).filter(([a])=>A.includes(a)).map(([a,v])=>[a,Math.round(v/(2*q.w)*1000)/10]));});});
+lams.push(lk);
+});
+return{lam:lg,lams,sig:Math.round(Math.sqrt(s2)*1e4)/1e4,rk:P.includes(META_RK)?Math.round(bG[META_RK]*1e4)/100:null,s:out};
+}
+const metaWin=e=>(ftWin(.5+e/100)-.5)*100;
+const META_TIERS=[['S',2],['A',.75],['B',-.75],['C',-2],['D',-Infinity]];
+function metaTier(r){
+const[e,sd,pk,n,w]=r,dw=metaWin(e),p=sd>0?normCdf(Math.abs(e)/sd):.5;
+return{e,sd,dw,pk,n,w,raw:n?w/n:null,t:META_TIERS.find(([,v])=>dw>=v)[0],p,sure:p>=.9?'sur':p>=.75?'prob':'flou',low:n<META_MIN};
+}
+function metaClean(raw){
+if(!obj(raw)||raw.format!=='elitrack-meta'||raw.v!==1||!obj(raw.s)||!obj(raw.s['*']))return null;
+const N=v=>typeof v==='number'&&Number.isFinite(v),s={};
+Object.entries(raw.s).slice(0,40).forEach(([k,v])=>{if(!/^(\*|[A-Za-z]{3,12}|g[1-3])$/.test(k)||!obj(v)||!N(v.n)||v.n<0||!obj(v.a))return;const a={};
+Object.entries(v.a).slice(0,60).forEach(([ag,r])=>{if(/^[A-Za-z][A-Za-z/ ]{1,11}$/.test(ag)&&Array.isArray(r)&&r.length===5&&r.every(N)&&Math.abs(r[0])<50&&r[1]>=0&&r[1]<50&&r[2]>=0&&r[2]<=100&&r[3]>=0&&r[4]>=0&&r[4]<=r[3])a[ag]=r.slice();});
+if(!Object.keys(a).length)return;s[k]={n:v.n,a};
+if(obj(v.h))['g1','g2','g3'].forEach(g=>{if(!obj(v.h[g]))return;const h={};Object.entries(v.h[g]).slice(0,60).forEach(([ag,p])=>{if(/^[A-Za-z][A-Za-z/ ]{1,11}$/.test(ag)&&N(p)&&p>=0&&p<=100)h[ag]=p;});(s[k].h=s[k].h||{})[g]=h;});});
+if(!s['*'])return null;const day=v=>RE_DATE.test(v||'')?v:'';
+return{format:'elitrack-meta',v:1,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),lam:N(raw.lam)?raw.lam:null,rk:N(raw.rk)?raw.rk:null,s};
 }
 function atlasSites(m,rg){
 if(!m)return[];const S=Object.entries(m.s||{}),tot=S.reduce((a,[,v])=>a+v[0],0),G=rg&&m.g?m.g[rg]||{}:null,gt=G?Object.values(G).reduce((a,b)=>a+b,0):0;
@@ -1130,7 +1217,7 @@ v4Detail,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
 RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,RANK_METS,
 ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
-rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggPublish,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
+rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggDetail,aggPublish,META_RK,META_MIN,META_TIERS,metaNew,metaAdd,ftWin,normCdf,metaFit,metaWin,metaTier,metaClean,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
 stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
 hexRgb,rgbHex,mixHex,relLum,contrast,readable,THEME_DEF,THEME_ENUM,BLOCKS,themeClean,themeFree,themeDiff,themeCode,themeParse};
 });
@@ -1793,9 +1880,9 @@ return`<section class="pricing mt" id="offres">
   </section>`;
 }
 const TABS_P=[['vue','Vue d\'ensemble'],['parties','Parties'],['agents','Agents & cartes'],['position','Positionnement','position'],['strategie','Stratégie','strategie'],['entrainement','Entraînement','entrainement'],
-['visee','Visée','visee'],['coach','Coach','coach'],['progression','Progression','progression'],['comparer','Comparer','comparer']];
+['visee','Visée','visee'],['coach','Coach','coach'],['progression','Progression','progression'],['comparer','Comparer','comparer'],['meta','Méta','meta']];
 const TAB_KEYS=TABS_P.map(t=>t[0]);
-const GROUPS=[['moi','Moi',['vue','parties','progression']],['analyse','Analyse',['coach','visee','agents','comparer']],['tactique','Tactique',['position','strategie']],['entrainement','Entraînement',['entrainement']]];
+const GROUPS=[['moi','Moi',['vue','parties','progression']],['analyse','Analyse',['coach','visee','agents','comparer']],['tactique','Tactique',['position','strategie','meta']],['entrainement','Entraînement',['entrainement']]];
 const groupOf=k=>GROUPS.find(g=>g[2].includes(k))||GROUPS[0];
 const ico=n=>`<svg class="ico" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 function navHtml(){
@@ -1853,11 +1940,12 @@ if(!TAB_KEYS.includes(APP.tab))APP.tab='vue';
 const f=(TABS_P.find(t=>t[0]===APP.tab)||[])[2];
 AFTER.length=0;
 if(f&&!featOn(f,APP.plan,APP.cfg)){el.innerHTML=teaser(f);return;}
-if(['position','strategie','entrainement'].includes(APP.tab)&&typeof tabTrain==='undefined'){el.innerHTML=skel(4);lotLoad().then(()=>renderTab(),e=>{el.innerHTML=stateHtml('!','Onglet indisponible',e.message,['Réessayer','retab'],true);});return;}
-const V={vue:tabVue,parties:tabParties,agents:tabAgents,position:()=>tabPosition(),strategie:()=>tabStrat(),entrainement:()=>tabTrain(),visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer};
+if(['position','strategie','entrainement','meta'].includes(APP.tab)&&typeof tabTrain==='undefined'){el.innerHTML=skel(4);lotLoad().then(()=>renderTab(),e=>{el.innerHTML=stateHtml('!','Onglet indisponible',e.message,['Réessayer','retab'],true);});return;}
+const V={vue:tabVue,parties:tabParties,agents:tabAgents,position:()=>tabPosition(),strategie:()=>tabStrat(),entrainement:()=>tabTrain(),meta:()=>tabMeta(),visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer};
 try{el.innerHTML=(V[APP.tab]||tabVue)();runAfter();}
 catch(e){console.error(e);el.innerHTML=`<div class="card">${empty('Affichage impossible : '+e.message)}</div>`;logErr(e);}
 if(['visee','coach','vue','position','strategie','entrainement','progression'].includes(APP.tab))detNeed();
+if(APP.tab==='meta'&&APP.meta===undefined)metaLoad().then(()=>{if(APP.tab==='meta'&&canRerender())renderTab();});
 if(APP.tab==='position'&&(APP.atlas===undefined||!APP.D)){
 const P=APP.prof,tab=APP.tab;Promise.all([atlasLoad(),APP.D?null:detAll(P).then(D=>{if(!APP.D)APP.D=D;})])
 .then(()=>{if(APP.prof===P&&APP.tab===tab&&canRerender())renderTab();}).catch(e=>logErr(e));
@@ -2339,6 +2427,7 @@ return`<div class="card mt"><h3>J'ai un code</h3><div class="row"><input id="lic
 function dlgOpen(html){const d=$('#dlg');$('#dlgIn').innerHTML=`<button class="btn ghost sm dlg-x" data-act="dlgClose" aria-label="Fermer">✕</button>${html}`;if(!d.open)d.showModal();d.scrollTop=0;}
 const pct=x=>x==null||!Number.isFinite(x)?'—':`${Math.round(x*100)} %`;
 const atlasLoad=()=>APP.atlasP||(APP.atlasP=fetch('atlas.json').then(r=>r.ok?r.json():null).then(j=>{APP.atlas=j?atlasClean(j):null;}).catch(()=>{APP.atlas=null;}));
+const metaLoad=()=>APP.metaP||(APP.metaP=fetch('meta.json').then(r=>r.ok?r.json():null).then(j=>{APP.meta=j?metaClean(j):null;}).catch(()=>{APP.meta=null;}));
 const atlasMap=map=>APP.atlas&&APP.atlas.maps[map]&&mapOk(map)?APP.atlas.maps[map]:null;
 const mkHtml=r=>`<span class="mk ${r.kind}${r.low?' low':''}" aria-hidden="true">${r.num||''}</span>`;
 const barHtml=(v,avg,kind)=>`<span class="rbar ${kind}" aria-hidden="true"><i style="width:${Math.round(v*100)}%"></i>${avg!=null?`<s style="left:${Math.round(avg*100)}%"></s>`:''}</span>`;
