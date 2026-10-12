@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1256. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1319. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -48,7 +48,7 @@ Object.values(first).forEach(k=>{if(k[2]===i)at(k[8]||'Capacité / autre').fk++;
 return Object.values(o).sort((a,b)=>b.k-a.k||b.d-a.d);
 }
 const smooth=(w,n,p0=.5,k=4)=>(w+k*p0)/(n+k);
-function weekStart(iso){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()-(d.getDay()+6)%7);return d.toISOString().slice(0,10);}
+function weekStart(iso){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()-(d.getDay()+6)%7);return isoLoc(d);}
 function pAgg(rows){
 const o={n:0,w:0,k:0,d:0,a:0,acs:null,kd:null,kda:null,hs:null,kast:null,trade:null};
 let acs=0,acsN=0,hs=0,sh=0,ka=0,r=0,tr=0,td=0;
@@ -348,7 +348,7 @@ return{n:nameOf?nameOf(p)||'':'',a:(p.agent||{}).name||'?',t:p.team_id===team?1:
 hs:st.headshots||0,sh:(st.headshots||0)+(st.bodyshots||0)+(st.legshots||0),lg:st.legshots||0,dmg:(st.damage||{}).dealt||0,rec:(st.damage||{}).received||0,
 c:[ac.grenade||0,ac.ability1||0,ac.ability2||0,ac.ultimate||0],tr:(p.tier||{}).id||0,lv:p.account_level||null};});
 const tOf=id=>idx[id]==null?null:pl[idx[id]].t;
-const rounds=(md.rounds||[]).slice().sort((a,b)=>a.id-b.id),kAll=(md.kills||[]).filter(k=>k&&k.victim);
+const rounds=(md.rounds||[]).filter(r=>!/surrender/i.test((r&&r.result)||'')).sort((a,b)=>a.id-b.id),kAll=(md.kills||[]).filter(k=>k&&k.victim);
 const kr=[...new Set(kAll.map(k=>k.round))],off=rounds.length&&kr.length?clampN(rounds[0].id-Math.min(...kr),-1,1):0;
 const planter=rounds.map(r=>r.plant&&r.plant.player?tOf(r.plant.player.puuid):null);
 const vote=(a,b)=>{let s=0;for(let i=a;i<Math.min(b,rounds.length);i++)if(planter[i]!=null)s+=planter[i]===1?1:-1;return s;};
@@ -1364,6 +1364,8 @@ const FX_FR={auto:'Auto (selon ton rôle)',aucun:'Aucun',grain:'Grain',scan:'Lig
 const MODE_FR={auto:'Agent principal',dernier:'Dernier agent joué',neutre:'Neutre',agent:'Agent au choix',rang:'Mon rang',carte:'Carte préférée',cartejoueur:'Ma carte de joueur',perso:'Tout à la main'};
 const BG_FR={auto:'Auto',art:'Art de l\'agent',portrait:'Portrait de l\'agent',splash:'Image de carte',card:'Ma carte de joueur',degrade:'Dégradé seul',image:'Mon image'};
 const BLOCK_FR={kpis:'Chiffres clés',session:'Session du soir',objectif:'Objectif de rang',forme:'Forme récente',rr:'Courbe de RR',agents:'Meilleurs agents',cartes:'Meilleures cartes',records:'Records',dernier:'Dernière partie',defis:'Défis de la semaine',succes:'Succès'};
+const ABIL_FR={'Nova Pulse':'Impulsion nova','Gravity Well':'Puits de gravité','Flashpoint':'Point d\'ignition','Fault Line':'Ligne de fracture','Aftershock':'Réplique','Rolling Thunder':'Onde sismique','Stim Beacon':'Balise stimulante','Incendiary':'Bombe incendiaire','Sky Smoke':'Frappe fumigène','Orbital Strike':'Rayon orbital','Rendezvous':'Rendez-vous','Trademark':'Guet-apens','Headhunter':'Chasseur de têtes','Tour De Force':'Tour de force','Pick-me-up':'Coup de boost','Not Dead Yet':'Toujours debout','Meddle':'Trouble-fête','Cyber Cage':'Cybercage','Spycam':'Caméra espionne','Trapwire':'Fil de détente','Neural Theft':'Vol neural','Sonic Sensor':'Radar ultrason','Barrier Mesh':'Disque barrière','Seize':'Capture','Haunt':'Hanteur','Prowler':'Rôdeur','Nightfall':'Nuit tombante','Wingman':'Altego','Dizzy':'Verti','Mosh Pit':'Pogo','Thrash':'Mordicus','High Tide':'Marée haute','Storm Surge':'Tempête déferlante','Cove':'Dôme aqueux','Reckoning':'Raz-de-marée','Undercut':'Sape','Kill Contract':'Duel à huis clos','Double Tap':'Tir couplé','Contingency':'Contingence','Updraft':'Courant ascendant','Tailwind':'Vent arrière','Cloudburst':'Averse','Blade Storm':'Tempête de lames','FLASH/drive':'MÉMOIRE/flash','ZERO/point':'POINT/zéro','NULL/cmd':'CMD/null','Nanoswarm':'Essaim de nanites','ALARMBOT':'Bot-alarme','TURRET':'Tourelle','Lockdown':'Confinement','M-pulse':'M-pulsion','Waveform':'Forme d\'onde','Harmonize':'Harmonisation','Bassquake':'Basse sismique','High Gear':'Vitesse supérieure','Relay Bolt':'Éclair relais','Fast Lane':'Voie rapide','Overdrive':'Ultra-vitesse','Paranoia':'Paranoïa','Dark Cover':'Voile sombre','Shrouded Step':'Voie des ombres','From the Shadows':'Depuis les ombres','Blaze':'Brasier','Hot Hands':'Mains brûlantes','Curveball':'Balle courbe','Run it Back':'Revanche','Blast Pack':'Pack explosif','Paint Shells':'Grenade gigogne','Boom Bot':'Boum Bot','Showstopper':'Bouquet final','Devour':'Dévoration','Dismiss':'Rebuffade','Leer':'Œillade','Empress':'Impératrice','Slow Orb':'Orbe de lenteur','Healing Orb':'Orbe de soin','Barrier Orb':'Orbe barrière','Resurrection':'Résurrection','Trailblazer':'Éclaireur','Guiding Light':'Guide éclatant','Regrowth':'Revitalisation','Seekers':'Traqueurs','Shock Bolt':'Électroflèche','Recon Bolt':'Flèche de reconnaissance','Owl Drone':'Drone rapace','Hunter\'s Fury':'Fureur du chasseur','Guided Salvo':'Salve autoguidée','Special Delivery':'Livraison spéciale','Armageddon':'Apocalypse','Stealth Drone':'Drone furtif','Interceptor':'Intercepteur','Crosscut':'Vortex','Evolution':'Évolution','Chokehold':'Étranglement','Poison Cloud':'Nuage de poison','Toxic Screen':'Écran toxique','Snake Bite':'Morsure du serpent','Viper\'s Pit':'Nid de vipères','Shear':'Cisaille','Arc Rose':'Rose métallique','Razorvine':'Ronces barbelées','Steel Garden':'Jardin d\'acier','Refract':'Réfraction','Saturate':'Saturation','Lightspeed':'Vitesse lumière','Convergent Paths':'Croisée des chemins','FAKEOUT':'Feinte','BLINDSIDE':'Angle mort','GATECRASH':'Visite surprise','DIMENSIONAL DRIFT':'Transfert dimensionnel'};
+const wpnFr=w=>!w?'':w==='Melee'?'Couteau':ABIL_FR[w]||ABIL_FR[Object.keys(ABIL_FR).find(k=>k.toLowerCase()===String(w).toLowerCase())]||w;
 const CAT_FR={ouverture:'Duels d\'ouverture',trade:'Trades',mid:'Milieu de round',clutch:'Clutchs',post:'Après ton plant',retake:'Retakes',plant:'Plants',rea:'Réanimations',fin:'Fin de round'};
 const END_FR={elim:'tous éliminés',spike:'spike explosé',defuse:'spike désamorcé',time:'temps écoulé'};
 const BUY_FR={eco:'Éco',force:'Force',full:'Full buy'};
@@ -1486,7 +1488,10 @@ me:(x,y)=>`<path d="${poly(x,y,star(5,15,6.5))}"/>`};
 (L.arrows||[]).forEach(a=>o.push(arrow(a,a.bad?' bad':'')));
 (L.foes||[]).forEach(t=>{const[x,y]=P(t.x,t.y),s=(8+Math.min(6,(t.size||1)/8))*u;o.push(`<path class="mv-foe${t.low?' low':''}" data-k="${t.k}"${tip(t.tip)} d="M${f(x)},${f(y-s)}L${f(x+s)},${f(y)}L${f(x)},${f(y+s)}L${f(x-s)},${f(y)}Z" stroke-width="${f(2*u)}"/>`);});
 (L.utils||[]).filter(m=>m.kind!=='smoke'&&UT[m.kind]).forEach(m=>{const[x,y]=P(m.x,m.y);o.push(`<g class="mv-u ${m.kind}" data-k="${m.k}"${tip(m.tip)} stroke-width="${f(2.2*u)}">${UT[m.kind](x,y)}</g>`);});
-(L.spots||[]).forEach(s=>{const[x,y]=P(s.x,s.y),r=(s.kind==='ok'?12:11)*u,c=4.5*u;
+const SP=(L.spots||[]).map(s=>{const[x,y]=P(s.x,s.y);return{s,x,y,r:(s.kind==='ok'?12:11)*u};}),SN=L.exact?[]:SP;
+for(let it=0;it<8;it++)for(let i=0;i<SN.length;i++)for(let j=i+1;j<SN.length;j++){const a=SN[i],b=SN[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),need=a.r+b.r+2*u;
+if(d>=need)continue;const k=(need-d)/2,ux=d>1e-6?dx/d:1,uy=d>1e-6?dy/d:0;a.x-=ux*k;a.y-=uy*k;b.x+=ux*k;b.y+=uy*k;}
+SP.forEach(({s,x,y,r})=>{const c=4.5*u;
 const inner=s.kind==='bad'?`<path d="M${f(x-c)},${f(y-c)}L${f(x+c)},${f(y+c)}M${f(x+c)},${f(y-c)}L${f(x-c)},${f(y+c)}" stroke-width="${f(2.6*u)}"/>`:s.num?`<text x="${f(x)}" y="${f(y)}" dy=".35em" font-size="${f(13*u)}">${s.num}</text>`:'';
 o.push(`<g class="mv-s ${s.kind}${s.low?' low':''}" data-k="${s.k}"${tip(s.tip)}><circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" stroke-width="${f(2.5*u)}"${s.low?` stroke-dasharray="${f(4*u)} ${f(3*u)}"`:''}/>${inner}</g>`);});
 svg.querySelector('.mv-l').innerHTML=o.join('');
@@ -2197,7 +2202,7 @@ return`${verdictHtml(v,'Visée','')}
     <div class="kpi"><span>Tête</span><b>${pc0(A.hsP)}</b><small>des balles touchées</small></div><div class="kpi"><span>Corps</span><b>${pc0(A.sh?(A.sh-A.hs-A.ls)/A.sh*100:null)}</b></div><div class="kpi"><span>Jambes</span><b>${pc0(A.lsP)}</b><small class="${A.lsP>12?'down':''}">${A.lsP>12?'viseur trop bas':'normal'}</small></div></div>
     <p class="lbl mt">Tête % sur tes ${hsSeries.length} dernières parties <small class="muted">(trait pointillé : ta moyenne)</small></p>${spark(hsSeries)}</div>
   <div class="card"><h2>Armes</h2><div class="tbl"><table><thead><tr><th>Arme</th><th>Kills</th><th>Morts</th><th>K/D</th><th>1er kill</th></tr></thead><tbody>
-    ${W.map(x=>`<tr><td><b>${esc(x.w)}</b> <small class="muted">${esc(GUN[x.w]||'')}</small></td><td>${x.k}</td><td>${x.d}</td><td class="${x.k+x.d>=10?(x.k>=x.d?'up':'down'):''}">${fmt(x.d?x.k/x.d:x.k,2)}</td><td>${x.fk}</td></tr>`).join('')||'<tr><td colspan="5">—</td></tr>'}</tbody></table></div></div>
+    ${W.map(x=>`<tr><td><b>${esc(wpnFr(x.w))}</b> <small class="muted">${esc(GUN[x.w]||'')}</small></td><td>${x.k}</td><td>${x.d}</td><td class="${x.k+x.d>=10?(x.k>=x.d?'up':'down'):''}">${fmt(x.d?x.k/x.d:x.k,2)}</td><td>${x.fk}</td></tr>`).join('')||'<tr><td colspan="5">—</td></tr>'}</tbody></table></div></div>
   <div class="card"><h2>Sensibilité</h2>
     <p>Un tour complet = <b>${cm?fmt(cm,1)+' cm':'—'}</b> de tapis${cm?` (eDPI ${Math.round(S.dpi*S.sens)})`:''}. ${hint.zone==='haute'?'C\'est très rapide (la plupart des joueurs sont entre 30 et 75 cm).':hint.zone==='basse'?'C\'est très lent : les duels proches deviennent durs.':cm?'Zone habituelle.':''}</p>
     <p class="sem ${dir?'foe':'ok'} mt8">${dir?`Piste : essaie une sensibilité ${dir} pendant 8 parties (${hint.why==='proche'?'tu perds tes duels proches':hint.why==='loin'?'tu perds tes duels de loin':'ta sensibilité est hors de la zone habituelle'}).`:'Rien ne montre à coup sûr qu\'il faut changer ta sensibilité : garde-la.'}</p>
@@ -2385,7 +2390,7 @@ await benchLoad();const M=modelOf(D),me=meIdx(d),S=matchSum(d,M,me),L=S.me;
 const nm=i=>i===me?'Toi':d.pl[i]?`${d.pl[i].a}${d.pl[i].t===d.pl[me].t?' (allié)':' (adverse)'}`:'?';
 const pc=x=>`${Math.round(x*100)} %`,cats=Object.entries(S.cats).filter(([,v])=>Math.abs(v)>=.15).sort((a,b)=>b[1]-a[1]);
 const mine=Object.entries(S.mine).filter(([,v])=>Math.abs(v)>=.1).sort((a,b)=>b[1]-a[1]),best=mine[0],worst=mine[mine.length-1];
-const ev=e=>e.killer==null?'':`${e.killer===me?`<b>Tu</b> tues ${esc(nm(e.victim))}`:`${esc(nm(e.killer))} te tue`} (${e.st}, ${e.t} s${e.w?', '+esc(e.w):''})`;
+const ev=e=>e.killer==null?'':`${e.killer===me?`<b>Tu</b> tues ${esc(nm(e.victim))}`:`${esc(nm(e.killer))} te tue`} (${e.st}, ${e.t} s${e.w?', '+esc(wpnFr(e.w)):''})`;
 const low=s=>s.toLowerCase(),imp=S.myImp||0;
 const v={cls:imp>=.3?'ok':imp<=-.3?'bad':'neutral',img:agImg(r.agent,'ag'),
 h:Math.abs(imp)<.05?'Impact neutre sur cette partie':imp>0?`Tu as rapporté ${fmt(imp)} round${imp>=2?'s':''} à ton équipe`:`Tu as coûté ${fmt(-imp)} round${-imp>=2?'s':''} à ton équipe`,
@@ -2426,8 +2431,8 @@ APP.rep={d,me,nm};setTimeout(()=>drawRep('all'),0);
 function drawRep(round){
 const R=APP.rep,svg=$('#repMv');if(!R||!svg)return;const{d,me,nm}=R,all=round==='all'||round==null,K=d.kills.filter(k=>all||k[0]===+round);
 const win=K.filter(k=>k[2]===me&&k[6]!=null&&d.pl[k[3]]&&d.pl[k[3]].t!==d.pl[me].t),lose=K.filter(k=>k[3]===me&&k[4]!=null);
-const tt=k=>`R${k[0]+1} · ${Math.round(k[1]/1000)} s${k[8]?' · '+k[8]:''}`;
-svgDraw(svg,d.map,{
+const tt=k=>`R${k[0]+1} · ${Math.round(k[1]/1000)} s${k[8]?' · '+wpnFr(k[8]):''}`;
+svgDraw(svg,d.map,{exact:true,
 spots:[...win.map((k,i)=>({k:'k'+i,kind:'ok',x:k[6],y:k[7],tip:`${tt(k)} : tu tues ${nm(k[3])}`})),...lose.map((k,i)=>({k:'d'+i,kind:'bad',x:k[4],y:k[5],tip:`${tt(k)} : ${nm(k[2])} te tue`}))],
 foes:lose.map((k,i)=>k[6]!=null&&{k:'d'+i,x:k[6],y:k[7],size:8,tip:`${tt(k)} : ${nm(k[2])} tire d'ici`}).filter(Boolean),
 arrows:[...win.map((k,i)=>k[4]!=null&&{k:'k'+i,show:true,x1:k[6],y1:k[7],x2:k[4],y2:k[5]}),...lose.map((k,i)=>k[6]!=null&&{k:'d'+i,cls:'foe',dash:true,show:true,x1:k[6],y1:k[7],x2:k[4],y2:k[5]})].filter(Boolean)});
@@ -2542,6 +2547,7 @@ s.onerror=()=>{LOT_P=null;s.remove();ko(new Error('Cette partie du site n\'a pas
 function toast(msg,err,action){
 const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;
 if(action){const b=document.createElement('button');b.className='btn sm';b.textContent=action.label;b.onclick=()=>{action.fn();t.remove();};t.appendChild(b);}
+[...$('#toasts').children].forEach(x=>{if(x.firstChild&&x.firstChild.nodeValue===msg)x.remove();});
 $('#toasts').appendChild(t);setTimeout(()=>t.remove(),action?9000:4500);
 }
 function statut(t){const s=$('#statut');if(!s)return;s.textContent=t||'';s.hidden=!t;}
