@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1319. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1328. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1554,32 +1554,37 @@ if(!j)throw new Error('Réponse illisible du service. Réessaie plus tard.');
 return j;
 }
 }
+const ROWS_MAX=1500,PAGES_MAX=60;
 async function loadProfile(riot,region,opt={}){
 const sp=splitRiot(riot);if(!sp)throw new Error('Écris ton Riot ID en entier : Pseudo#TAG (exemple : Kebab#EUW).');
-const[nm,tg]=sp,rid=ridNorm(riot),pages=opt.pages||1,old=ST.get('prof:'+rid);
-if(!opt.force&&old&&old.v===2&&Date.now()-old.at<10*6e4&&old.pages>=pages)return old;
+const[nm,tg]=sp,rid=ridNorm(riot),all=!!opt.all,old=ST.get('prof:'+rid);
+if(!opt.force&&!all&&old&&old.v===2&&Date.now()-old.at<10*6e4)return old;
 const q=`${encodeURIComponent(nm)}/${encodeURIComponent(tg)}`,size=20;
 const known=old&&old.v===2&&old.puuid&&Date.now()-old.at<7*864e5;
 if(!known)statut('Recherche du compte…');
 const acc=known?{name:old.name,tag:old.tag,region:old.region,puuid:old.puuid,account_level:old.level,card:old.card}:(await apiGet(`/v2/account/${q}`)).data||{};
 const reg=REGIONS.some(r=>r[0]===String(acc.region||'').toLowerCase())?String(acc.region).toLowerCase():region;
 statut('Rang, parties et RR…');
-const page=p=>apiGet(`/v1/stored-matches/${reg}/${q}?mode=competitive&size=${size}&page=${p}`,3,{lic:p>1}).then(x=>x.data||[]);
+let tot=0;
+const page=p=>apiGet(`/v1/stored-matches/${reg}/${q}?mode=competitive&size=${size}&page=${p}`,3,{lic:p>1}).then(x=>{const t=toNum((x.results||{}).total);if(t>0)tot=t;return x.data||[];});
 const[mmrR,l1,histR]=await Promise.all([
 apiGet(`/v3/mmr/${reg}/pc/${q}`).then(x=>x.data||{},e=>{if(e.code!==404)throw e;return{};}),page(1),
 apiGet(`/v2/stored-mmr-history/${reg}/pc/${q}`).then(x=>x.data||[],e=>{if(e.code!==404)console.warn(e);return[];})]);
-const mmr=mmrR,hist=histR,rows=[],addL=l=>l.forEach(sm=>{const r=smRow(sm);if(r&&!rows.some(x=>x.id===r.id))rows.push(r);});
-addL(l1);
-for(let p=2,l=l1;p<=pages&&l.length>=size;p++){
-statut(`Tes parties classées… (page ${p}/${pages})`);await sleep(1200);
-try{l=await page(p);}catch(e){if(e.code===402){toast(e.message,true);break;}throw e;}
-addL(l);
+const keep=old&&old.v===2&&Array.isArray(old.rows)?old.rows:[],had=new Set(keep.map(r=>r.id));
+const mmr=mmrR,hist=histR,rows=[],seen=new Set(),addL=l=>{let nw=0;l.forEach(sm=>{const r=smRow(sm);if(r&&!seen.has(r.id)){seen.add(r.id);rows.push(r);if(!had.has(r.id))nw++;}});return nw;};
+const last=Math.min(PAGES_MAX,tot?Math.ceil(tot/size):all?PAGES_MAX:1);
+let nw=addL(l1),full=all;
+for(let p=2,l=l1;p<=last&&l.length>=size&&(all||(keep.length&&nw));p++){
+statut(`Tes parties classées… (page ${p}/${last})`);await sleep(1200);
+try{l=await page(p);}catch(e){full=false;if(e.code===402){toast(e.message,true);break;}if(all||keep.length)break;throw e;}
+nw=addL(l);
 }
+keep.forEach(r=>{if(!seen.has(r.id))rows.push(r);});
 const c=mmr.current||{},pk=mmr.peak||{},n=v=>toNum(v);
 const prof={v:2,at:Date.now(),rid,name:strCut(acc.name||nm,24),tag:strCut(acc.tag||tg,8),region:reg,puuid:typeof acc.puuid==='string'?acc.puuid:'',level:n(acc.account_level),
-card:typeof acc.card==='string'?acc.card:(acc.card||{}).id||'',pages,
+card:typeof acc.card==='string'?acc.card:(acc.card||{}).id||'',full:full||!!(old&&old.full),tot,
 mmr:{tier:n((c.tier||{}).id)||0,rr:n(c.rr),last:n(c.last_change),elo:n(c.elo),need:n(c.games_needed_for_rating)||0,peak:{tier:n((pk.tier||{}).id)||0,season:strCut((pk.season||{}).short,10)}},
-rows:rows.sort((a,b)=>b.ts-a.ts),
+rows:rows.sort((a,b)=>b.ts-a.ts).slice(0,ROWS_MAX),
 hist:(Array.isArray(hist)?hist:[]).map(h=>({d:String(h.date||''),ts:Date.parse(h.date)||0,ch:n(h.last_change),elo:n(h.elo),t:n((h.tier||{}).id)||0,mid:String(h.match_id||'').toLowerCase(),map:strCut((h.map||{}).name,20)}))
 .filter(h=>h.elo!=null&&h.ts).sort((a,b)=>a.ts-b.ts).slice(-120)};
 prof.riot=`${prof.name}#${prof.tag}`;
@@ -1650,7 +1655,7 @@ k,d,a:ri(2,9),sc:Math.round(r*(k/r*175+70+ri(-15,25))),hs:Math.max(0,hs),bs:Math
 hist.push({d:new Date(t).toISOString(),ts:t,ch,elo,t:Math.floor(elo/100)+3,mid:id,map});
 }
 rows.sort((a,b)=>b.ts-a.ts);
-const prof={v:2,demo:true,at:now,rid:'démo#fr1',name:'Démo',tag:'FR1',riot:'Démo#FR1',region:'eu',puuid:'',level:142,card:'e9c8d760-4d06-4037-4882-6bab3610d9ea',pages:5,
+const prof={v:2,demo:true,at:now,rid:'démo#fr1',name:'Démo',tag:'FR1',riot:'Démo#FR1',region:'eu',puuid:'',level:142,card:'e9c8d760-4d06-4037-4882-6bab3610d9ea',full:true,
 mmr:{tier:Math.floor(elo/100)+3,rr:elo%100,last:hist[hist.length-1].ch,elo,need:0,peak:{tier:Math.floor(peak/100)+3,season:'e11a2'}},rows,hist};
 rows.slice(0,45).forEach(r=>{const d=demoDetail(r,rnd,ri,pickW);DET.mem[mdKey(prof,r.id)]=d;});
 return prof;
@@ -2120,7 +2125,12 @@ return`<div class="card"><div class="card-h"><h2>Parties classées</h2><span cla
     <div><b>${r.k}/${r.d}/${r.a}</b><small>K/D ${fmt(r.d?r.k/r.d:r.k,2)}</small></div>
     <div class="hide-m"><b>${fmt(r.sc/r.r,0)}</b><small>ACS</small></div><div class="hide-m"><b>${fmt(r.dmg/r.r,0)}</b><small>ADR</small></div><div class="hide-m"><b>${sh?Math.round(r.hs/sh*100):'—'} %</b><small>tête</small></div>
     <button class="btn ghost sm" data-act="rapport:${r.id}">Rapport${canRep(r.id)?'':' ★'}</button></div>`;}).join('')||empty('Aucune partie avec ces filtres.')}</div>
-  ${P.demo?'':P.pages<5?`<div class="row center mt"><button class="btn ghost" data-act="more">${canMore?'Charger plus de parties (jusqu\'à 100)':'Plus de parties ★'}</button></div>`:'<p class="note">Historique complet chargé (jusqu\'à 100 parties).</p>'}</div>`;
+  ${histNote(P,canMore)}</div>`;
+}
+function histNote(P,canMore){
+if(P.demo)return'';
+return P.full?`<p class="note">Tout ton historique est là : ${nPart(P.rows.length)} gardées dans ce navigateur. Les nouvelles s'ajoutent toutes seules ; « Sauvegarder mes données » (Réglages) pour les emporter sur un autre appareil.</p>`
+:`<div class="row center mt"><button class="btn ghost" data-act="more">${canMore?`Récupérer tout mon historique${P.tot>P.rows.length?` (${P.tot} parties disponibles)`:''}`:'Tout mon historique ★'}</button></div>`;
 }
 function aggTable(A,first,img){
 return`<div class="tbl"><table><thead><tr><th>${first}</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>ADR</th><th>Tête</th><th>DDΔ</th></tr></thead><tbody>
@@ -2132,6 +2142,7 @@ const tot=APP.prof.rows.length||1;
 return`<div class="card"><div class="card-h"><h2>Agents</h2><span class="muted small">Couleur du taux de victoire seulement quand l'écart à 50 % est sûr</span></div>
     <div class="roles">${Object.entries(roles).sort((a,b)=>b[1]-a[1]).map(([r,n])=>`<span class="pill">${esc(ROLE_FR[r]||r)} ${Math.round(n/tot*100)} %</span>`).join('')}</div>
     ${aggTable(A,'Agent',a=>agImg(a))}
+    ${APP.prof.full?'':`<p class="note">Calculé sur tes ${nPart(tot)} gardées.</p>${histNote(APP.prof,featOn('historique',APP.plan,APP.cfg))}`}
     ${featOn('perso',APP.plan,APP.cfg)?`<p class="note">Astuce : Personnaliser › « Agent au choix » pour mettre l'interface aux couleurs de n'importe quel agent.</p>`:''}</div>
   <h2 class="mt" id="cartes">Cartes</h2>${tabCartes()}
   ${pickTable()}
@@ -2623,7 +2634,7 @@ window.addEventListener('popstate',()=>{if($('#dlg').open)$('#dlg').close();open
 async function openProfile(riot,region,opt={}){
 if(!splitRiot(riot))return toast('Écris ton Riot ID en entier : Pseudo#TAG',true);
 if(!apiReady())return keyAsk(riot,region);
-document.body.classList.add('busy');
+if(!opt.bg)document.body.classList.add('busy');
 const old=!opt.force&&ST.get('prof:'+ridNorm(riot)),early=old&&old.v===2&&!(APP.prof&&APP.prof.rid===old.rid)?old:null;
 if(early){await profShow(early,opt);document.body.classList.remove('busy');}
 try{
@@ -2633,6 +2644,8 @@ const moved=same&&(APP.prof.rows[0]||{}).id!==(P.rows[0]||{}).id;
 if(same&&!moved&&APP.prof.mmr.rr===P.mmr.rr&&APP.prof.rows.length===P.rows.length){APP.prof=P;}
 else{if(moved){APP.D=null;APP.detTried='';}await profShow(P,Object.assign({},opt,early?{noPush:true}:{}),same);}
 }
+if(!opt.all&&!P.full&&featOn('historique',APP.plan,APP.cfg)&&P.rows.length>=20)setTimeout(()=>{if(APP.prof&&APP.prof.rid===P.rid)openProfile(P.riot,P.region,{force:true,all:true,keepTab:true,noPush:true,bg:true,quiet:true});},1500);
+else if(opt.all&&!opt.bg)toast(P.full?`Historique complet : ${nPart(P.rows.length)} gardées`:'Historique incomplet : le service a coupé, réessaie plus tard',!P.full);
 }catch(e){
 statut('');if(e.code==='nokey')keyAsk(riot,region);
 else if(early)toast(`Service indisponible : tu vois tes données du ${dFr(early.at,{day:'numeric',month:'short'})} à ${hFr(early.at)}.`,true,{label:'Réessayer',fn:()=>openProfile(riot,region,Object.assign({},opt,{force:true}))});
@@ -2717,8 +2730,8 @@ if(!TAB_KEYS.includes(k))return;APP.tab=k;(APP.grpLast=APP.grpLast||{})[groupOf(
 tabShow();renderTab();if(!noHash)setHash(false);
 const nav=$('#pnav');if(el&&tp&&nav){const d=tp.getBoundingClientRect().top-Math.max(0,nav.getBoundingClientRect().bottom)-8;if(d<0)window.scrollBy(0,d);}},
 grp:g=>{const G=GROUPS.find(x=>x[0]===g);if(G)ACT.tab(G[2].includes(APP.tab)?APP.tab:(APP.grpLast||{})[g]||G[2][0],true);},
-refresh:()=>APP.prof&&openProfile(APP.prof.riot,APP.prof.region,{force:true,pages:APP.prof.pages,keepTab:true}),
-more:()=>featOn('historique',APP.plan,APP.cfg)?openProfile(APP.prof.riot,APP.prof.region,{force:true,pages:5,keepTab:true}):premiumOpen('historique'),
+refresh:()=>APP.prof&&openProfile(APP.prof.riot,APP.prof.region,{force:true,keepTab:true}),
+more:()=>featOn('historique',APP.plan,APP.cfg)?openProfile(APP.prof.riot,APP.prof.region,{force:true,all:true,keepTab:true}):premiumOpen('historique'),
 rapport:id=>openReport(id),
 perso:()=>persoOpen(),
 persoClose:()=>persoClose(),
