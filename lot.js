@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1036. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1256. */
 "use strict";
 const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
 const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
@@ -249,7 +249,7 @@ return`<div class="card"><h3 style="margin-top:0">Ce qu'ils attaquent</h3>${p.to
     <h3>Retakes</h3><ul class="plist">${statRow('À 3 ou plus',Df.re3[1],Df.re3[0],.5,`${nA(Df.re3)} gagnés`)}${statRow('À 2 ou moins',Df.re2[1],Df.re2[0],.5,`${nA(Df.re2)} gagnés : sauve ton arme`)}</ul></div>`;
 }
 function agentCard(picks,map,ag){
-return`<div class="card"><h3 style="margin-top:0">Quel agent sur ${esc(map)} ?</h3>${picks.length?picks.slice(0,4).map((x,i)=>`<div class="mini">${agImg(x.a)}<div><b>${esc(x.a)}</b>${i===0&&x.sure&&x.n>=3?' <span class="pill ok">conseillé</span>':''}${x.a===ag?' <span class="pill prem">ton choix</span>':''}<small>${x.n} partie(s) ici (${x.w} V) · ${x.N} au total · note ${pct(x.s)}</small></div></div>`).join(''):empty('Pas encore assez de parties.')}
+return`<div class="card"><h3 style="margin-top:0">Quel agent sur ${esc(map)} ?</h3>${picks.length?picks.slice(0,4).map((x,i)=>`<div class="mini">${agImg(x.a)}<div><b>${esc(x.a)}</b>${i===0&&x.sure&&x.n>=3?' <span class="pill ok">conseillé</span>':''}${x.a===ag?' <span class="pill prem">ton choix</span>':''}<small>${nPart(x.n)} ici (${x.w} V) · ${x.N} au total · note ${pct(x.s)}</small></div></div>`).join(''):empty('Pas encore assez de parties.')}
     <p class="note">Note = taux de victoire lissé : sur cette carte, tiré vers ton taux avec l'agent, lui-même tiré vers ton taux global. Un agent joué 2 fois ne passe jamais devant un agent que tu maîtrises.</p></div>`;
 }
 function ecoCard(E,n){
@@ -305,7 +305,7 @@ function upHtml(C){
 if(!C.next.length)return'';const upN=RANK_FR[C.up]||'';
 const pill=x=>!x.below?'<span class="pill ok">au niveau</span>':x.sure?'<span class="pill bad">en dessous</span>':'<span class="pill warn">un peu en dessous</span>';
 return`<div class="card"><h2>Ce que ton entraînement doit faire monter</h2><p class="muted small">Les chiffres qui séparent vraiment les rangs (10 790 profils collectés) : toi contre les joueurs ${esc(upN)} de ton rôle.</p>
-    ${C.next.map(x=>{const m=Math.max(x.me||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${pill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}
+    ${C.next.map(x=>{const m=Math.max(x.me||0,x.up||0)||1,dx=metX(x,[x.up]);return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${pill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me,dx),true)}${mbarH(upN,x.up,m,metTxt(x.k,x.up,dx))}</div></div>`;}).join('')}
     <p class="note">La routine travaille ce qui est en dessous à coup sûr. Vérifie l'effet sur tes 20 prochaines parties.</p></div>`;
 }
 ACT.plCopy=id=>{const p=TR_PLAYLISTS.find(x=>x.id===id);if(p)copyText(p.n,'Nom copié : colle-le dans la recherche de l\'appli');};
@@ -317,7 +317,7 @@ const blk=(b,i)=>{const d=TR_DRILLS[b.k];return`<li class="drill"><div class="dr
     <p class="small muted"><b>Pourquoi :</b> ${esc(d.why)} · <b>Objectif :</b> ${esc(fillLv(d.goal,C.L))}</p></li>`;};
 const ef=Sv.ef&&Sv.ef.nb>=5&&Sv.ef.na>=5?Sv.ef:null;
 const v={h:`Routine du jour : ${tot} min`,p:`Réglée sur ton rang (${tierFr(C.P.mmr.tier)})${C.focus.length?' et sur tes points faibles sûrs.':C.D.length>=3?'. Aucun point faible sûr : routine équilibrée.':'. Joue quelques parties pour une routine sur mesure.'}`,
-facts:[['Série',`<b>${Sv.streak}<small> jour${Sv.streak>1?'s':''}</small></b>`,'d\'entraînement d\'affilée'],['Cette semaine',`<b>${Sv.wkMin}<small> min</small></b>`,`${Sv.wkN} séance(s) · ${logs.length} au total`],
+facts:[['Série',`<b>${Sv.streak}<small> jour${Sv.streak>1?'s':''}</small></b>`,'d\'entraînement d\'affilée'],['Cette semaine',`<b>${Sv.wkMin}<small> min</small></b>`,`${nPart(Sv.wkN,'séance')} · ${logs.length} au total`],
 ['Effet mesuré',`<b class="${ef?(ef.mb>=ef.ma?'up':'down'):''}">${ef?`${sg((ef.mb-ef.ma)*100,0)} %`:'—'}</b>`,ef?`d'ACS les soirs entraînés${Math.abs(ef.z)>=1.64?' (sûr)':' (pas encore sûr)'}`:'il faut 5 parties de chaque côté']],
 acts:`<button class="btn" data-act="tmStart">▶ Lancer le minuteur (${tot} min)</button><button class="btn ghost" data-act="tmLog">J'ai fait la séance sans minuteur</button>`};
 return`${verdictHtml(v,`Entraînement · niveau ${esc(C.L.n)}`,'')}

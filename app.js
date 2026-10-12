@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1036. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1256. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -118,7 +118,7 @@ if(fk){o.fk++;if(won)o.fkW++;}
 if(fd){o.fd++;if(won)o.fdW++;if(tr)o.fdTr++;o.fdT.push(Math.round(f[1]/1000));}
 if(sd){sd.r++;if(won)sd.w++;sd.k+=kills;if(died)sd.d++;if(fk)sd.fk++;if(fd)sd.fd++;if(kast)sd.kast++;}
 const al={1:sz(1),0:sz(0)},dead=new Set();
-for(const k of ks){const v=tm(k[3]);if(v!=null)al[v]--;dead.add(k[3]);
+for(const k of ks){revOf(k,dead).forEach(x=>{dead.delete(x);if(tm(x)!=null)al[tm(x)]++;});const v=tm(k[3]);if(v!=null)al[v]--;dead.add(k[3]);
 if(al[me.t]===1){const x=al[1-me.t];if(x>=1&&!dead.has(i)){const c=o.cl[Math.min(5,x)];c[0]++;if(won)c[1]++;}break;}}
 });
 return o;
@@ -153,6 +153,7 @@ const fromCv=(xf,cx,cy)=>!xf?null:[((cy-30)/940-xf[3])/xf[1],((cx-30)/940-xf[2])
 function nearestRegion(cos,x,y){let b=null,bd=Infinity;(cos||[]).forEach(c=>{const dd=Math.hypot(c[2]-x,c[3]-y);if(dd<bd){bd=dd;b=c;}});return b;}
 const GUN={Classic:'pistolet',Shorty:'pistolet',Frenzy:'pistolet',Ghost:'pistolet',Sheriff:'pistolet',Bandit:'pistolet',Stinger:'SMG',Spectre:'SMG',Bucky:'pompe',Judge:'pompe',
 Bulldog:'fusil',Guardian:'fusil',Phantom:'fusil',Vandal:'fusil',Marshal:'sniper',Outlaw:'sniper',Operator:'sniper',Ares:'mitrailleuse',Odin:'mitrailleuse'};
+const revOf=(k,dead)=>[k[3],k[2]].filter((x,j)=>x>=0&&dead.has(x)&&(!j||(x!==k[3]&&!!GUN[k[8]])));
 const DBANDS=[10,25],BAND_FR=['Proche (moins de 10 m)','Moyen (10 à 25 m)','Loin (25 m et plus)'];
 function duelStats(D,who){
 const o={b:[[0,0],[0,0],[0,0]],all:[0,0],op:[0,0],dw:[],dl:[]};
@@ -326,7 +327,7 @@ k:n(s.kills),d:n(s.deaths),a:n(s.assists),sc:n(s.score),hs:n(sh.head),bs:n(sh.bo
 function rowsAgg(rows){
 const o={n:0,w:0,l:0,k:0,d:0,a:0,sc:0,r:0,dmg:0,rec:0,hs:0,sh:0,ls:0};
 (rows||[]).forEach(x=>{o.n++;if(x.res==='W')o.w++;if(x.res==='L')o.l++;o.k+=x.k;o.d+=x.d;o.a+=x.a;o.sc+=x.sc;o.r+=x.r;o.dmg+=x.dmg;o.rec+=x.rec;o.hs+=x.hs;o.ls+=x.ls;o.sh+=x.hs+x.bs+x.ls;});
-return Object.assign(o,{wr:o.n?o.w/o.n*100:null,kd:o.d?o.k/o.d:o.n?o.k:null,kda:o.d?(o.k+o.a)/o.d:null,acs:o.r?o.sc/o.r:null,adr:o.r?o.dmg/o.r:null,
+return Object.assign(o,{wr:o.n?o.w/o.n*100:null,kd:o.d?o.k/o.d:o.n?o.k:null,kda:o.d?(o.k+o.a)/o.d:o.n?o.k+o.a:null,acs:o.r?o.sc/o.r:null,adr:o.r?o.dmg/o.r:null,
 hsP:o.sh?o.hs/o.sh*100:null,lsP:o.sh?o.ls/o.sh*100:null,dd:o.r?(o.dmg-o.rec)/o.r:null,kpr:o.r?o.k/o.r:null});
 }
 function aggBy(rows,key){
@@ -374,6 +375,10 @@ vl?Math.round(vl.x):null,vl?Math.round(vl.y):null,kl?Math.round(kl.x):null,kl?Ma
 const t0=Date.parse(meta.started_at)||0;
 return{id:String(meta.match_id||'').toLowerCase(),v:7,map:(meta.map||{}).name||'?',date:t0?isoLoc(new Date(t0)):'',ts:t0,rounds:rr,kills,pl};
 }
+function detTrim(d,n){
+if(!d||!Array.isArray(d.rounds)||!(n>0)||d.rounds.length<=n||(d.kills||[]).some(k=>k[0]>=n))return d;
+return Object.assign({},d,{rounds:d.rounds.slice(0,n)});
+}
 const SIGHT_DEG=15,SIGHT_M=30;
 function sightOf(k,vl,kl,teamOf){
 const L=(k.player_locations||[]).filter(p=>p&&p.player&&p.location&&typeof p.view_radians==='number'),vt=teamOf(k.victim.puuid);
@@ -407,9 +412,10 @@ const S={},E={},add=(o,k,w)=>{const c=o[k]||(o[k]=[0,0]);c[0]++;if(w)c[1]++;};
 (D||[]).forEach(d=>{const byR=grp(d.kills,k=>k[0]),sz=t=>d.pl.filter(p=>p.t===t).length||5;
 d.rounds.forEach((r,i)=>[1,0].forEach(t=>{
 const won=(r.w===1)===(t===1);if(i!==0&&i!==12)add(E,BUYK(t===1?r.ol:r.tl)+'|'+BUYK(t===1?r.tl:r.ol),won);
-let a=sz(t),b=sz(1-t),pl='n';add(S,`${a}|${b}|n`,won);
+let a=sz(t),b=sz(1-t),pl='n';const dead=new Set(),tt=x=>d.pl[x]?d.pl[x].t:null;add(S,`${a}|${b}|n`,won);
 (byR[i]||[]).slice().sort((x,y)=>x[1]-y[1]).forEach(k=>{if(r.pt&&k[1]>r.pt&&pl==='n'&&r.pu>=0)pl=r.pu===t?'u':'t';
-const v=d.pl[k[3]]?d.pl[k[3]].t:null;if(v===t)a--;else if(v===1-t)b--;if(a>0&&b>0)add(S,`${a}|${b}|${pl}`,won);});
+revOf(k,dead).forEach(x=>{dead.delete(x);if(tt(x)===t)a++;else if(tt(x)===1-t)b++;});
+const v=tt(k[3]);if(v===t)a--;else if(v===1-t)b--;dead.add(k[3]);if(a>0&&b>0)add(S,`${a}|${b}|${pl}`,won);});
 }));});
 return{S,E};
 }
@@ -425,8 +431,15 @@ return d.rounds.map((r,i)=>{
 const ec=i===0||i===12?0:ecoL(M,r.ol,r.tl),ks=(byR[i]||[]).slice().sort((x,y)=>x[1]-y[1]),ev=[];
 let a=sz(1),b=sz(0),pl='n',p=wpProb(M,a,b,pl,ec);const p0=p;let mx=p,mn=p;
 const plant=()=>{pl=r.pu===1?'u':'t';const np=wpProb(M,a,b,pl,ec);ev.push({cat:'plant',d:np-p,pb:p,pa:np,us:r.pu===1});p=np;};
+const rvAt=[],early=new Set(),dead=new Set();{const dd=new Set();ks.forEach((k,j)=>{rvAt[j]=revOf(k,dd);rvAt[j].forEach(x=>dd.delete(x));dd.add(k[3]);});}
 ks.forEach((k,j)=>{
 if(r.pt&&k[1]>r.pt&&pl==='n'&&r.pu>=0)plant();
+const rv=rvAt[j].filter(x=>!early.has(x)),vt=tm(k[3]);
+if(vt!=null&&(vt===1?a:b)+rv.filter(x=>tm(x)===vt).length===1)for(let j2=j+1;j2<ks.length;j2++){
+const x=rvAt[j2].find(y=>tm(y)===vt&&dead.has(y)&&!early.has(y));if(x!=null){early.add(x);rv.push(x);break;}}
+if(rv.length){rv.forEach(x=>{dead.delete(x);if(tm(x)===1)a++;else if(tm(x)===0)b++;});
+const np=wpProb(M,a,b,pl,ec);ev.push({cat:'rea',d:np-p,pb:p,pa:np});p=np;mx=Math.max(mx,p);mn=Math.min(mn,p);}
+dead.add(k[3]);
 const v=tm(k[3]),kt=tm(k[2]),st=`${a}v${b}`,n0=[b,a];if(v===1)a--;else if(v===0)b--;
 const np=wpProb(M,a,b,pl,ec),cat=!j?'ouverture':pl==='u'?'post':pl==='t'?'retake':(kt===1&&a===1)||(kt===0&&b===1)?'clutch':ks.slice(0,j).some(q=>q[2]===k[3]&&k[1]-q[1]<=3000)?'trade':'mid';
 ev.push({cat,d:np-p,pb:p,pa:np,killer:k[2],victim:k[3],ours:kt===1,st:`${st} → ${a}v${b}`,n0,ms:k[1],t:Math.round(k[1]/1000),w:k[8]||''});
@@ -476,7 +489,7 @@ cast:(p.c||[]).reduce((a,b)=>a+(b||0),0)});});
 rounds.forEach((r,ri)=>{
 const ks=(byR[ri]||[]).slice().sort((a,b)=>a[1]-b[1]),dead=new Set(),al={1:sz(1),0:sz(0)},cl={};
 ks.forEach((k,j)=>{
-const ki=k[2],vi=k[3],kt=tm(ki),vt=tm(vi);
+const ki=k[2],vi=k[3],kt=tm(ki),vt=tm(vi);revOf(k,dead).forEach(x=>{dead.delete(x);if(tm(x)!=null)al[tm(x)]++;});
 if(S[ki]&&kt!=null&&vt!=null&&kt!==vt&&ks.slice(0,j).some(q=>q[2]===vi&&tm(q[3])===kt&&k[1]-q[1]<=3000))S[ki].trk++;
 if(S[ki]&&S[vi]&&kt!==vt&&GUN[k[8]]&&k[4]!=null&&k[6]!=null){
 const m=Math.hypot(k[6]-k[4],k[7]-k[5])/100,b='b'+(m<DBANDS[0]?0:m<DBANDS[1]?1:2);
@@ -1064,7 +1077,7 @@ if(ourFirst){A.fd.push(coZone(cos,f[4],f[5]));if(f[6]!=null)A.fdBy.push(coZone(c
 const Df=I.def;Df.n++;if(r.w)Df.w++;
 const s0=aimed(r,1-mt);
 if(s0){const s=Df.sites[s0]||(Df.sites[s0]={n:0,w:0,cn:0,cw:0,t:[]});s.n+=wt;s.cn++;if(r.w){s.w+=wt;s.cw++;}if(r.pu===1-mt&&r.p===s0&&r.pt)s.t.push(r.pt/1000);}
-if(r.pu===1-mt&&r.p){if(r.pt)Df.pt.push(r.pt/1000);const alive=d.pl.filter(p=>p.t===mt).length-ks.filter(k=>k[1]<=r.pt&&tm(k[3])===mt).length,b=alive>=3?Df.re3:Df.re2;b[0]++;if(r.w)b[1]++;}
+if(r.pu===1-mt&&r.p){if(r.pt)Df.pt.push(r.pt/1000);const alive=d.pl.filter(p=>p.t===mt).length-new Set(ks.filter(k=>k[1]<=r.pt&&tm(k[3])===mt).map(k=>k[3])).size,b=alive>=3?Df.re3:Df.re2;b[0]++;if(r.w)b[1]++;}
 (r.fs||[]).forEach(([pi,x,y])=>{if(tm(pi)!=null&&tm(pi)!==mt)Df.path.push(coZone(cos,x,y));});
 if(ourFirst)Df.fd.push(coZone(cos,f[4],f[5]));
 ks.forEach(k=>{if(tm(k[2])===mt&&tm(k[3])!=null&&tm(k[3])!==mt&&(!r.pt||k[1]<r.pt)&&k[6]!=null){const c=nearestRegion(cos,k[6],k[7]);if(c)(Df.kills[c[0]]=Df.kills[c[0]]||[]).push(coLabel(c));}});
@@ -1213,7 +1226,7 @@ GUN,DBANDS,BAND_FR,duelStats,sensHint,psaStart,psaStep,sensHistPush,sensPeriods,
 frList,JOURS,
 ridNorm,b64uEnc,b64uDec,utf8,fromUtf8,LIC_PLANS,licBody,licHead,licParse,licCheck,LIC_WHY,LIC_DUR,licExp,jwkPub,
 FEATURES,PREM_DEF,featOn,PUB_DEF,httpsUrl,isGoogle,proxyUrl,pubCfg,smRow,rowsAgg,aggBy,mainAgent,sessionsOf,serieOf,
-v4Detail,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
+v4Detail,detTrim,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
 RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,RANK_METS,
 ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
@@ -1351,7 +1364,7 @@ const FX_FR={auto:'Auto (selon ton rôle)',aucun:'Aucun',grain:'Grain',scan:'Lig
 const MODE_FR={auto:'Agent principal',dernier:'Dernier agent joué',neutre:'Neutre',agent:'Agent au choix',rang:'Mon rang',carte:'Carte préférée',cartejoueur:'Ma carte de joueur',perso:'Tout à la main'};
 const BG_FR={auto:'Auto',art:'Art de l\'agent',portrait:'Portrait de l\'agent',splash:'Image de carte',card:'Ma carte de joueur',degrade:'Dégradé seul',image:'Mon image'};
 const BLOCK_FR={kpis:'Chiffres clés',session:'Session du soir',objectif:'Objectif de rang',forme:'Forme récente',rr:'Courbe de RR',agents:'Meilleurs agents',cartes:'Meilleures cartes',records:'Records',dernier:'Dernière partie',defis:'Défis de la semaine',succes:'Succès'};
-const CAT_FR={ouverture:'Duels d\'ouverture',trade:'Trades',mid:'Milieu de round',clutch:'Clutchs',post:'Après ton plant',retake:'Retakes',plant:'Plants',fin:'Fin de round'};
+const CAT_FR={ouverture:'Duels d\'ouverture',trade:'Trades',mid:'Milieu de round',clutch:'Clutchs',post:'Après ton plant',retake:'Retakes',plant:'Plants',rea:'Réanimations',fin:'Fin de round'};
 const END_FR={elim:'tous éliminés',spike:'spike explosé',defuse:'spike désamorcé',time:'temps écoulé'};
 const BUY_FR={eco:'Éco',force:'Force',full:'Full buy'};
 const DRILL={
@@ -1580,23 +1593,24 @@ r.onsuccess=()=>{const db=r.result,tx=db.transaction('md',mode),q=fn(tx.objectSt
 const mdKey=(prof,id)=>`${prof.demo?'demo':prof.puuid||prof.rid}:${id}`;
 const DET={mem:{},miss:new Set()};
 const DET_V=7;
+const detFix=(prof,d)=>{const r=d&&(prof.rows||[]).find(x=>x.id===d.id);return r?detTrim(d,r.us+r.them):d;};
 async function detGet(prof,id,fresh){
 const k=mdKey(prof,id),old=x=>fresh&&(x.v||0)<DET_V;if(DET.mem[k]&&!old(DET.mem[k]))return DET.mem[k];
 let d=DET.mem[k]||null;if(!d){try{d=await idb('readonly',s=>s.get(k));}catch(e){}}
-if(d&&!old(d))return DET.mem[k]=d;
-if(prof.demo)return d?DET.mem[k]=d:null;
-let md=null;try{md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true,to:25000})).data;}catch(e){if(d)return DET.mem[k]=d;throw e;}
-if(!md)return d?DET.mem[k]=d:null;
+if(d&&!old(d))return DET.mem[k]=detFix(prof,d);
+if(prof.demo)return d?DET.mem[k]=detFix(prof,d):null;
+let md=null;try{md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true,to:25000})).data;}catch(e){if(d)return DET.mem[k]=detFix(prof,d);throw e;}
+if(!md)return d?DET.mem[k]=detFix(prof,d):null;
 const me=(md.players||[]).find(p=>(prof.puuid&&p.puuid===prof.puuid)||ridNorm(`${p.name}#${p.tag}`)===prof.rid);if(!me)return null;
 d=v4Detail(md,me.team_id,p=>p===me?'moi':'');
 try{await idb('readwrite',s=>s.put(d,k));}catch(e){console.warn('Détail non gardé',e);}
-return DET.mem[k]=d;
+return DET.mem[k]=detFix(prof,d);
 }
 async function detAll(prof){
 const ids=new Set(prof.rows.map(r=>r.id)),out=[];
 for(const r of prof.rows){const k=mdKey(prof,r.id);if(DET.mem[k])out.push(DET.mem[k]);}
 if(out.length<ids.size&&!prof.demo){
-try{const all=await idb('readonly',s=>s.getAll());(all||[]).forEach(d=>{const k=mdKey(prof,d.id);if(ids.has(d.id)&&!DET.mem[k]){DET.mem[k]=d;out.push(d);}});}catch(e){}
+try{const all=await idb('readonly',s=>s.getAll());(all||[]).forEach(d=>{const k=mdKey(prof,d.id);if(ids.has(d.id)&&!DET.mem[k]){DET.mem[k]=detFix(prof,d);out.push(DET.mem[k]);}});}catch(e){}
 }
 return out.sort((a,b)=>b.ts-a.ts);
 }
@@ -1807,9 +1821,10 @@ persoSet('bg','image');
 "use strict";
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const fmt=(n,d=1)=>n==null||!Number.isFinite(+n)?'—':Number(n).toFixed(d).replace('.',',');
-const pc0=v=>v==null?'—':`${Math.round(v)} %`;
-const sg=(x,d=1)=>x==null?'—':`${x>=0?'+':'−'}${fmt(Math.abs(x),d)}`;
+const rndD=(n,d)=>{const p=10**d,r=Math.sign(n)*Math.round(Math.abs(n)*p*(1+Number.EPSILON))/p;return r||0;};
+const fmt=(n,d=1)=>n==null||!Number.isFinite(+n)?'—':rndD(+n,d).toFixed(d).replace('.',',');
+const pc0=v=>v==null||!Number.isFinite(+v)?'—':`${rndD(+v,0)} %`;
+const sg=(x,d=1)=>{if(x==null||!Number.isFinite(+x))return'—';const s=fmt(Math.abs(x),d);return/^[0,]+$/.test(s)?s:`${x>0?'+':'−'}${s}`;};
 const dFr=(ts,o={weekday:'short',day:'numeric',month:'short'})=>{try{return new Date(ts).toLocaleDateString('fr-FR',o);}catch(e){return'';}};
 const hFr=ts=>{try{return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}catch(e){return'';}};
 const agImg=(a,cls='ag')=>{const u=IMG.agent(a);return u?`<img class="${cls}" src="${u}" alt="${esc(a)}" title="${esc(a)}" loading="lazy">`:`<span class="${cls} ph">${esc(String(a||'?').slice(0,2))}</span>`;};
@@ -1817,6 +1832,9 @@ const lockTag=f=>featOn(f,APP.plan,APP.cfg)?'':' <span class="star" title="Premi
 const trendTxt=(a,b,d=1,inv)=>a==null||b==null?'':`<small class="${(a-b)*(inv?-1:1)>=0?'up':'down'}">${a>=b?'▲':'▼'} ${fmt(Math.abs(a-b),d)}</small>`;
 const rateCls=(k,n,ref=.5)=>trust(k,n,ref);
 const empty=t=>`<p class="muted">${esc(t)}</p>`;
+const nPart=(n,w='partie')=>`${n} ${w}${n>1?'s':''}`;
+const vndTxt=a=>`${a.w} V${a.n-a.w-a.l?` · ${a.n-a.w-a.l} N`:''} · ${a.l} D`;
+const nulTxt=a=>{const n=a.n-a.w-a.l;return n?`${n} nul${n>1?'s':''} · `:'';};
 const skel=(lines=3,cls='')=>`<div class="card ${cls}" role="status" aria-busy="true"><span class="sr">Chargement…</span><div class="skel skel-t"></div>${'<div class="skel skel-l"></div>'.repeat(lines)}</div>`;
 const stateHtml=(ic,t,p,btn,err)=>`<div class="card state${err?' err':''}"><div class="state-i" aria-hidden="true">${ic}</div><h2>${esc(t)}</h2>${p?`<p>${esc(p)}</p>`:''}${btn?`<button class="btn" data-act="${esc(btn[1])}">${esc(btn[0])}</button>`:''}</div>`;
 const verdictHtml=(v,eb,cls='mt')=>`<div class="card hi verdict ${v.cls||''} ${cls}"><div class="verdict-i${v.img?' ag':''}" aria-hidden="true">${v.img||''}</div><div><p class="eyebrow">${eb}</p><h2>${esc(v.h)}</h2><p>${esc(v.p)}</p></div>
@@ -1917,7 +1935,7 @@ $('#app').innerHTML=`
         <p class="sub">${P.level?`Niveau ${P.level} · `:''}${esc((REGIONS.find(r=>r[0]===P.region)||['',P.region])[1])}${th.label?` · interface : <b>${esc(th.label)}</b>`:''}</p>
         <div class="rank">${M.tier?`<img src="${IMG.rank(M.tier)}" alt="">`:''}<div>
           <b>${esc(tierFr(M.tier))}</b>${rr!=null?` <span>${rr} RR</span>`:''}${M.last!=null?` <small class="${M.last>=0?'up':'down'}">${sg(M.last,0)}</small>`:''}
-          ${rr!=null?`<div class="rrbar" title="${rr} RR sur 100"><i style="width:${rr}%"></i></div>`:M.need?`<p class="small muted">Encore ${M.need} partie(s) de placement</p>`:''}
+          ${rr!=null?`<div class="rrbar" title="${rr} RR sur 100"><i style="width:${rr}%"></i></div>`:M.need?`<p class="small muted">Encore ${nPart(M.need)} de placement</p>`:''}
           ${M.peak.tier?`<p class="small muted">Pic : ${esc(tierFr(M.peak.tier))}${M.peak.season?` (${esc(M.peak.season)})`:''}</p>`:''}</div></div>
       </div>
       <div class="hero-act">
@@ -1981,7 +1999,7 @@ const L=ses.length?rowsAgg(ses):null,ids=new Set(ses.map(r=>r.id)),SG=(APP.D||[]
 const eT=ERR_KEYS.map(k=>[k,SG.reduce((s,g)=>s+(g['e_'+k]||0),0)]).sort((a,b)=>b[1]-a[1])[0],sImp=SG.length?SG.reduce((s,g)=>s+g.imp,0)/SG.length:null;
 return verdictHtml({h:'Avant de lancer',p:'Test de réflexes (30 s) puis échauffement de 10 minutes : tu commences la session à ton vrai niveau.',
 facts:[['Ta limite',`<b>${lim?`${lim} partie${lim>1?'s':''}`:'—'}</b>`,lim?'par session : au-delà, tu perds nettement plus souvent':'pas de baisse sûre : arrête-toi après 3 défaites d\'affilée'],
-L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}${sImp!=null?` · impact ${sg(sImp,1)} round/partie`:''}`],
+L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${nulTxt(L)}${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}${sImp!=null?` · impact ${sg(sImp,1)} round/partie`:''}`],
 eT&&eT[1]>=2&&['À corriger ce soir',`<b>${eT[1]}×</b>`,`${esc(ERR_DEF[eT[0]].t.toLowerCase())} à la dernière session`]].filter(Boolean),
 acts:'<button class="btn" data-act="warmup">Échauffement 10 min</button><button class="btn ghost" data-act="tab:entrainement">Test de réflexes</button>'},'Ce soir','');
 }
@@ -1994,7 +2012,7 @@ const st=lim&&cur.length>=lim?['bad','Stop conseillé',`Tu as atteint ta limite 
 :low?['foe','Attention',`Tu joues en dessous de ton niveau ce soir (ACS ${fmt(A.acs,0)} contre ${fmt(before.acs,0)} d'habitude).`]
 :['ok','Feu vert','Tu peux continuer : rien d\'inquiétant dans cette session.'];
 if(aft)st[2]+=` Après une défaite, tu meurs en premier plus souvent (${fmt(aft.fdL,0)} % des rounds contre ${fmt(aft.fdW,0)} %) : joue la prochaine en 2e contact.`;
-return verdictHtml({cls:st[0],h:st[1],p:st[2],facts:[['Ce soir',`<b>${A.w} V · ${A.l} D</b>`,`${cur.length} partie${cur.length>1?'s':''}${lim?` sur ta limite de ${lim}`:''}`],
+return verdictHtml({cls:st[0],h:st[1],p:st[2],facts:[['Ce soir',`<b>${A.w} V · ${A.l} D</b>`,`${nulTxt(A)}${cur.length} partie${cur.length>1?'s':''}${lim?` sur ta limite de ${lim}`:''}`],
 P.hist.length&&['RR',`<b class="${rr>=0?'up':'down'}">${sg(rr,0)}</b>`,'gagnés ou perdus ce soir'],
 !low&&['ACS',`<b>${fmt(A.acs,0)}</b>`,before.acs?`${trendTxt(A.acs,before.acs,0)} par rapport à ton habitude (${fmt(before.acs,0)})`:'score de combat par round']].filter(Boolean)},'Session en cours','');
 }
@@ -2005,8 +2023,8 @@ const opts=[];for(let t=M.tier+1;t<=24;t++)opts.push(`<option value="${t}"${t===
 const done=p?Math.max(0,Math.min(100,100-p.need/((tg-M.tier)*100)*100)):0;
 return`<div class="card"><div class="card-h"><h2>Objectif</h2><select data-goal aria-label="Rang visé" class="sel-sm">${opts.join('')}</select></div>
     ${p?`<p>Il te manque <b>${p.need} RR</b> pour ${esc(tierFr(tg))}.</p><div class="bar me"><i style="width:${done}%"></i></div>
-      ${p.few?'<p class="note">Il faut au moins 5 parties avec RR pour estimer le nombre de parties.</p>':`<ul class="ul"><li>≈ <b>${p.wins} victoires</b> d'avance (tu gagnes en moyenne <b>+${Math.round(p.g)} RR</b> par victoire${p.l?`, tu perds −${Math.round(p.l)} par défaite`:''})</li>
-      <li>${p.games?`À ton rythme actuel (${Math.round(p.p*100)} % de victoires) : <b>≈ ${p.games} parties</b>`:`<span class="down">À ton rythme actuel (${Math.round(p.p*100)} % de victoires), tu perds du RR</span> : priorité au coach et à l'entraînement`}</li></ul>`}
+      ${p.few?'<p class="note">Il faut au moins 5 parties avec RR pour estimer le nombre de parties.</p>':`<ul class="ul"><li>Au mieux <b>${nPart(p.wins,'victoire')}</b> sans défaite (tu gagnes en moyenne <b>+${Math.round(p.g)} RR</b> par victoire${p.l?`, tu perds −${Math.round(p.l)} par défaite`:''})</li>
+      <li>${p.games?`À ton rythme actuel (${Math.round(p.p*100)} % de victoires) : <b>≈ ${nPart(p.games)}</b>`:`<span class="down">À ton rythme actuel (${Math.round(p.p*100)} % de victoires), tu perds du RR</span> : priorité au coach et à l'entraînement`}</li></ul>`}
       <p class="note">Calculé sur tes ${p.n} dernières parties avec RR. Ce n'est pas ton MMR caché, juste tes vrais gains.</p>`:empty('Pas assez de données de RR.')}</div>`;
 }
 function bDefis(){
@@ -2026,11 +2044,11 @@ return`<div class="card"><div class="card-h"><h2>Succès</h2><span class="muted 
 }
 function bKpis(){
 const R=APP.prof.rows,h=Math.floor(R.length/2),A=rowsAgg(R),N=rowsAgg(R.slice(0,h)),O=rowsAgg(R.slice(h)),D=APP.D||[],tr=h>=4;
-const kast=D.length?D.map(d=>plLines(d).find(l=>l.p.n==='moi')).filter(Boolean):[];
+const kast=D.length?D.map(d=>{const l=plLines(d).find(l=>l.p.n==='moi');return l&&{kast:l.kast,r:d.rounds.length};}).filter(Boolean):[],kR=kast.reduce((s,l)=>s+l.r,0);
 const tile=(n,v,s,tip)=>`<div class="kpi" title="${esc(tip||'')}"><span>${n}</span><b>${v}</b><small>${s||''}</small></div>`;
 return`<div class="card"><div class="card-h"><h2>Chiffres clés</h2><span class="muted small">${A.n} dernières parties classées${tr?` · flèches : tes ${h} plus récentes contre les ${R.length-h} d'avant`:''}</span></div>
   <div class="kpis">
-    ${tile('Victoires',pc0(A.wr),`${A.w} V · ${A.l} D ${tr?trendTxt(N.wr,O.wr,0):''}`,rateTip(A.w,A.w+A.l))}
+    ${tile('Victoires',pc0(A.wr),`${vndTxt(A)} ${tr?trendTxt(N.wr,O.wr,0):''}`,rateTip(A.w,A.n))}
     ${tile('K/D',fmt(A.kd,2),`${A.k} kills · ${A.d} morts ${tr?trendTxt(N.kd,O.kd,2):''}`)}
     ${tile('ACS',fmt(A.acs,0),`score de combat par round ${tr?trendTxt(N.acs,O.acs,0):''}`)}
     ${tile('Tête',pc0(A.hsP),`des balles touchées ${tr?trendTxt(N.hsP,O.hsP,1):''}`)}
@@ -2039,7 +2057,7 @@ return`<div class="card"><div class="card-h"><h2>Chiffres clés</h2><span class=
     ${tile('ADR',fmt(A.adr,0),`dégâts par round ${tr?trendTxt(N.adr,O.adr,0):''}`)}
     ${tile('DDΔ',sg(A.dd,0),'dégâts donnés − reçus par round','Positif : tu fais plus de dégâts que tu n\'en prends')}
     ${tile('Kills / round',fmt(A.kpr,2),`KDA ${fmt(A.kda,2)}`)}
-    ${tile('KAST',kast.length?pc0(kast.reduce((s,l)=>s+l.kast,0)/kast.length):'—',kast.length?`sur ${kast.length} parties détaillées`:'calculé avec le détail des parties')}
+    ${tile('KAST',kR?pc0(kast.reduce((s,l)=>s+l.kast*l.r,0)/kR):'—',kast.length?`sur ${kast.length} parties détaillées`:'calculé avec le détail des parties')}
   </div></details></div>`;
 }
 function bForme(){
@@ -2068,7 +2086,7 @@ return`<div class="card"><div class="card-h"><h2>RR</h2><span class="muted small
     ${S.length>=2?'<div class="chart" id="rrC" style="height:190px"></div><p class="note">Point plein : victoire · point creux : défaite · survole un point pour le détail.</p>':empty('Pas assez de parties pour tracer la courbe.')}</div>`;
 }
 function miniAgg(a,img,sub){
-return`<div class="mini">${img}<div><b>${esc(a.key)}</b><small>${a.n} parties · <span class="${rateCls(a.w,a.n)||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</span> · K/D ${fmt(a.kd,2)} · ACS ${fmt(a.acs,0)}</small>${sub||''}</div></div>`;
+return`<div class="mini">${img}<div><b>${esc(a.key)}</b><small>${nPart(a.n)} · <span class="${rateCls(a.w,a.n)||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</span> · K/D ${fmt(a.kd,2)} · ACS ${fmt(a.acs,0)}</small>${sub||''}</div></div>`;
 }
 function bAgents(){const A=aggBy(APP.prof.rows,'agent').slice(0,3);return`<div class="card"><div class="card-h"><h2>Tes agents</h2><a href="#" data-act="tab:agents" class="small">Tous</a></div>${A.map(a=>miniAgg(a,agImg(a.key,'ag lg'),`<small class="muted">${esc(ROLE_FR[ROLE_OF[a.key]]||'')}</small>`)).join('')}</div>`;}
 function bCartes(){const A=aggBy(APP.prof.rows,'map').slice(0,3);return`<div class="card"><div class="card-h"><h2>Tes cartes</h2><a href="#" data-act="tab:cartes" class="small">Toutes</a></div>${A.map(a=>miniAgg(a,IMG.map(a.key,'listviewicon')?`<img class="mapi" src="${IMG.map(a.key,'listviewicon')}" alt="" loading="lazy">`:'')).join('')}</div>`;}
@@ -2086,9 +2104,9 @@ return`<div class="card last" style="--mbg:url('${IMG.map(r.map,'listviewicon')}
 function tabParties(){
 const P=APP.prof,F=APP.filt||(APP.filt={a:'',m:'',r:''}),H={};P.hist.forEach(h=>{if(h.mid)H[h.mid]=h;});
 const R=P.rows.filter(r=>(!F.a||r.agent===F.a)&&(!F.m||r.map===F.m)&&(!F.r||r.res===F.r)),A=rowsAgg(R);
-const opt=(k,list,fr)=>`<select data-filt="${k}" aria-label="${fr}"><option value="">${fr} : tous</option>${list.map(v=>`<option${F[k]===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`;
+const opt=(k,list,fr)=>`<select data-filt="${k}" aria-label="${fr}"><option value="">${fr} : ${k==='m'?'toutes':'tous'}</option>${list.map(v=>`<option${F[k]===v?' selected':''}>${esc(v)}</option>`).join('')}</select>`;
 const canMore=featOn('historique',APP.plan,APP.cfg),canRep=id=>featOn('rapports',APP.plan,APP.cfg)||(featOn('dernier',APP.plan,APP.cfg)&&id===P.rows[0].id);
-return`<div class="card"><div class="card-h"><h2>Parties classées</h2><span class="muted small">${R.length} partie(s) · ${pc0(A.wr)} de victoires · K/D ${fmt(A.kd,2)} · ACS ${fmt(A.acs,0)}</span></div>
+return`<div class="card"><div class="card-h"><h2>Parties classées</h2><span class="muted small">${nPart(R.length)} · ${pc0(A.wr)} de victoires · K/D ${fmt(A.kd,2)} · ACS ${fmt(A.acs,0)}</span></div>
   <div class="row filt">${opt('a',[...new Set(P.rows.map(r=>r.agent))].sort(),'Agent')}${opt('m',[...new Set(P.rows.map(r=>r.map))].sort(),'Carte')}
     <select data-filt="r" aria-label="Résultat"><option value="">Résultat : tous</option><option value="W"${F.r==='W'?' selected':''}>Victoires</option><option value="L"${F.r==='L'?' selected':''}>Défaites</option></select></div>
   <div class="mlist">${R.map(r=>{const h=H[r.id],sh=r.hs+r.bs+r.ls;return`<div class="mrow ${r.res}" style="--mbg:url('${IMG.map(r.map,'listviewicon')}')">
@@ -2117,7 +2135,7 @@ return`<div class="card"><div class="card-h"><h2>Agents</h2><span class="muted s
 function tabCartes(){
 const A=aggBy(APP.prof.rows,'map');
 return`<div class="maps">${A.map(a=>{const t=rateCls(a.w,a.n);return`<div class="card mapc" style="--mbg:url('${IMG.map(a.key,'listviewicon')}')"><div class="mapc-in"><h3>${esc(a.key)}</h3>
-    <b class="${t||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</b><small>${a.n} parties · ${a.w} V · ${a.l} D</small>
+    <b class="${t||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</b><small>${a.n} partie${a.n>1?'s':''} · ${vndTxt(a)}</small>
     <p class="small">K/D ${fmt(a.kd,2)} · ACS ${fmt(a.acs,0)} · ${pc0(a.hsP)} tête</p>${t==='ok'?'<span class="pill ok">Ta force</span>':t==='bad'?'<span class="pill bad">À travailler</span>':''}</div></div>`;}).join('')}</div>`;
 }
 function pickTable(){
@@ -2148,7 +2166,7 @@ if(P.rows.length<=detFresh(APP.D))return toast(featOn('historique',APP.plan,APP.
 APP.detBusy=true;toast('Analyse lancée : 1 partie toutes les 2 secondes, tu peux continuer à naviguer.');
 const n=await detFill(P,40,(i,t)=>statut(`Analyse de tes parties : ${i}/${t}`));
 APP.detBusy=false;statut('');
-APP.D=await detAll(P);APP.M=modelOf(APP.D);if(APP.prof===P&&canRerender())renderTab();toast(`${n} partie(s) de plus analysée(s)`);
+APP.D=await detAll(P);APP.M=modelOf(APP.D);if(APP.prof===P&&canRerender())renderTab();toast(`${nPart(n)} de plus analysée${n>1?'s':''}`);
 }
 const meIdx=d=>d.pl.findIndex(p=>p.n==='moi');
 function detWait(min=3){
@@ -2195,16 +2213,18 @@ return`<svg viewBox="0 0 ${w} ${h}" class="spark" role="img" aria-label="Évolut
 function weekRecapHtml(){
 const P=APP.prof,d0=Date.parse(weekStart(today())+'T00:00:00'),d1=d0-7*864e5,inW=(ts,a,b)=>ts>=a&&ts<b;
 const cur=P.rows.filter(r=>r.ts>=d0),prev=P.rows.filter(r=>inW(r.ts,d1,d0));if(!cur.length&&!prev.length)return'';
-const a=rowsAgg(cur),b=rowsAgg(prev),rr=(x,y)=>P.hist.filter(h=>inW(h.ts,x,y)).reduce((s,h)=>s+(h.ch||0),0);
+const a=rowsAgg(cur),b=rowsAgg(prev),rr=L=>{const ids=new Set(L.map(r=>r.id));return P.hist.filter(h=>ids.has(h.mid)).reduce((s,h)=>s+(h.ch||0),0);};
+const miss=(L,x,y)=>Math.max(0,P.hist.filter(h=>inW(h.ts,x,y)).length-L.length),mC=miss(cur,d0,Infinity),mP=miss(prev,d1,d0);
 const G=(APP.D||[]).length>=3?coachData().G:[],gc=G.filter(g=>g.ts>=d0),gp=G.filter(g=>inW(g.ts,d1,d0));
 const imp=L=>L.length?L.reduce((s,g)=>s+g.imp,0)/L.length:null,er=L=>{const r=L.reduce((s,g)=>s+g.r,0);return r?L.reduce((s,g)=>s+ERR_KEYS.reduce((t,k)=>t+(g['e_'+k]||0),0),0)/r*100:null;};
 const line=(n,x,y,f,better)=>{const c=x==null||y==null||x===y?'':(x>y)===(better>0)?'up':'down';return`<tr><td>${n}</td><td class="${c}"><b>${x==null?'—':f(x)}</b></td><td class="muted">${y==null?'—':f(y)}</td></tr>`;};
 const S=focusState();
 return`<div class="card mt"><div class="card-h"><h2>Bilan de la semaine</h2><span class="muted small">depuis lundi, contre la semaine d'avant</span></div>
     <div class="tbl"><table><thead><tr><th></th><th>Cette semaine</th><th>Semaine d'avant</th></tr></thead><tbody>
-    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR',a.n?rr(d0,Infinity):null,b.n?rr(d1,d0):null,x=>sg(x,0),1):''}
+    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR',a.n?rr(cur):null,b.n?rr(prev):null,x=>sg(x,0),1):''}
     ${line('Impact (round/partie)',imp(gc),imp(gp),x=>sg(x,1),1)}${line('Morts « erreur » pour 100 rounds',er(gc),er(gp),x=>fmt(x,1),-1)}</tbody></table></div>
     ${S?`<p class="small mt8">Focus : <b>${esc(S.f.t)}</b> · <span class="pill ${FOCUS_ST[S.ev.st][0]}">${FOCUS_ST[S.ev.st][1]}</span></p>`:''}
+    ${mC||mP?`<p class="note">Parties pas encore chargées : ${[mC&&`${mC} cette semaine`,mP&&`${mP} la semaine d'avant`].filter(Boolean).join(', ')} (Parties › « Charger plus »). Les chiffres ci-dessus portent sur les parties chargées.</p>`:''}
     <p class="note">Impact et erreurs : seulement sur tes parties détaillées (${gc.length} cette semaine, ${gp.length} avant). Couleur = mieux ou moins bien, pas forcément sûr.</p></div>`;
 }
 function tabProg(){
@@ -2223,8 +2243,8 @@ return`${verdictHtml(v,'Progression','')}${weekRecapHtml()}
   <div class="card"><h2>Tes semaines</h2><div class="tbl"><table><thead><tr><th>Semaine du</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>Tête</th></tr></thead><tbody>
     ${weeks.map(([w,a])=>{const x=rowsAgg(a);return`<tr><td>${dFr(Date.parse(w+'T12:00:00'),{day:'numeric',month:'short'})}</td><td>${x.n}</td><td class="${rateCls(x.w,x.n)||''}">${pc0(x.wr)}</td><td>${fmt(x.kd,2)}</td><td>${fmt(x.acs,0)}</td><td>${pc0(x.hsP)}</td></tr>`;}).join('')}</tbody></table></div></div>
   <div class="card"><h2>Victoires selon le numéro de la partie</h2><ul class="plist">${st.map((x,i)=>statRow(i<st.length-1?`${i+1}${i?'e':'re'} partie de la session`:`${i+1}e et +`,x[1],x[0],.5,`${x[1]}/${x[0]} gagnées`)).join('')}</ul></div>
-  <div class="card"><h2>Heures</h2><ul class="plist">${HOURS.map((n,i)=>statRow(esc(n),hb[i].w,hb[i].n,.5,`${hb[i].n} parties · ACS ${fmt(hb[i].acs,0)}`)).join('')}</ul></div>
-  <div class="card"><h2>Jours</h2><ul class="plist">${JOURS.map((n,i)=>statRow(esc(n),days[i].w,days[i].n,.5,`${days[i].n} parties`)).join('')}</ul></div>
+  <div class="card"><h2>Heures</h2><ul class="plist">${HOURS.map((n,i)=>statRow(esc(n),hb[i].w,hb[i].n,.5,`${nPart(hb[i].n)} · ACS ${fmt(hb[i].acs,0)}`)).join('')}</ul></div>
+  <div class="card"><h2>Jours</h2><ul class="plist">${JOURS.map((n,i)=>statRow(esc(n),days[i].w,days[i].n,.5,nPart(days[i].n))).join('')}</ul></div>
   </div>
   <p class="note">Trait des barres = 50 % de victoires. Vert ou rouge seulement quand l'écart est sûr ; « peu de données » sous 10 parties.</p>`;
 }
@@ -2282,7 +2302,8 @@ return`<div class="card"><div class="card-h"><h2>Focus de la semaine</h2><span c
 function focusChallenge(){const S=focusState();if(!S)return null;const d0=Date.parse(weekStart(today())+'T00:00:00');
 return{t:`Focus : 3 parties meilleures que ta base (${S.f.t.replace(/ \(pour 100 rounds\)$/,'')})`,cur:S.ev.ticks.filter(t=>t.ts>=d0&&t.ok).length,goal:3};}
 function coachItems(){if((APP.D||[]).length<3)return[];const V=coachData();return V.rk?V.C.items:coachPub(coachStats());}
-const metTxt=(k,v)=>v==null?'—':k.startsWith('e_')?`${fmt(v,1)}/100 rounds`:MET[k][2]===100?pc0(v):fmt(v,k==='cast'?2:0);
+const metTxt=(k,v,x=0)=>v==null?'—':k.startsWith('e_')?`${fmt(v,1+x)}/100 rounds`:MET[k][2]===100?(x?`${fmt(v,x)} %`:pc0(v)):fmt(v,(k==='cast'?2:0)+x);
+const metX=(x,refs)=>x.below&&refs.some(v=>v!=null&&metTxt(x.k,v)===metTxt(x.k,x.me))?1:0;
 function tabCoach(){
 const w=detWait();if(w)return w;
 const s=coachStats(),lp=s.place,Pc=s.pct,V=coachData(),C=V.C,rkN=RANK_FR[C.rk]||'',upN=C.up?RANK_FR[C.up]:'',per=x=>x==null?null:x*C.rpg,rv=x=>x==null?'—':Math.abs(x)<.05?'0':sg(x,1);
@@ -2301,7 +2322,7 @@ v.acts='<button class="btn" data-act="tab:entrainement">Routine complète avec m
 const lvlPill=x=>!x.below?'<span class="pill ok">au niveau</span>':x.sure?'<span class="pill bad">en dessous</span>':'<span class="pill warn">un peu en dessous</span>';
 const nx=C.next||[],nextHtml=nx.length?`<div class="card"><div class="card-h"><h2>Pour passer ${esc(upN)}</h2><span class="pill">${nx.filter(x=>!x.below).length}/${nx.length} au niveau</span></div>
     <p class="muted small">Ce qui change vraiment d'un rang à l'autre (dégâts, duels gagnés, KAST restent presque égaux à tous les rangs : chacun joue contre son niveau). Joueurs de ton rôle, partie par partie.</p>
-    ${nx.map(x=>{const m=Math.max(x.me||0,x.ref||0,x.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${lvlPill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me),true)}${mbarH(rkN,x.ref,m,metTxt(x.k,x.ref))}${mbarH(upN,x.up,m,metTxt(x.k,x.up))}</div></div>`;}).join('')}</div>`:'';
+    ${nx.map(x=>{const m=Math.max(x.me||0,x.ref||0,x.up||0)||1,dx=metX(x,[x.ref,x.up]);return`<div class="cmpx"><p class="small"><b>${esc(x.t)}</b> ${lvlPill(x)}</p><div class="mbars">${mbarH('Toi',x.me,m,metTxt(x.k,x.me,dx),true)}${mbarH(rkN,x.ref,m,metTxt(x.k,x.ref,dx))}${mbarH(upN,x.up,m,metTxt(x.k,x.up,dx))}</div></div>`;}).join('')}</div>`:'';
 const phase=c=>{const e=c.cost==null?null:-c.cost;return`<div class="drow"><span>${esc(c.t)}<small class="muted">toi ${rv(per(c.me))} · ${esc(rkN)} ${rv(per(c.ref))}${c.cost!=null&&!c.sure?' · à confirmer':''}</small></span><span class="dbar" aria-hidden="true">${e==null?'':`<i class="${e>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(e)*40)}%"></i>`}</span><b class="${e==null||Math.abs(e)<.05?'':e>=0?'up':'down'}">${e==null?'—':rv(e)}</b></div>`;};
 const pct2=(n,x)=>`<li class="srow"><div><b>${n}</b><small>${x==null?'pas assez de parties':`mieux que ${Math.round(x)} % des joueurs de tes parties`}</small></div><div class="val"><b>${x==null?'—':Math.round(x)+' %'}</b>${x==null?'':barHtml(x/100,.5,x>=60?'ok':x<40?'bad':'')}</div></li>`;
 const A=V.A,rkRef=(k,r)=>{const c=r&&V.W&&V.W.c[`${r}|*`];return c?metV(c,'e_'+k):null;};
@@ -2320,7 +2341,7 @@ const ecoHtml=eco.length?`<div class="card"><div class="card-h"><h2>Tes achats</
     <p class="note">Plein = 3 900 crédits d'équipement ou plus, éco = moins de 2 000 ; pistols exclus. Dans tes parties, les rounds avec un achat décalé sont gagnés à ${V.E.wr==null?'—':pc0(V.E.wr)} (${V.E.dN} cas, tous joueurs).</p></div>`:'';
 const agHtml=(V.U||[]).map(u=>{const K=(window.KITS||{})[u.agent]||[],nm=j=>(K[j+1]||'').split('|')[0]||['C','Q','E','X'][j],m=x=>fmt(x,2);
 const low=u.ab.filter(a=>a.low);
-return`<div class="card"><div class="card-h"><h2>Tes capacités en ${esc(u.agent)}</h2><span class="muted small">${u.n} parties</span></div>
+return`<div class="card"><div class="card-h"><h2>Tes capacités en ${esc(u.agent)}</h2><span class="muted small">${nPart(u.n)}</span></div>
       ${u.ab.map(a=>{const mx=Math.max(a.me,a.ref||0,a.up||0)||1;return`<div class="cmpx"><p class="small"><b>${esc(nm(a.j))}</b> ${a.low?'<span class="pill bad">moins que le rang au-dessus</span>':''}</p><div class="mbars">${mbarH('Toi',a.me,mx,m(a.me)+'/round',true)}${a.ref!=null?mbarH(rkN,a.ref,mx,m(a.ref)):''}${a.up!=null?mbarH(upN,a.up,mx,m(a.up)):''}</div></div>`;}).join('')}
       ${low.length?`<p class="fix">→ Utilise plus ${low.map(a=>esc(nm(a.j))).join(' et ')} : les joueurs ${esc(upN||rkN)} en ${esc(u.agent)} s'en servent nettement plus souvent que toi.</p>`:`<p class="small muted">${u.ab.some(a=>a.ref!=null)?'Tu utilises ton kit autant que les joueurs de ton niveau.':'Pas encore assez de joueurs de ton rang sur cet agent pour comparer.'}</p>`}
       <p class="note">Utilisations par round sur la partie entière (l'API ne donne pas le détail round par round). Plus n'est pas toujours mieux : c'est un repère, pas une règle.${u.refN?` Référence : ${Math.round(u.refN)} parties ${esc(rkN)}${u.upN?`, ${Math.round(u.upN)} ${esc(upN)}`:''}.`:''}</p></div>`;});
@@ -2592,7 +2613,7 @@ if(h.demo){if(!APP.prof||!APP.prof.demo)await openDemo(true,tab);else if(APP.tab
 if(APP.prof&&!APP.prof.demo&&APP.prof.rid===ridNorm(h.riot)){if(APP.tab!==tab)ACT.tab(tab,null,true);return true;}
 APP.tab=tab;await openProfile(h.riot,h.region,{keepTab:true,noPush:true});return true;
 }
-window.addEventListener('popstate',()=>{openFromHash();});
+window.addEventListener('popstate',()=>{if($('#dlg').open)$('#dlg').close();openFromHash();});
 async function openProfile(riot,region,opt={}){
 if(!splitRiot(riot))return toast('Écris ton Riot ID en entier : Pseudo#TAG',true);
 if(!apiReady())return keyAsk(riot,region);
