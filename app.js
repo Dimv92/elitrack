@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1332. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1337. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1620,7 +1620,8 @@ async function detAll(prof){
 const ids=new Set(prof.rows.map(r=>r.id)),out=[];
 for(const r of prof.rows){const k=mdKey(prof,r.id);if(DET.mem[k])out.push(DET.mem[k]);}
 if(out.length<ids.size&&!prof.demo){
-try{const all=await idb('readonly',s=>s.getAll());(all||[]).forEach(d=>{const k=mdKey(prof,d.id);if(ids.has(d.id)&&!DET.mem[k]){DET.mem[k]=detFix(prof,d);out.push(DET.mem[k]);}});}catch(e){}
+const pre=mdKey(prof,'');
+try{const all=await idb('readonly',s=>s.getAll(IDBKeyRange.bound(pre,pre+'￿')));(all||[]).forEach(d=>{const k=mdKey(prof,d.id);if(ids.has(d.id)&&!DET.mem[k]){DET.mem[k]=detFix(prof,d);out.push(DET.mem[k]);}});}catch(e){}
 }
 return out.sort((a,b)=>b.ts-a.ts);
 }

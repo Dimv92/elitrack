@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1332. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1337. */
 "use strict";
 const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
 const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
