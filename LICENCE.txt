@@ -8,6 +8,6 @@ tout ou partie de ce site ou de son code, y compris pour créer un service simil
 Le fait que ce code soit visible publiquement ne donne aucun droit de l'utiliser.
 
 Toute copie fera l'objet d'une demande de retrait (DMCA) auprès de l'hébergeur et, si besoin, de poursuites.
-Empreinte de l'œuvre : ELT-7f3a9c21-DIMC-2026, version 20261014-0457.
+Empreinte de l'œuvre : ELT-7f3a9c21-DIMC-2026, version 20261014-0512.
 
 Elitrack n'est pas approuvé par Riot Games. Riot Games et toutes les propriétés associées sont des marques de Riot Games, Inc.

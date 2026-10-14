@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0457. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0512. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1248,6 +1248,48 @@ function themeParse(code){
 const m=/^PHT1\.([A-Za-z0-9_-]{4,3000})$/.exec(String(code||'').replace(/\s+/g,''));if(!m)return null;
 const b=b64uDec(m[1]);if(!b)return null;try{return themeClean(JSON.parse(fromUtf8(b)));}catch(e){return null;}
 }
+const PG_ADVICE={
+hs:{w:'Placement du viseur',do:['10 min de Range en marchant, viseur toujours à hauteur de tête','Microshot / Gridshot avant de jouer']},
+kast:{w:'Rester utile chaque round',do:['jouer plus près d\'un coéquipier','survivre ou trader plutôt que repeeker seul','revoir 3 morts « inutiles » en VOD']},
+trade:{w:'Morts vengées',do:['jouer en duo : un peek, l\'autre prêt à trader à moins de 2 s','entraîner des entrées à 2 en custom']},
+util:{w:'Utilitaires',do:['lineups sur vos cartes et agents joués','post-plants (lineups de molly / drone)','utilitaire AVANT l\'entrée, pas après']},
+fb:{w:'Premier tir',do:['s\'arrêter avant de tirer (counter-strafe)','flick drills 10 min','ne pas peeker plus large que nécessaire']}
+};
+function progressOf(cur,prev,T,M){
+cur=cur||{};prev=prev||{};T=T||{};
+const rows=[];
+(M||[]).forEach(m=>{
+const c=toNum(cur[m.k]),t=toNum(T[m.k]);if(c==null||!(t>0))return;
+const p=toNum(prev[m.k]),ratio=Math.min(c/t,1);
+rows.push({k:m.k,n:m.n,cur:c,prev:p,target:t,ratio,pct:Math.round(ratio*100),delta:p==null?null:+(c-p).toFixed(1)});
+});
+if(!rows.length)return null;
+const a=x=>x.reduce((s,v)=>s+v,0)/x.length;
+const score=Math.round(a(rows.map(r=>r.ratio))*100);
+const hasPrev=rows.some(r=>r.prev!=null);
+const prevScore=hasPrev?Math.round(a(rows.map(r=>Math.min((r.prev??r.cur)/r.target,1)))*100):null;
+const blockers=rows.filter(r=>r.ratio<1).sort((x,y)=>x.ratio-y.ratio).slice(0,3).map(r=>Object.assign({lvl:r.ratio<.7?'bad':'warn'},r));
+return{score,prevScore,delta:prevScore==null?null:score-prevScore,rows,blockers};
+}
+function progressTeam(L,T,M){
+const names=Object.keys(L||{}),cur={},prev={},a=x=>x.reduce((s,v)=>s+v,0)/x.length;
+(M||[]).forEach(m=>{
+const c=names.map(n=>toNum(L[n].cur[m.k])).filter(v=>v!=null),p=names.map(n=>toNum((L[n].prev||{})[m.k])).filter(v=>v!=null);
+if(c.length)cur[m.k]=+a(c).toFixed(1);if(p.length)prev[m.k]=+a(p).toFixed(1);
+});
+const r=progressOf(cur,prev,T,M);if(!r)return null;
+r.players=names.map(n=>({name:n,p:progressOf(L[n].cur,L[n].prev,T,M)})).filter(x=>x.p).sort((x,y)=>x.p.score-y.p.score);
+return r;
+}
+function progressPlan(pg){
+return((pg&&pg.blockers)||[]).map((b,i)=>({rank:i+1,k:b.k,n:b.n,cur:b.cur,target:b.target,gap:+(b.target-b.cur).toFixed(1),work:(PG_ADVICE[b.k]||{do:[]}).do}));
+}
+function roadOf(now,start,goal){
+if(![now,goal].every(Number.isFinite))return null;
+if(now>=goal)return{pct:100,done:true,left:0};
+const s=Number.isFinite(start)?Math.min(start,now):now,span=goal-s;
+return{pct:span>0?Math.round((now-s)/span*100):0,done:false,left:goal-now};
+}
 return{esc,toNum,
 wilson,trust,rateTip,nthStats,nightLimit,lobbyPlace,weaponStats,
 smooth,weekStart,pAgg,agentPick,stackStats,lobbyPct,wellImpact,habitDays,records,stepGoal,HOURS,hourBucket,
@@ -1262,7 +1304,7 @@ ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,e
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
 rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggDetail,aggPublish,META_RK,META_MIN,META_TIERS,metaNew,metaAdd,ftWin,normCdf,metaFit,metaWin,metaTier,metaClean,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
 stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
-hexRgb,rgbHex,mixHex,relLum,contrast,readable,THEME_DEF,THEME_ENUM,BLOCKS,themeClean,themeFree,themeDiff,themeCode,themeParse};
+PG_ADVICE,progressOf,progressTeam,progressPlan,roadOf,hexRgb,rgbHex,mixHex,relLum,contrast,readable,THEME_DEF,THEME_ENUM,BLOCKS,themeClean,themeFree,themeDiff,themeCode,themeParse};
 });
 ;
 "use strict";
