@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-1324. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-2154. */
 "use strict";
 const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
 const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
@@ -521,3 +521,256 @@ dlgOpen(`<div class="card-h"><h2 class="nm">${agImg(a,'ag lg')} ${esc(a)}</h2><s
 ACT.metaRetry=()=>{APP.meta=undefined;APP.metaP=null;renderTab();};
 ACT.metaRg=k=>{metaState().S.rg=k==='-'?'':k;renderTab();};
 ACT.metaRole=k=>{metaState().S.role=k==='-'?'':k;renderTab();};
+;
+"use strict";
+(function(root){
+const SR_QUEUES=[400,420,430,440,490];
+const ROLES={TOP:'TOP',JUNGLE:'JUNGLE',MIDDLE:'MID',BOTTOM:'ADC',UTILITY:'SUP'};
+const BOOTS=[3006,3009,3020,3047,3111,3117,3158];
+const MIN_ITEM_GOLD=2200;
+const NOISE=[0,2003,2031,2033,2055,2138,2139,2140,3340,3363,3364,3330];
+const MARKS=[10,15,20];
+const GD_MARKS=[5,10,15,20,25,30];
+const num=v=>(typeof v==='number'&&isFinite(v)?v:null);
+const n0=v=>(typeof v==='number'&&isFinite(v)?v:0);
+const r1=v=>(v==null?null:Math.round(v*10)/10);
+const r2=v=>(v==null?null:Math.round(v*100)/100);
+const sub=(a,b)=>(a==null||b==null?null:a-b);
+function keyItems(ids,gold){
+const out=[];
+for(const id of ids.slice(0,6)){
+if(!id||NOISE.includes(id))continue;
+if(gold&&Object.keys(gold).length){if(n0(gold[id])>=MIN_ITEM_GOLD||BOOTS.includes(id))out.push(id);}
+else out.push(id);
+}
+return out;
+}
+function side(p){
+return{c:String(p.championName||'?'),lv:n0(p.champLevel),k:n0(p.kills),d:n0(p.deaths),a:n0(p.assists),
+cs:n0(p.totalMinionsKilled)+n0(p.neutralMinionsKilled),g:n0(p.goldEarned)};
+}
+function objOf(t){
+const o=(t&&t.objectives)||{},k=x=>n0(o[x]&&o[x].kills);
+return{dr:k('dragon'),ba:k('baron'),hr:k('riftHerald'),vg:k('horde'),tw:k('tower'),in:k('inhibitor')};
+}
+const first=(t,x)=>{const f=t&&t.objectives&&t.objectives[x]&&t.objectives[x].first;return typeof f==='boolean'?(f?1:0):null;};
+function frameAt(tl,pid,m){
+const fr=tl&&tl.info&&tl.info.frames&&tl.info.frames[m];if(!fr||!fr.participantFrames)return null;
+const f=fr.participantFrames[String(pid)];if(!f)return null;
+return{cs:n0(f.minionsKilled)+n0(f.jungleMinionsKilled),g:n0(f.totalGold),xp:n0(f.xp),lv:n0(f.level)};
+}
+const teamGold=(tl,pids,m)=>{let s=0;for(const id of pids){const f=frameAt(tl,id,m);if(!f)return null;s+=f.g;}return s;};
+function compactMatch(match,opt){
+const info=match&&match.info,parts=info&&info.participants;if(!parts||!parts.length||!opt||!opt.puuid)return null;
+const me=parts.find(p=>p.puuid===opt.puuid);if(!me)return null;
+const t=n0(info.gameDuration)>100000?Math.round(info.gameDuration/1000):n0(info.gameDuration);
+if(t<300||me.gameEndedInEarlySurrender)return null;
+const role=SR_QUEUES.includes(info.queueId)?(ROLES[me.teamPosition]||null):null;
+const foes=parts.filter(p=>p.teamId!==me.teamId),mates=parts.filter(p=>p.teamId===me.teamId);
+const opp=role?foes.find(p=>p.teamPosition===me.teamPosition)||null:null;
+const tl=opt.timeline||null,ch=me.challenges||{};
+const myT=(info.teams||[]).find(x=>x.teamId===me.teamId),foeT=(info.teams||[]).find(x=>x.teamId!==me.teamId);
+const mins=t/60,s=side(me);
+const teamK=mates.reduce((a,p)=>a+n0(p.kills),0),teamDmg=mates.reduce((a,p)=>a+n0(p.totalDamageDealtToChampions),0);
+let lane=null;
+if(role&&tl&&opp){
+const g=m=>[frameAt(tl,me.participantId,m),frameAt(tl,opp.participantId,m)];
+const[m10,o10]=g(10),[m15,o15]=g(15),[m20,o20]=g(20);
+const lv6=(()=>{for(let m=1;m<(tl.info.frames||[]).length;m++){const a=frameAt(tl,me.participantId,m),b=frameAt(tl,opp.participantId,m);if(a&&b&&(a.lv>=6||b.lv>=6))return a.lv-b.lv;}return null;})();
+lane={cs10:m10&&o10?m10.cs-o10.cs:null,cs15:m15&&o15?m15.cs-o15.cs:null,
+g10:m10&&o10?m10.g-o10.g:null,g15:m15&&o15?m15.g-o15.g:null,g20:m20&&o20?m20.g-o20.g:null,
+xp15:m15&&o15?m15.xp-o15.xp:null,lv6};
+}
+const mp=mates.map(p=>p.participantId),fp=foes.map(p=>p.participantId);
+const gd=tl?GD_MARKS.map(m=>sub(teamGold(tl,mp,m),teamGold(tl,fp,m))):[];
+const dth=[],kil=[];
+if(tl&&tl.info&&tl.info.frames)for(const fr of tl.info.frames)for(const e of fr.events||[]){
+if(e.type!=='CHAMPION_KILL')continue;
+const mn=Math.round(n0(e.timestamp)/60000);
+if(e.victimId===me.participantId)dth.push(mn);else if(e.killerId===me.participantId)kil.push(mn);
+}
+const sp=[num(me.summoner1Id),num(me.summoner2Id)].filter(x=>x!=null);
+const it=keyItems([me.item0,me.item1,me.item2,me.item3,me.item4,me.item5,me.item6].map(n0),opt.gold);
+const kdaD=Math.max(1,s.d);
+return{
+v:1,q:n0(info.queueId),t,win:me.win?1:0,patch:typeof info.gameVersion==='string'?info.gameVersion.split('.').slice(0,2).join('.'):null,role,
+me:Object.assign(s,{kda:r2((s.k+s.a)/kdaD),csm:r1(s.cs/mins),dmg:n0(me.totalDamageDealtToChampions),
+dm:teamDmg?r2(n0(me.totalDamageDealtToChampions)/teamDmg):null,kp:num(ch.killParticipation)!=null?r2(ch.killParticipation):(teamK?r2((s.k+s.a)/teamK):null),
+vis:n0(me.visionScore),cw:n0(me.visionWardsBoughtInGame),plates:num(ch.turretPlatesTaken),solo:num(ch.soloKills),it,sp}),
+opp:opp?side(opp):null,lane,gd,dth,kil,
+obj:{me:objOf(myT),foe:objOf(foeT),first:{b:me.firstBloodKill!=null?(me.firstBloodKill?1:0):null,t:first(myT,'tower'),d:first(myT,'dragon')},
+mine:{tw:n0(me.turretTakedowns),dmg:n0(me.damageDealtToObjectives)}}
+};
+}
+function compactContext(x){
+const solo=((x&&x.league)||[]).find(e=>e.queueType==='RANKED_SOLO_5x5')||null,nm=(x&&x.champs)||{};
+return{
+rk:solo?{t:solo.tier,r:solo.rank,lp:n0(solo.leaguePoints),w:n0(solo.wins),l:n0(solo.losses)}:null,
+top:((x&&x.mastery)||[]).slice(0,3).map(m=>({c:nm[m.championId]||String(m.championId),lv:n0(m.championLevel),pts:n0(m.championPoints)}))
+};
+}
+function trend(list){
+const L=(list||[]).filter(Boolean);if(!L.length)return null;
+const avg=f=>{const v=L.map(f).filter(x=>x!=null);return v.length?r1(v.reduce((a,b)=>a+b,0)/v.length):null;};
+return{n:L.length,wr:r2(L.filter(p=>p.win).length/L.length),kda:avg(p=>p.me.kda),csm:avg(p=>p.me.csm),
+cs15:avg(p=>p.lane&&p.lane.cs15),g15:avg(p=>p.lane&&p.lane.g15),dth10:avg(p=>p.dth.filter(m=>m<=10).length),vis:avg(p=>p.me.vis/(p.t/60))};
+}
+const api={compactMatch,compactContext,trend,keyItems,SR_QUEUES,ROLES,MARKS};
+if(typeof module==='object'&&module.exports)module.exports=api;else root.LOLP=api;
+})(typeof window!=='undefined'?window:globalThis);
+;
+"use strict";
+(function(root){
+const SYSTEM=`Tu es coach de League of Legends (Faille de l'invocateur). Tu analyses UNE partie à partir d'un seul JSON compact. Aucune autre source, aucun autre jeu.
+
+ENTRÉE (clés courtes) :
+q file (420 classée solo, 440 flex, 400/430 normale) · t durée en s · win 1/0 · role TOP/JUNGLE/MID/ADC/SUP · patch
+me/opp = toi / adversaire direct de ta lane : c champion, lv niveau, k d a, cs sbires+monstres, g or gagné
+me en plus : kda, csm (cs/min), dmg dégâts aux champions, dm part des dégâts d'équipe, kp participation aux kills, vis score de vision, cw balises de contrôle posées, plates plaques de tourelle, solo kills solo, it objets clés (ids), sp sorts d'invocateur (ids)
+lane = écarts toi − adversaire : cs10 cs15 g10 g15 g20 (or) xp15 lv6 (niveaux d'écart au moment où l'un atteint 6) ; null = lane non évaluable
+gd = écart d'or d'ÉQUIPE (toi − eux) aux minutes 5,10,15,20,25,30 · dth/kil = minutes de TES morts / kills
+obj.me/obj.foe = équipe alliée / ennemie : dr dragons, ba barons, hr hérauts, vg nuées du Néant, tw tourelles, in inhibiteurs · obj.first = premier sang / tourelle / dragon pris par ton équipe (1/0) · obj.mine = tes tourelles et dégâts aux objectifs
+ctx (si présent) : rk rang solo, top maîtrises. tend (si présent) : moyennes sur n parties.
+
+RÈGLES :
+1. Utilise UNIQUEMENT des chiffres présents dans le JSON. Toute valeur null ou absente = « non_evaluable ». N'invente ni événement, ni position, ni timing, ni objet.
+2. Le contrôle de vague n'est JAMAIS observé : tu l'INFÈRES de signaux (cs10, cs15, xp15, lv6, plates, morts avant 10 min, g10-g15). wave.statut = "infere" ; confiance "haute" interdite ; "moyenne" seulement si 3 signaux ou plus concordent ; sinon "faible". Si lane = null : statut "non_evaluable".
+3. Lane : verdict "gagnee" si cs15 et g15 sont tous deux > 0 ; "perdue" si tous deux < 0 ; sinon "egale". Cite les chiffres.
+4. Objets : lis it (ids) ; tu peux commenter la cohérence avec le champion et le rôle seulement si tu es sûr de l'objet ; sinon items.lecture = "non_evaluable".
+5. Faiblesses : 3 maximum, classées par gravité (3 = a coûté la partie), chacune avec une preuve chiffrée tirée du JSON et un correctif concret et réalisable à la partie suivante. Pas de faiblesse sans preuve.
+6. Forces : 2 maximum, chiffrées. Ton direct, français simple, phrases courtes (≤ 25 mots).
+7. Si l'entrée n'est pas un JSON de partie de League of Legends valide, réponds uniquement {"erreur":"payload_invalide"}.
+
+SORTIE : un seul objet JSON, sans texte autour, sans balises, exactement ces clés :
+{"v":1,"resume":"≤ 30 mots","lane":{"verdict":"gagnee|egale|perdue|non_evaluable","preuves":["chiffre → lecture"],"conseil":"…"},"wave":{"statut":"infere|non_evaluable","signaux":["…"],"confiance":"faible|moyenne","conseil":"…"},"items":{"lecture":"…","alerte":null},"faiblesses":[{"cat":"lane|farm|mort|vision|objectif|build","preuve":"…","gravite":1,"correctif":"…"}],"forces":["…"],"focus":"UNE action pour la prochaine partie","limites":["données absentes qui limitent l'analyse"]}`;
+const LEAK_RE=/valorant|\bspike\b|\bagents?\b|\brounds?\b|\bACS\b|\bRR\b|\bplant(?:er|é|ation)?\b|défus|\bécos?\b|\bclutch|\bpistol|\bradiant\b|\bimmortal\b|\bascendant\b/i;
+const VERD=['gagnee','egale','perdue','non_evaluable'],CATS=['lane','farm','mort','vision','objectif','build'],CONF=['faible','moyenne'];
+const str=(v,n)=>typeof v==='string'&&v.length<=n;
+const arr=(v,max,n)=>Array.isArray(v)&&v.length<=max&&v.every(x=>str(x,n));
+function buildAsk(payload,ctx,tend){
+const d={m:payload};if(ctx)d.ctx=ctx;if(tend)d.tend=tend;
+return SYSTEM+'\n\nDOSSIER :\n'+JSON.stringify(d);
+}
+function validate(raw){
+const err=[];let o=raw;
+if(typeof raw==='string'){try{o=JSON.parse(raw.trim().replace(/^```(?:json)?|```$/g,''));}catch(e){return{ok:false,errors:['JSON illisible'],clean:null};}}
+if(!o||typeof o!=='object')return{ok:false,errors:['pas un objet'],clean:null};
+if(o.erreur)return{ok:false,errors:['refusé : '+String(o.erreur).slice(0,40)],clean:null};
+if(LEAK_RE.test(JSON.stringify(o)))return{ok:false,errors:['vocabulaire étranger à League of Legends'],clean:null};
+if(o.v!==1)err.push('v');
+if(!str(o.resume,260))err.push('resume');
+const L=o.lane||{};if(!VERD.includes(L.verdict)||!arr(L.preuves,4,200)||!str(L.conseil,240))err.push('lane');
+const W=o.wave||{};if(!['infere','non_evaluable'].includes(W.statut)||!arr(W.signaux,5,200)||!CONF.includes(W.confiance)||!str(W.conseil,240))err.push('wave');
+const I=o.items||{};if(!str(I.lecture,260)||!(I.alerte==null||str(I.alerte,200)))err.push('items');
+if(!Array.isArray(o.faiblesses)||o.faiblesses.length>3||!o.faiblesses.every(f=>f&&CATS.includes(f.cat)&&str(f.preuve,220)&&[1,2,3].includes(f.gravite)&&str(f.correctif,240)))err.push('faiblesses');
+if(!arr(o.forces,2,200))err.push('forces');
+if(!str(o.focus,220))err.push('focus');
+if(!arr(o.limites,4,160))err.push('limites');
+if(err.length)return{ok:false,errors:err,clean:null};
+return{ok:true,errors:[],clean:{v:1,resume:o.resume,lane:{verdict:L.verdict,preuves:L.preuves,conseil:L.conseil},wave:{statut:W.statut,signaux:W.signaux,confiance:W.confiance,conseil:W.conseil},
+items:{lecture:I.lecture,alerte:I.alerte==null?null:I.alerte},faiblesses:o.faiblesses.map(f=>({cat:f.cat,preuve:f.preuve,gravite:f.gravite,correctif:f.correctif})),forces:o.forces,focus:o.focus,limites:o.limites}};
+}
+const api={SYSTEM,LEAK_RE,buildAsk,validate};
+if(typeof module==='object'&&module.exports)module.exports=api;else root.LOLPROMPT=api;
+})(typeof window!=='undefined'?window:globalThis);
+;
+"use strict";
+(function(){
+const PLAT=[['euw1','EUW'],['eun1','EUNE'],['na1','NA'],['kr','KR'],['br1','BR'],['la1','LAN'],['la2','LAS'],['oc1','OCE'],['tr1','TR'],['jp1','JP'],['ru','RU']];
+const PLAT_OK=PLAT.map(p=>p[0]);
+const ROOT=(h)=>`<div id="lol-root" data-game="lol">${h}</div>`;
+const S={cfg:null,prof:null,busy:false,err:'',dd:null};
+async function cfg(){
+if(S.cfg)return S.cfg;
+try{const r=await fetch('lol.config.json',{cache:'no-cache'});S.cfg=await r.json();}catch(e){S.cfg={proxy:''};}
+return S.cfg;
+}
+async function call(plat,path,tries=3){
+const c=await cfg();if(!c.proxy)throw new Error('Le serveur League of Legends n\'est pas encore installé (lol.config.json).');
+for(let a=0;;a++){
+let res;
+try{res=await fetch(`${c.proxy.replace(/\/+$/,'')}/${plat}${path}`);}catch(e){if(a<tries-1){await sleep(2000);continue;}throw new Error('Pas de connexion, ou le service ne répond pas.');}
+if(res.status===429&&a<tries-1){await sleep(clamp(+res.headers.get('Retry-After')||10,3,30)*1000);continue;}
+if(res.status>=500&&a<tries-1){await sleep(2000);continue;}
+if(res.status===404)throw Object.assign(new Error('Introuvable : vérifie le pseudo, le #tag et le serveur.'),{code:404});
+if(res.status===401||res.status===403)throw new Error('Le serveur LoL est mal réglé (clé Riot refusée ou expirée).');
+if(!res.ok)throw new Error(`Le service LoL a répondu une erreur (${res.status}).`);
+return res.json();
+}
+}
+async function dd(){
+if(S.dd)return S.dd;
+const k=ST.get('lol_dd');if(k&&k.d===today())return(S.dd=k);
+try{const[gold,champs]=await Promise.all([call('dd','/items',1),call('dd','/champions',1)]);S.dd={d:today(),gold,champs};ST.set('lol_dd',S.dd);}
+catch(e){S.dd=k||{d:'',gold:{},champs:{}};}
+return S.dd;
+}
+async function open(riot,plat,opt={}){
+const rc=splitRiot(riot);if(!rc||!PLAT_OK.includes(plat)){S.err='Écris ton Riot ID comme Pseudo#TAG et choisis le serveur.';return render();}
+S.busy=true;S.err='';render();
+try{
+const acc=await call(plat,`/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(rc[0])}/${encodeURIComponent(rc[1])}`),puuid=acc.puuid;
+const[league,mastery,ids,D]=await Promise.all([
+call(plat,`/lol/league/v4/entries/by-puuid/${puuid}`).catch(()=>[]),
+call(plat,`/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=3`).catch(()=>[]),
+call(plat,`/lol/match/v5/matches/by-puuid/${puuid}/ids?queue=420&start=0&count=10`),dd()]);
+const list=[];
+for(let i=0;i<ids.length;i+=5)await Promise.all(ids.slice(i,i+5).map(async id=>{
+try{const p=LOLP.compactMatch(await call(plat,`/lol/match/v5/matches/${id}`),{puuid,gold:D.gold});if(p)list.push({id,p});}catch(e){}
+}));
+list.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+S.prof={riot:`${rc[0]}#${rc[1]}`,plat,puuid,ctx:LOLP.compactContext({league,mastery,champs:D.champs}),list};
+ST.set('lol_last',{riot:S.prof.riot,plat});
+if(!opt.noPush)push();
+}catch(e){S.err=e.message;S.prof=null;}
+S.busy=false;render();
+}
+const hashOf=()=>(S.prof?`#/lol/${S.prof.plat}/${encodeURIComponent(S.prof.riot)}`:'#/lol');
+function push(replace){const h=hashOf();if(location.hash===h)return;try{history[replace?'replaceState':'pushState'](null,'',h);}catch(e){}}
+function parse(){
+const m=/^#\/lol(?:\/([a-z0-9]+))?(?:\/([^/]+))?/.exec(location.hash||'');if(!m||!m[1]||!m[2])return null;
+let riot='';try{riot=decodeURIComponent(m[2]);}catch(e){return null;}
+return splitRiot(riot)&&PLAT_OK.includes(m[1])?{plat:m[1],riot}:null;
+}
+const rank=r=>(r&&r.rk?`${esc(r.rk.t)} ${esc(r.rk.r)} · ${r.rk.lp} LP · ${r.rk.w}V ${r.rk.l}D`:'Non classé');
+function landing(){
+const last=ST.get('lol_last')||{};
+return`<section class="card"><h1>League of Legends</h1><p class="note">Ton suivi LoL, séparé de Valorant. Données de tes parties terminées uniquement.</p>
+      <form id="lolForm" class="row" autocomplete="off"><input id="lolRiot" placeholder="Pseudo#TAG" aria-label="Riot ID" maxlength="30" value="${esc(last.riot||'')}">
+      <select id="lolPlat" aria-label="Serveur">${PLAT.map(([v,n])=>`<option value="${v}"${v===last.plat?' selected':''}>${n}</option>`).join('')}</select>
+      <button class="btn" type="submit">Voir</button></form>${S.err?`<p class="note" role="alert">${esc(S.err)}</p>`:''}</section>`;
+}
+function profile(){
+const P=S.prof,c=P.ctx;
+const top=c.top.map(t=>`${esc(t.c)} (niv. ${t.lv})`).join(' · ')||'—',tr=LOLP.trend(P.list.map(x=>x.p));
+const rows=P.list.map(({id,p})=>`<li class="lol-row ${p.win?'w':'l'}"><b>${p.win?'✓':'✕'}</b> <span>${esc(p.me.c)}</span> <small>${esc(p.role||'')}</small>
+      <span class="num">${p.me.k}/${p.me.d}/${p.me.a}</span> <small class="num">${p.me.csm} cs/min · ${Math.round(p.t/60)} min</small>
+      <button class="btn ghost sm" data-act="lolCoach:${esc(id)}">Demander au coach</button></li>`).join('');
+return`<section class="card"><div class="row"><h1>${esc(P.riot)}</h1><button class="btn ghost sm" data-act="lolBack">Autre joueur</button></div>
+      <p>${rank(c)}</p><p class="note">Maîtrises : ${top}</p>
+      ${tr?`<p class="note">Sur ${tr.n} parties classées : ${Math.round(tr.wr*100)} % de victoires · KDA ${tr.kda} · ${tr.csm} cs/min</p>`:''}</section>
+      <section class="card"><h2>Dernières parties classées</h2>${rows?`<ul class="lol-list">${rows}</ul>`:'<p class="note">Aucune partie classée solo récente.</p>'}</section>`;
+}
+function render(){
+const app=$('#app');if(!app)return;
+app.innerHTML=ROOT(S.busy?'<div class="card state" role="status" aria-busy="true"><p>Chargement…</p></div>':S.prof?profile():landing());
+}
+async function coach(id){
+const P=S.prof,it=P&&P.list.find(x=>x.id===id);if(!it||!/^[A-Z0-9]+_\d+$/.test(id))return;
+try{
+statut('Préparation du dossier…');
+const[m,tl,D]=await Promise.all([call(P.plat,`/lol/match/v5/matches/${id}`),call(P.plat,`/lol/match/v5/matches/${id}/timeline`),dd()]);
+const p=LOLP.compactMatch(m,{puuid:P.puuid,timeline:tl,gold:D.gold});statut('');
+if(!p)return toast('Partie non exploitable (trop courte).',true);
+await copyText(LOLPROMPT.buildAsk(p,P.ctx,LOLP.trend(P.list.map(x=>x.p))),'Demande copiée : colle-la dans Claude');
+}catch(e){statut('');toast(e.message,true);}
+}
+document.addEventListener('submit',e=>{if(e.target.id==='lolForm')open($('#lolRiot').value,$('#lolPlat').value);});
+Object.assign(ACT,{lolCoach:coach,lolBack:()=>{S.prof=null;S.err='';push();render();}});
+SHELL.register('lol',{
+enter(opt){document.body.classList.remove('has-gnav');const r=$('#recherche');if(r)r.hidden=true;const h=parse();if(h&&(!S.prof||S.prof.riot!==h.riot)){open(h.riot,h.plat,{noPush:true});}else{render();if(!opt.noPush)push();}},
+leave(){S.busy=false;},
+render,
+fromHash(){const h=parse();if(h){if(!S.prof||S.prof.riot!==h.riot)open(h.riot,h.plat,{noPush:true});}else{S.prof=null;render();}}
+});
+})();

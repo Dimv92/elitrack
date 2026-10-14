@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-1324. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-2154. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -2837,6 +2837,55 @@ const mvUp=e=>MVP.delete(e.pointerId);document.addEventListener('pointerup',mvUp
 document.addEventListener('wheel',e=>{const s=e.ctrlKey&&e.target.closest&&e.target.closest('.mv svg');if(!s||!s._v)return;e.preventDefault();const v=s._v;mvView(s,v.z*(e.deltaY<0?1.15:1/1.15),v.cx,v.cy);},{passive:false});
 ;
 "use strict";
+const SHELL=(()=>{
+const GAMES=[{id:'valorant',label:'Valorant',re:null},{id:'lol',label:'League of Legends',re:/^#\/lol(\/|$)/}];
+const reg={};
+let cur='valorant';
+const ownerOf=h=>(GAMES.find(g=>g.re&&g.re.test(h||''))||GAMES[0]).id;
+const nav=()=>document.getElementById('gameSwitch');
+function paint(){
+const n=nav();if(!n)return;
+n.innerHTML=GAMES.map(g=>`<button type="button" data-act="game:${g.id}" aria-pressed="${g.id===cur}">${g.label}</button>`).join('');
+document.body.dataset.game=cur;
+}
+reg.valorant={
+leave(){document.body.classList.remove('has-gnav');const r=document.getElementById('recherche');if(r)r.hidden=true;},
+enter(){render();setHash(false);},
+render(){},fromHash(){}
+};
+async function enter(id,opt={}){
+if(!GAMES.some(g=>g.id===id)||(id===cur&&!opt.force))return;
+if(!reg[id]){
+try{await lotLoad();}catch(e){toast(e.message,true);return;}
+if(!reg[id]){toast('Cette partie du site est indisponible.',true);return;}
+}
+if(reg[cur].leave)reg[cur].leave();
+cur=id;ST.set('game',id);paint();
+reg[id].enter(opt);
+window.scrollTo(0,0);
+}
+return{
+get cur(){return cur;},
+GAMES,
+register(id,h){reg[id]=h;},
+enter,
+render(){if(reg[cur]&&cur!=='valorant')reg[cur].render();},
+async boot(){
+paint();
+const o=ownerOf(location.hash),want=o!=='valorant'?o:(!location.hash&&ST.get('game')==='lol'?'lol':'valorant');
+if(want==='valorant')return false;
+await enter(want,{noPush:true,boot:true});return cur!=='valorant';
+},
+async sync(){
+const o=ownerOf(location.hash);
+if(o!==cur)await enter(o,{noPush:true});else if(o!=='valorant')reg[o].fromHash();
+return cur;
+}
+};
+})();
+Object.assign(ACT,{game:id=>SHELL.enter(id)});
+;
+"use strict";
 const AN=new Date().getFullYear();
 function legalHtml(k){
 const C=APP.cfg,nom=esc(C.nom),ed=C.editeur?esc(C.editeur):'<i>à compléter par le propriétaire du site (mode Dieu › Éditeur)</i>',ct=C.achat.contact?esc(C.achat.contact):'<i>à compléter (mode Dieu › Contact)</i>';
@@ -2950,7 +2999,7 @@ function hashOf(){
 const P=APP.prof;if(!P)return'';
 return P.demo?`#/demo/${APP.tab}`:`#/${P.region}/${encodeURIComponent(P.riot)}/${APP.tab}`;
 }
-function setHash(push){const h=hashOf();if(location.hash===h||(!h&&!location.hash))return;try{history[push?'pushState':'replaceState'](null,'',h||location.pathname+location.search);}catch(e){}}
+function setHash(push){if(SHELL.cur!=='valorant')return;const h=hashOf();if(location.hash===h||(!h&&!location.hash))return;try{history[push?'pushState':'replaceState'](null,'',h||location.pathname+location.search);}catch(e){}}
 function readHash(){
 const m=/^#\/(demo|eu|na|latam|br|ap|kr)(?:\/([^/]+))?(?:\/([a-z]+))?$/.exec(location.hash||'');if(!m)return null;
 if(m[1]==='demo')return{demo:true,tab:m[2]||'vue'};
@@ -2964,7 +3013,7 @@ if(h.demo){if(!APP.prof||!APP.prof.demo)await openDemo(true,tab);else if(APP.tab
 if(APP.prof&&!APP.prof.demo&&APP.prof.rid===ridNorm(h.riot)){if(APP.tab!==tab)ACT.tab(tab,null,true);return true;}
 APP.tab=tab;await openProfile(h.riot,h.region,{keepTab:true,noPush:true});return true;
 }
-window.addEventListener('popstate',()=>{if($('#dlg').open)$('#dlg').close();openFromHash();});
+window.addEventListener('popstate',()=>{if($('#dlg').open)$('#dlg').close();SHELL.sync().then(g=>{if(g==='valorant')openFromHash();});});
 async function openProfile(riot,region,opt={}){
 if(!splitRiot(riot))return toast('Écris ton Riot ID en entier : Pseudo#TAG',true);
 if(!apiReady())return keyAsk(riot,region);
@@ -2995,6 +3044,7 @@ await licRefresh();themeRefresh();if(!refresh||canRerender())render();if(changed
 }
 async function openDemo(noPush,tab){APP.prof=demoProfile();APP.tab=TAB_KEYS.includes(tab)?tab:'vue';APP.filt=null;APP.cmp=null;APP.D=null;APP.pos=null;APP.strat=null;await licRefresh();themeRefresh();render();window.scrollTo(0,0);setHash(!noPush);}
 function render(){
+if(SHELL.cur!=='valorant')return SHELL.render();
 if(APP.cfg.maintenance&&APP.plan!=='dieu'){document.body.classList.remove('has-gnav');$('#app').innerHTML=`<div class="card state"><div class="state-i" aria-hidden="true">${ico('settings')}</div><h2>Maintenance</h2><p>${esc(APP.cfg.nom)} revient très vite. ${esc(APP.cfg.annonce)}</p></div>`;return;}
 if(!APP.prof)renderLanding();else renderProfile();
 const P=APP.prof;$('#qRiot').value=P&&!P.demo?P.riot:'';if(P&&!P.demo)$('#qReg').value=P.region;
@@ -3133,6 +3183,7 @@ if(e.target.id==='impFile'&&e.target.files[0])dataImport(e.target.files[0]);
 });
 document.addEventListener('input',e=>{const t=e.target.closest&&e.target.closest('[data-rpt]');if(t)rpSeek(+t.value);});
 document.addEventListener('keydown',e=>{
+if(SHELL.cur!=='valorant')return;
 if(e.key==='Escape'&&!$('#perso').hidden)return persoClose();
 const tb=e.target&&e.target.closest&&e.target.closest('[role=tab]');
 if(tb&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){const L=$$('[role=tab]',tb.parentNode),n=L[(L.indexOf(tb)+(e.key==='ArrowRight'?1:-1)+L.length)%L.length];e.preventDefault();ACT.tab(n.dataset.act.split(':')[1],n);const f=$('#tb-'+APP.tab);if(f)f.focus();return;}
@@ -3159,6 +3210,7 @@ $('#qReg').innerHTML=REGIONS.map(([v,n])=>`<option value="${v}">${n}</option>`).
 const hdr=()=>document.documentElement.style.setProperty('--hdr',$('header.top').offsetHeight+'px');window.addEventListener('resize',hdr);hdr();
 const net=()=>{$('#horsLigne').hidden=navigator.onLine!==false;};window.addEventListener('online',net);window.addEventListener('offline',net);net();
 await loadCfg();applyCfg();liveCfg().catch(logErr);await licRefresh();themeRefresh();
+if(await SHELL.boot())return;
 if(await openFromHash())return;
 const last=ST.get('last');
 if(last&&last.riot&&apiReady()){render();openProfile(last.riot,last.region||'eu',{quiet:true,noPush:true});}else render();
