@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0653. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-1248. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -460,16 +460,15 @@ return{i,r,p0,ev,mx,mn,thrown:!r.w&&mx>=.75,stolen:!!r.w&&mn<=.25};
 });
 }
 function matchSum(d,M,me){
-const F=flowOf(d,M),L=plLines(d),cats={},imp={},mine={};
-F.forEach(f=>f.ev.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+e.d;
-if(e.killer!=null){const g=e.ours?e.d:-e.d;imp[e.killer]=(imp[e.killer]||0)+g;imp[e.victim]=(imp[e.victim]||0)-g;
-if(e.killer===me)mine[e.cat]=(mine[e.cat]||0)+g;if(e.victim===me)mine[e.cat]=(mine[e.cat]||0)-g;}}));
+const F=flowOf(d,M),L=plLines(d),cats={};
+F.forEach(f=>f.ev.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+e.d;}));
+const iv=impactV2(d,M,F),imp=iv.imp,mine=iv.cats[me]||{};
 const exp=F.reduce((s,f)=>s+f.p0,0),won=F.filter(f=>f.r.w).length;
 const live=e=>e.cat!=='fin'&&e.pa>.03&&e.pa<.97;
 const key=F.flatMap(f=>f.ev.filter(e=>live(e)&&(e.killer===me||e.victim===me)).map(e=>({r:f.i,e}))).sort((x,y)=>Math.abs(y.e.d)-Math.abs(x.e.d)).slice(0,5);
 const eco={};F.forEach(f=>{if(f.i===0||f.i===12)return;const k=BUYK(f.r.ol)+'|'+BUYK(f.r.tl),e=eco[k]||(eco[k]={n:0,w:0,x:0});e.n++;e.x+=f.p0;if(f.r.w)e.w++;});
 const meP=d.pl[me]||{},place=1+d.pl.filter(p=>p.sc>(meP.sc||0)).length,teamTop=!d.pl.some((p,i)=>i!==me&&p.t===meP.t&&p.sc>meP.sc);
-return{F,L,me:L[me]||null,won,exp,cats,imp,myImp:imp[me]||0,mine,key,eco,place,teamTop,thrown:F.filter(f=>f.thrown),stolen:F.filter(f=>f.stolen)};
+return{F,L,iv,me:L[me]||null,won,exp,cats,imp,myImp:imp[me]||0,mine,key,eco,place,teamTop,thrown:F.filter(f=>f.thrown),stolen:F.filter(f=>f.stolen)};
 }
 function coachPub(s){
 const out=[],P=(s&&s.pct)||{},add=(lvl,k,t,why,fix)=>out.push({lvl,k,t,why,fix});
@@ -489,7 +488,7 @@ const ROLES=['Duelist','Initiator','Controller','Sentinel'];
 const PG_KEYS=['n','r','k','d','a','sc','dmg','rec','hs','sh','kast','fk','fd','trd','trk','surv','mk','cast','cla','clw',
 'b0','b0w','b1','b1w','b2','b2w','imp','io','it','im','ic','ip','ir'];
 const CAT_KEY={ouverture:'io',trade:'it',mid:'im',clutch:'ic',post:'ip',retake:'ir'};
-function pgAll(d,M){
+function pgAll(d,M,defV){
 const pl=(d&&d.pl)||[],rounds=(d&&d.rounds)||[],nR=rounds.length;if(!nR||pl.length<2)return[];
 const L=plLines(d),byR=grp(d.kills||[],k=>k[0]),tm=j=>pl[j]?pl[j].t:null,sz=t=>pl.filter(p=>p.t===t).length||5;
 const S=pl.map((p,i)=>{const s={};PG_KEYS.forEach(k=>{s[k]=0;});PG_OPT.forEach(k=>{s[k]=0;});const l=L[i];
@@ -513,7 +512,7 @@ const F=flowOf(d,M);
 F.forEach(f=>f.ev.forEach(e=>{const c=CAT_KEY[e.cat];if(!c||e.killer==null)return;
 [e.killer,e.victim].forEach(x=>{const s=S[x];if(!s)return;const t=tm(x),g=t===1?e.d:-e.d;
 s[t===0&&c==='ip'?'ir':t===0&&c==='ir'?'ip':c]+=g;s.imp+=g;});}));
-if(rounds.some(r=>Array.isArray(r.fs))){S.forEach(s=>{s.rE=nR;});deathsOf(d,M,F).forEach(e=>{const s=S[e.x];if(!s)return;s['e_'+e.tag]++;if(e.c)s['e_'+e.c]++;});}
+if(rounds.some(r=>Array.isArray(r.fs))){S.forEach(s=>{s.rE=nR;});deathsOf(d,M,F).forEach(e=>{const s=S[e.x];if(!s||((defV||DEF_V)>=2&&e.won))return;s['e_'+e.tag]++;if(e.c)s['e_'+e.c]++;});}
 if((d.v||0)>=7){S.forEach(s=>{s.r7=nR;});ecoDesync(d).forEach(e=>{const s=S[e.x];if(!s)return;s['e_'+e.k]++;s.dsr++;if(e.w)s.dsw++;});}
 return S;
 }
@@ -584,7 +583,7 @@ const N=x=>typeof x==='number'&&Number.isFinite(x)&&x>=0;if(N(v.n)&&N(v.r)&&v.n>
 const cnt=(m,re)=>{const o={};Object.entries(obj(m)?m:{}).forEach(([k,v])=>{if(re.test(k)&&Array.isArray(v)&&v.length===2&&v.every(x=>Number.isInteger(x)&&x>=0)&&v[1]<=v[0])o[k]=v;});return o;};
 const M=obj(raw.M)?{S:cnt(raw.M.S,/^[1-5]\|[1-5]\|[nut]$/),E:cnt(raw.M.E,/^(eco|force|full)\|(eco|force|full)$/)}:null;
 const day=v=>RE_DATE.test(v||'')?v:'';
-return{format:'elitrack-bench',v:1,local:false,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),c,g,M:M&&Object.keys(M.S).length?M:null};
+return{format:'elitrack-bench',v:1,local:false,defV:raw.defV===2?2:1,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),c,g,M:M&&Object.keys(M.S).length?M:null};
 }
 function benchRef(B,rk,role,min=40,noRole){
 if(Array.isArray(B)){for(const b of B){const r=benchRef(b,rk,role,min,noRole);if(r)return r;}return null;}
@@ -770,6 +769,63 @@ trail[j]=F.filter(f=>f.t<=T&&f.p[j]).map(f=>[f.p[j][0],f.p[j][1]]).concat(b?[[po
 return{alive,dead,trail,kills:ks.filter(k=>k[1]<=T),planted:rd.pt>0&&rd.pt<=T,defused:rd.dt>0&&rd.dt<=T};
 };
 return{t0,t1,frames:F,events:ev,at,plant:rd.pl,site:rd.p,round:rd};
+}
+const DEF_V=2,ASSIST_SHARE=.25,TIER_Z=1.645,BIAS_MIN=20,SHRINK_K=3,HALF_LIFE_D=45;
+const qMean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
+const qSd=a=>{if(a.length<2)return 0;const m=qMean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));};
+function impactV2(d,M,F0){
+const F=F0||flowOf(d,M),pl=(d&&d.pl)||[],nR=(d&&d.rounds?d.rounds.length:0)||1,tm=i=>pl[i]?pl[i].t:null;
+const util=new Set();pl.forEach((p,j)=>deathInsights(d,j).forEach(e=>{if(e.ctx==='delay'||e.ctx==='space')util.add(`${e.r}|${e.ms}|${j}`);}));
+const kmap=new Map();((d&&d.kills)||[]).forEach(k=>kmap.set(`${k[0]}|${k[1]}|${k[3]}`,k));
+const imp={},per=pl.map(()=>new Array(nR).fill(0)),cats=pl.map(()=>({})),neutral=pl.map(()=>0),lines=[];
+const add=(j,v,kind,cat,r,e)=>{imp[j]=(imp[j]||0)+v;if(per[j]){per[j][r]+=v;const c=kind==='a'?'assist':cat;cats[j][c]=(cats[j][c]||0)+v;}lines.push({r,j,v,kind,cat,e});};
+F.forEach(f=>f.ev.forEach(e=>{
+if(e.killer==null||e.victim==null)return;
+const g=e.ours?e.d:-e.d,k=kmap.get(`${f.i}|${e.ms}|${e.victim}`);
+if(util.has(`${f.i}|${e.ms}|${e.victim}`)){if(neutral[e.victim]!=null)neutral[e.victim]++;lines.push({r:f.i,j:e.victim,v:0,kind:'n',cat:e.cat,e});return;}
+const as=k?(k[9]||[]).filter(x=>x>=0&&x!==e.killer&&tm(x)!=null&&tm(x)===tm(e.killer)):[];
+add(e.killer,as.length?g*(1-ASSIST_SHARE):g,'k',e.cat,f.i,e);
+as.forEach(x=>add(x,g*ASSIST_SHARE/as.length,'a',e.cat,f.i,e));
+add(e.victim,-g,'d',e.cat,f.i,e);
+}));
+return{imp,per,cats,neutral,lines,nR};
+}
+function roleBias(D,M,roleOf,IVof){
+const A={};(D||[]).forEach(d=>{if(!d||!d.kills||!d.kills.length)return;const IV=IVof?IVof(d):impactV2(d,M);
+(d.pl||[]).forEach((p,j)=>{const ro=roleOf?roleOf(p.a):'';if(!ro||!IV.per[j])return;(A[ro]=A[ro]||[]).push(qMean(IV.per[j]));});});
+const out={};Object.entries(A).forEach(([ro,a])=>{const m=qMean(a),se=a.length>1?qSd(a)/Math.sqrt(a.length):0;out[ro]={n:a.length,mean:m,se,sig:a.length>=BIAS_MIN&&Math.abs(m)>1.645*se};});
+return out;
+}
+function rankV2(d,IV,roleOf,bias){
+const pl=(d&&d.pl)||[],nR=IV.nR;
+const rows=pl.map((p,j)=>{const per=IV.per[j]||[],m=qMean(per),se=nR>1?qSd(per)/Math.sqrt(nR):0,role=roleOf?roleOf(p.a)||'':'',B=bias&&bias[role]&&bias[role].n>=BIAS_MIN?bias[role].mean:0;
+return{i:j,t:p.t,role,m,adj:m-B,bias:B,se,tier:0};});
+const tiersOf=list=>{const T=[],o=list.slice().sort((a,b)=>b.adj-a.adj);o.forEach(r=>{const L=T[T.length-1];if(L&&L[0].adj-r.adj<=TIER_Z*Math.sqrt(L[0].se**2+r.se**2))L.push(r);else T.push([r]);});return T;};
+const all=tiersOf(rows);all.forEach((T,ti)=>T.forEach(r=>{r.tier=ti+1;}));
+const lead=list=>{const T=tiersOf(list)[0];return{ids:T.map(r=>r.i),clear:T.length===1};};
+return{rows,nT:all.length,mvp:lead(rows),team:{1:lead(rows.filter(r=>r.t===1)),0:lead(rows.filter(r=>r.t===0))}};
+}
+function placeV2(D,M,roleOf,bias,now,IVof){
+now=now||Date.now();const G=[];
+(D||[]).forEach(d=>{const me=((d&&d.pl)||[]).findIndex(p=>p.n==='moi');if(me<0||!d.kills||!d.kills.length)return;
+const IV=IVof?IVof(d):impactV2(d,M),R=rankV2(d,IV,roleOf,bias),r=R.rows[me],w=Math.pow(.5,Math.max(0,now-(d.ts||now))/864e5/HALF_LIFE_D);
+G.push({w,m:r.adj,se:r.se,rank:1+R.rows.filter(x=>x.adj>r.adj).length,tier:r.tier,nT:R.nT,mvp:R.mvp.clear&&R.mvp.ids[0]===me,top:R.team[r.t].clear&&R.team[r.t].ids[0]===me});});
+if(!G.length)return null;const W=G.reduce((s,g)=>s+g.w,0),W2=G.reduce((s,g)=>s+g.w*g.w,0),neff=W*W/W2,wm=f=>G.reduce((s,g)=>s+g.w*f(g),0)/W;
+const m=wm(g=>g.m),se=Math.max(Math.sqrt(G.reduce((s,g)=>s+g.w*g.w*g.se*g.se,0))/W,Math.sqrt(G.reduce((s,g)=>s+g.w*(g.m-m)**2,0)/W)/Math.sqrt(Math.max(1,neff)));
+return{n:G.length,neff,place:wm(g=>g.rank),mvp:wm(g=>g.mvp?100:0),top:wm(g=>g.top?100:0),m,se,shrunk:m*neff/(neff+SHRINK_K),z:se>0?m/se:0,verdict:se>0&&Math.abs(m)>1.645*se?(m>0?'above':'below'):'equal'};
+}
+function calibOf(D,folds){
+const A=(D||[]).filter(d=>d&&d.rounds&&d.rounds.length&&d.kills&&d.kills.length);if(A.length<4)return null;const K=Math.min(folds||5,A.length),pts=[];
+for(let f=0;f<K;f++){const M=wpFit(A.filter((d,i)=>i%K!==f));A.forEach((d,i)=>{if(i%K!==f)return;flowOf(d,M).forEach(fl=>fl.ev.forEach(e=>{if(e.cat!=='fin'&&typeof e.pb==='number')pts.push([e.pb,fl.r.w?1:0,fl.i]);}));});}
+const bins=Array.from({length:10},(_,b)=>({lo:b/10,hi:(b+1)/10,n:0,pred:0,obs:0}));let br=0,ll=0;
+pts.forEach(([p,y])=>{const b=bins[Math.min(9,Math.floor(p*10))];b.n++;b.pred+=p;b.obs+=y;br+=(p-y)**2;const q=Math.min(.999,Math.max(.001,p));ll-=y?Math.log(q):Math.log(1-q);});
+const N=pts.length;bins.forEach(b=>{if(b.n){b.pred/=b.n;b.obs/=b.n;}});
+const ece=bins.reduce((s,b)=>s+(b.n?b.n/N*Math.abs(b.pred-b.obs):0),0),base=pts.reduce((s,x)=>s+x[1],0)/N;
+return{n:A.length,points:N,bins,brier:br/N,brierBase:base*(1-base),logloss:ll/N,ece,good:ece<=.05};
+}
+function aggMigrate(G){
+if(!G||(G.defV||1)>=DEF_V)return false;const ks=['rE'].concat(ERR_KEYS.concat(CAUSE_KEYS).map(k=>'e_'+k));
+Object.values((G.B&&G.B.c)||{}).forEach(c=>ks.forEach(k=>{if(k in c)c[k]=0;}));G.defV=DEF_V;return true;
 }
 const errFix=(tag,sides)=>{const D=ERR_DEF[tag];return D.fixD&&sides&&(sides.D||0)>(sides.A||0)?D.fixD:D.fix;};
 function errAgg(D,M,Eof){
@@ -970,7 +1026,7 @@ function v4Keep(md){
 const m=md&&md.metadata,P=md&&Array.isArray(md.players)?md.players:[],q=m?String((m.queue||{}).id||(m.queue||{}).name||''):'';
 return!!m&&(!q||/competitive/i.test(q))&&m.is_completed!==false&&P.length===10&&(md.rounds||[]).length>=13&&!P.some(p=>((p.behavior||{}).afk_rounds||0)>=3);
 }
-const aggNew=()=>({v:1,day:'',matches:0,du:'',au:'',M:{S:{},E:{}},B:{c:{}},A:{},T:metaNew()});
+const aggNew=()=>({v:1,defV:DEF_V,day:'',matches:0,du:'',au:'',M:{S:{},E:{}},B:{c:{}},A:{},T:metaNew()});
 function aggDecay(o,f){
 if(Array.isArray(o))o.forEach((v,i)=>{if(typeof v==='number')o[i]=v*f;else if(v&&typeof v==='object')aggDecay(v,f);});
 else if(o&&typeof o==='object')Object.keys(o).forEach(k=>{const v=o[k];if(typeof v==='number')o[k]=v*f;else if(v&&typeof v==='object')aggDecay(v,f);});
@@ -992,7 +1048,7 @@ if(d.date){if(!G.du||d.date<G.du)G.du=d.date;if(d.date>G.au)G.au=d.date;}
 return d;
 }
 function aggPublish(G,region,today){
-const M={S:{},E:{}},c={},meta={v:1,maj:today,region,matches:Math.round(G.matches),du:G.du,au:G.au};
+const M={S:{},E:{}},c={},meta={v:1,defV:DEF_V,maj:today,region,matches:Math.round(G.matches),du:G.du,au:G.au};
 ['S','E'].forEach(k=>Object.entries(G.M[k]).forEach(([key,v])=>{const n=Math.round(v[0]);if(n>0)M[k][key]=[n,Math.min(n,Math.round(v[1]))];}));
 Object.entries(G.B.c).forEach(([k,v])=>{const o={};Object.keys(v).forEach(f=>{o[f]=Math.round(v[f]*1000)/1000;});c[k]=o;});
 const g={},r3=x=>Math.round(x*1000)/1000;Object.entries(G.B.g||{}).forEach(([k,v])=>{if(v.n>=.5)g[k]={n:r3(v.n),r:r3(v.r),c:v.c.map(r3)};});
@@ -1351,7 +1407,7 @@ ridNorm,b64uEnc,b64uDec,utf8,fromUtf8,LIC_PLANS,licBody,licHead,licParse,licChec
 FEATURES,PREM_DEF,featOn,PUB_DEF,httpsUrl,isGoogle,proxyUrl,pubCfg,smRow,rowsAgg,aggBy,mainAgent,sessionsOf,serieOf,
 v4Detail,detTrim,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
 RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,coachPlan,poisTail,GAIN_MIN,RANK_METS,
-ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,ERR_ISO,deathInsights,CTX_DEF,CTX_FAR,CTX_KILLER,replayOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
+ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,ERR_ISO,DEF_V,BIAS_MIN,ASSIST_SHARE,impactV2,roleBias,rankV2,placeV2,calibOf,aggMigrate,deathInsights,CTX_DEF,CTX_FAR,CTX_KILLER,replayOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
 rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggDetail,aggPublish,META_RK,META_MIN,META_TIERS,metaNew,metaAdd,ftWin,normCdf,metaFit,metaWin,metaTier,metaClean,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
 stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
@@ -1489,7 +1545,7 @@ const BG_FR={auto:'Auto',art:'Art de l\'agent',portrait:'Portrait de l\'agent',s
 const BLOCK_FR={kpis:'Chiffres clés',session:'Session du soir',objectif:'Objectif de rang',forme:'Forme récente',rr:'Courbe de RR',agents:'Meilleurs agents',cartes:'Meilleures cartes',records:'Records',dernier:'Dernière partie',defis:'Défis de la semaine',succes:'Succès'};
 const ABIL_FR={'Nova Pulse':'Impulsion nova','Gravity Well':'Puits de gravité','Flashpoint':'Point d\'ignition','Fault Line':'Ligne de fracture','Aftershock':'Réplique','Rolling Thunder':'Onde sismique','Stim Beacon':'Balise stimulante','Incendiary':'Bombe incendiaire','Sky Smoke':'Frappe fumigène','Orbital Strike':'Rayon orbital','Rendezvous':'Rendez-vous','Trademark':'Guet-apens','Headhunter':'Chasseur de têtes','Tour De Force':'Tour de force','Pick-me-up':'Coup de boost','Not Dead Yet':'Toujours debout','Meddle':'Trouble-fête','Cyber Cage':'Cybercage','Spycam':'Caméra espionne','Trapwire':'Fil de détente','Neural Theft':'Vol neural','Sonic Sensor':'Radar ultrason','Barrier Mesh':'Disque barrière','Seize':'Capture','Haunt':'Hanteur','Prowler':'Rôdeur','Nightfall':'Nuit tombante','Wingman':'Altego','Dizzy':'Verti','Mosh Pit':'Pogo','Thrash':'Mordicus','High Tide':'Marée haute','Storm Surge':'Tempête déferlante','Cove':'Dôme aqueux','Reckoning':'Raz-de-marée','Undercut':'Sape','Kill Contract':'Duel à huis clos','Double Tap':'Tir couplé','Contingency':'Contingence','Updraft':'Courant ascendant','Tailwind':'Vent arrière','Cloudburst':'Averse','Blade Storm':'Tempête de lames','FLASH/drive':'MÉMOIRE/flash','ZERO/point':'POINT/zéro','NULL/cmd':'CMD/null','Nanoswarm':'Essaim de nanites','ALARMBOT':'Bot-alarme','TURRET':'Tourelle','Lockdown':'Confinement','M-pulse':'M-pulsion','Waveform':'Forme d\'onde','Harmonize':'Harmonisation','Bassquake':'Basse sismique','High Gear':'Vitesse supérieure','Relay Bolt':'Éclair relais','Fast Lane':'Voie rapide','Overdrive':'Ultra-vitesse','Paranoia':'Paranoïa','Dark Cover':'Voile sombre','Shrouded Step':'Voie des ombres','From the Shadows':'Depuis les ombres','Blaze':'Brasier','Hot Hands':'Mains brûlantes','Curveball':'Balle courbe','Run it Back':'Revanche','Blast Pack':'Pack explosif','Paint Shells':'Grenade gigogne','Boom Bot':'Boum Bot','Showstopper':'Bouquet final','Devour':'Dévoration','Dismiss':'Rebuffade','Leer':'Œillade','Empress':'Impératrice','Slow Orb':'Orbe de lenteur','Healing Orb':'Orbe de soin','Barrier Orb':'Orbe barrière','Resurrection':'Résurrection','Trailblazer':'Éclaireur','Guiding Light':'Guide éclatant','Regrowth':'Revitalisation','Seekers':'Traqueurs','Shock Bolt':'Électroflèche','Recon Bolt':'Flèche de reconnaissance','Owl Drone':'Drone rapace','Hunter\'s Fury':'Fureur du chasseur','Guided Salvo':'Salve autoguidée','Special Delivery':'Livraison spéciale','Armageddon':'Apocalypse','Stealth Drone':'Drone furtif','Interceptor':'Intercepteur','Crosscut':'Vortex','Evolution':'Évolution','Chokehold':'Étranglement','Poison Cloud':'Nuage de poison','Toxic Screen':'Écran toxique','Snake Bite':'Morsure du serpent','Viper\'s Pit':'Nid de vipères','Shear':'Cisaille','Arc Rose':'Rose métallique','Razorvine':'Ronces barbelées','Steel Garden':'Jardin d\'acier','Refract':'Réfraction','Saturate':'Saturation','Lightspeed':'Vitesse lumière','Convergent Paths':'Croisée des chemins','FAKEOUT':'Feinte','BLINDSIDE':'Angle mort','GATECRASH':'Visite surprise','DIMENSIONAL DRIFT':'Transfert dimensionnel'};
 const wpnFr=w=>!w?'':w==='Melee'?'Couteau':ABIL_FR[w]||ABIL_FR[Object.keys(ABIL_FR).find(k=>k.toLowerCase()===String(w).toLowerCase())]||w;
-const CAT_FR={ouverture:'Premiers duels du round',trade:'Trades (échanges de kills en 3 s)',mid:'Milieu de round',clutch:'Clutchs (dernier vivant)',post:'Après le plant de ton équipe',retake:'Reprise du site (retake)',plant:'Plant du spike',rea:'Réanimations',fin:'Fin de round'};
+const CAT_FR={ouverture:'Premiers duels du round',trade:'Trades (échanges de kills en 3 s)',mid:'Milieu de round',clutch:'Clutchs (dernier vivant)',post:'Après le plant de ton équipe',retake:'Reprise du site (retake)',plant:'Plant du spike',rea:'Réanimations',assist:'Assists (kills de coéquipiers)',fin:'Fin de round'};
 const END_FR={elim:'tous éliminés',spike:'spike explosé',defuse:'spike désamorcé',time:'temps écoulé'};
 const BUY_FR={eco:'Éco',force:'Force',full:'Full buy'};
 const DRILL={
@@ -2416,23 +2472,30 @@ const D=APP.D||[],ds=duelStats(D,meIdx),P={};
 ['sc','dmg','kd','hs'].forEach(f=>{const x=lobbyPct(D,'moi',f);P[f]=x?x.p:null;});
 let fd=0,r=0,tr=0,dd=0,kast=0;
 D.forEach(d=>{const i=meIdx(d),o=pDetail(d,i),l=plLines(d)[i];if(!o||!l)return;fd+=o.fd;r+=o.r;tr+=l.trd;dd+=d.pl[i].d;kast+=l.kast*o.r/100;});
-return{n:D.length,pct:P,op:ds.op,fd:r?fd/r:null,tr:dd?tr/dd*100:null,kast:r?kast/r*100:null,b:ds.b,place:lobbyPlace(D,'moi')};
+return{n:D.length,pct:P,op:ds.op,fd:r?fd/r:null,tr:dd?tr/dd*100:null,kast:r?kast/r*100:null,b:ds.b,place:placeV2(D,APP.M,fairData().roleOf,fairData().bias,undefined,ivOf)};
 }
 const PGM=new WeakMap();
-function pgOf(d){const c=PGM.get(d);if(c&&c.M===APP.M)return c.S;const S=pgAll(d,APP.M);PGM.set(d,{M:APP.M,S});return S;}
+function pgOf(d,dv=DEF_V){const c=PGM.get(d);if(c&&c.M===APP.M&&c.dv===dv)return c.S;const S=pgAll(d,APP.M,dv);PGM.set(d,{M:APP.M,S,dv});return S;}
+const IVM=new WeakMap();
+function ivOf(d){const c=IVM.get(d);if(c&&c.M===APP.M)return c.IV;const IV=impactV2(d,APP.M);IVM.set(d,{M:APP.M,IV});return IV;}
+const FAIR={};
+function fairData(){const D=APP.D||[];if(!APP.M)APP.M=modelOf(D);if(FAIR.v&&FAIR.D===D&&FAIR.M===APP.M)return FAIR.v;
+const roleOf=a=>ROLE_OF[a]||'',v={roleOf,bias:roleBias(D,APP.M,roleOf,ivOf),calib:null};Object.assign(FAIR,{v,D,M:APP.M});return v;}
+function calibLazy(){const F=fairData();if(F.calib===null)F.calib=calibOf(APP.D||[])||false;return F.calib;}
 const DEM=new WeakMap();
 function deOf(d){const c=DEM.get(d);if(c&&c.M===APP.M)return c.E;const E=deathsOf(d,APP.M);DEM.set(d,{M:APP.M,E});return E;}
 const CD={};
 function coachData(){
 const D=APP.D||[];if(!APP.M)APP.M=modelOf(D);
 if(CD.v&&CD.D===D&&CD.M===APP.M&&CD.B===APP.bench&&CD.P===APP.prof)return CD.v;
-const G=[],L={c:{},local:true},tiers=[];
-D.forEach(d=>{const i=meIdx(d),S=pgOf(d);if(i<0||!S[i])return;const p=d.pl[i];if(p.tr>=3)tiers.push(p.tr);
+const W=APP.bench&&Object.keys(APP.bench.c).length?APP.bench:null,dv=W&&W.defV!==DEF_V?1:DEF_V;
+const G=[],L={c:{},local:true,defV:dv},tiers=[];
+D.forEach(d=>{const i=meIdx(d),S=pgOf(d,dv);if(i<0||!S[i])return;const p=d.pl[i];if(p.tr>=3)tiers.push(p.tr);
 const g=Object.assign({},S[i],{ro:ROLE_OF[p.a]||'',ag:p.a||'',ts:d.ts,id:d.id,w:d.rounds.filter(r=>r.w).length*2>d.rounds.length?1:0});
 G.push(g);benchAdd(L,d,APP.M,a=>ROLE_OF[a],(q,j)=>j===i,S);});
-const W=APP.bench&&Object.keys(APP.bench.c).length?APP.bench:null,rk=rankOf(APP.prof.mmr.tier)||rankOf(tiers.sort((a,b)=>a-b)[tiers.length>>1]);
+const rk=rankOf(APP.prof.mmr.tier)||rankOf(tiers.sort((a,b)=>a-b)[tiers.length>>1]);
 const ag=Object.entries(D.reduce((o,d)=>{const p=d.pl[meIdx(d)];if(p)o[p.a]=(o[p.a]||0)+1;return o;},{})).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-const C=coachV2(G,W?[W,L]:L,rk),A=errAgg(D,APP.M,deOf),E=ecoAgg(D),
+const C=coachV2(G,W?[W,L]:L,rk),A=errAgg(D,APP.M,d=>dv>=2?deOf(d).filter(e=>!e.won):deOf(d)),E=ecoAgg(D),
 v={G,L,W,rk,C,A,E,U:ag.slice(0,2).map(a=>agentUse(D,W?[W,L]:[L],rk,a)).filter(Boolean),PL:coachPlan(C,A,E)};
 Object.assign(CD,{v,D,M:APP.M,B:APP.bench,P:APP.prof});return v;
 }
@@ -2485,7 +2548,8 @@ const v=top?{cls:top.lvl===3?'bad':'foe',h:`Priorité : ${top.t}`,p:`→ ${top.f
 top.row&&top.row.rate!=null&&['Toi · les autres',`<b class="down">${fmt(top.row.rate,1)}</b> · ${top.row.ref==null?'—':fmt(top.row.ref,1)}`,'pour 100 rounds (autres joueurs de tes parties)']].filter(Boolean)}
 :{cls:'ok',h:'Aucun point faible sûr',p:items[0]&&items[0].fix?`→ ${items[0].fix}`:'Continue comme ça : le coach se met à jour tout seul après tes parties.',facts:[]};
 if(V.rk)v.facts.push(['Tes kills et tes morts',`<b class="${(per(T.me)||0)>=0?'up':'down'}">${rv(per(T.me))}</b>`,`round par partie pour ton équipe · joueur ${esc(rkN)} de ton rôle : ${rv(per(T.ref))}`]);
-if(lp)v.facts.push(['Place moyenne',`<b>${fmt(lp.place,1)}<small>/10</small></b>`,`dans tes ${s.n} parties détaillées`]);
+if(lp){v.facts.push(['Place moyenne',`<b>${fmt(lp.place,1)}<small>/10</small></b>`,`à l'impact corrigé du rôle, sur ${lp.n} parties détaillées`]);
+v.facts.push(['Impact durable',`<b>${sg(lp.shrunk*24,1)}<small> rounds / 24</small></b>`,lp.verdict==='above'?'au-dessus de ton lobby, sûr à 90 %':lp.verdict==='below'?'en dessous de ton lobby, sûr à 90 %':'pas d\'écart sûr avec ton lobby']);}
 v.acts='<button class="btn" data-act="tab:entrainement">Routine complète avec minuteur</button>';
 const lvlPill=x=>!x.below?'<span class="pill ok">au niveau</span>':x.sure?'<span class="pill bad">en dessous</span>':'<span class="pill warn">un peu en dessous</span>';
 const nx=C.next||[],nextHtml=nx.length?`<div class="card"><div class="card-h"><h2>Pour passer ${esc(upN)}</h2><span class="pill">${nx.filter(x=>!x.below).length}/${nx.length} au niveau</span></div>
@@ -2522,7 +2586,7 @@ return`${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton r�
   <div class="grid g2 mt">${nextHtml}
   ${V.rk?`<div class="card"><h2>Détail par phase du round</h2><p class="muted small">Rounds par partie gagnés (+) ou perdus (−) par tes kills et tes morts, contre un joueur ${esc(rkN)} de ton rôle, sur ${C.n} parties détaillées.</p>${(C.cats||[]).map(phase).join('')}</div>`:''}
   <div class="card"><h2>Ta place dans tes parties</h2><p class="muted small">${s.n} parties détaillées, comparé aux 9 autres joueurs de chaque partie (anonymes).</p>
-    ${lp?`<div class="kpis"><div class="kpi"><span>MVP de la partie</span><b>${pc0(lp.mvp)}</b></div><div class="kpi"><span>Meilleur de ton équipe</span><b>${pc0(lp.top)}</b></div><div class="kpi"><span>KAST</span><b>${pc0(s.kast)}</b></div></div>`:''}
+    ${lp?`<div class="kpis"><div class="kpi"><span>MVP sûr de la partie</span><b>${pc0(lp.mvp)}</b></div><div class="kpi"><span>Meilleur de ton équipe (sûr)</span><b>${pc0(lp.top)}</b></div><div class="kpi"><span>KAST</span><b>${pc0(s.kast)}</b></div></div>`:''}
     <ul class="plist mt8">${pct2('Score de combat',Pc.sc)}${pct2('Dégâts',Pc.dmg)}${pct2('Kills − morts',Pc.kd)}${pct2('Tête %',Pc.hs)}</ul></div>
   <div class="card"><h2>Les exercices qui vont avec</h2><ol class="plan">${items.slice(0,3).map(x=>(DRILL[x.k]||DRILL[x.cat]||DRILL.ok).slice(0,2).map(d=>`<li>${esc(d)} <small class="muted">(${esc(x.t)})</small></li>`).join('')).join('')}</ol>
     <p class="note">En Range, en Deathmatch ou avec un aim trainer gratuit. La routine complète avec minuteur est dans l'onglet Entraînement.</p></div>
@@ -2566,10 +2630,11 @@ const ev=e=>e.killer==null?'':`${e.killer===me?`<b>Tu</b> tues ${esc(nm(e.victim
 const vsTxt=e=>{const m=/(\d)v(\d) → (\d)v(\d)/.exec(e.st||'');return m?`${m[1]} contre ${m[2]} → ${m[3]} contre ${m[4]} · `:'';};
 const low=s=>s.toLowerCase(),imp=S.myImp||0;
 const GN=(()=>{const o={up:0,down:0,cats:{},kills:[]};
-S.F.forEach(f=>f.ev.forEach(e=>{if(e.killer==null||e.victim==null)return;const g=e.ours?e.d:-e.d;
-if(e.killer===me){o.up+=g;if(d.pl[e.victim]&&d.pl[e.victim].t!==d.pl[me].t){const c=o.cats[e.cat]||(o.cats[e.cat]={n:0,g:0});c.n++;c.g+=g;o.kills.push({r:f.i,e,g});}}
-if(e.victim===me)o.down+=g;}));
+S.iv.lines.forEach(l=>{if(l.j!==me)return;const e=l.e;
+if(l.kind==='k'||l.kind==='a'){o.up+=l.v;if(l.kind==='k'&&d.pl[e.victim]&&d.pl[e.victim].t!==d.pl[me].t){const c=o.cats[l.cat]||(o.cats[l.cat]={n:0,g:0});c.n++;c.g+=l.v;o.kills.push({r:l.r,e,g:l.v});}}
+else if(l.kind==='d')o.down-=l.v;});
 o.kills.sort((a,b)=>b.g-a.g);return o;})();
+const FD=fairData(),RK=rankV2(d,S.iv,FD.roleOf,FD.bias),rme=RK.rows[me],nRd=d.rounds.length||1,mvpMe=RK.mvp.clear&&RK.mvp.ids[0]===me,teamMe=RK.team[d.pl[me].t].clear&&RK.team[d.pl[me].t].ids[0]===me;
 const rdw=x=>`round${Math.abs(x)>=2?'s':''}`;
 const nR=d.rounds.length||24,i24=imp/nR*24,lvl=i24>=1.5?['ok','Impact très positif','Tu as clairement fait gagner des rounds à ton équipe.']:i24>=.5?['ok','Impact positif','Tu as aidé ton équipe à gagner des rounds.']
 :i24>-.5?['neutral','Impact neutre','Tes kills et tes morts se sont à peu près équilibrés.']:i24>-1.5?['bad','Impact négatif','Tes morts ont coûté plus de rounds que tes kills n\'en ont rapporté.']:['bad','Impact très négatif','Tes morts ont coûté beaucoup plus de rounds que tes kills n\'en ont rapporté.'];
@@ -2580,14 +2645,14 @@ facts:[['Ton impact sur la partie',`<b style="color:var(${imp>=0?'--ok':'--bad'}
 const drow=(lab,x)=>`<div class="drow"><span>${lab}</span><span class="dbar" aria-hidden="true"><i class="${x>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(x)*20)}%"></i></span><b class="${x>=0?'up':'down'}">${sg(x)}</b></div>`;
 const dbar=([c,x])=>drow(esc(CAT_FR[c]),x);
 const strip=S.F.map(f=>{const x=f.r;return`<button type="button" class="rd ${x.w?'W':'L'}${f.thrown||f.stolen?' hot':''}${f.i===12?' half':''}" data-act="repRound:${f.i}" data-r="${f.i}" aria-pressed="false" aria-label="Round ${f.i+1} ${x.w?'gagné':'perdu'}" title="${esc(`Round ${f.i+1} · ${x.w?'gagné':'perdu'} (${END_FR[x.e]}) · chances au départ ${pc(f.p0)} · max ${pc(f.mx)} · min ${pc(f.mn)}\nAchats : vous ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.ol)]} · eux ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.tl)]}${x.p?`\nSpike posé en ${x.p} par ${x.pu===1?'vous':'eux'}`:''}`)}">${f.i+1}<small>${pc(f.p0)}</small></button>`;}).join('');
-const row=l=>{const x=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${l.p.rid?`${l.i===me?'<b>Toi</b> · ':''}${ridHtml(d,l.i)} <small class="muted">${esc(l.p.a)}</small>`:esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${x>=0?'up':'down'}">${sg(x)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
-const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th title="Rounds rapportés (+) ou perdus (−) par les kills et les morts du joueur">Impact</th><th title="Note de performance (1,00 = joueur moyen)">Note</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th title="Premiers kills – premières morts du round">Premiers duels</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>(S.imp[b.i]||0)-(S.imp[a.i]||0)).map(row).join('')}</tbody></table></div>`;
+const row=l=>{const rr=RK.rows[l.i],x=rr.adj*nRd;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${l.p.rid?`${l.i===me?'<b>Toi</b> · ':''}${ridHtml(d,l.i)} <small class="muted">${esc(l.p.a)}</small>`:esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td><span class="pill${rr.tier===1?' ok':''}">${rr.tier}</span></td><td class="${x>=0?'up':'down'}">${sg(x)} <small class="muted">± ${fmt(rr.se*nRd,1)}</small></td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
+const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th title="Palier : deux joueurs du même palier ne sont pas sûrement différents (90 %)">Palier</th><th title="Rounds rapportés (+) ou perdus (−) par les kills, assists et morts du joueur, corrigés du rôle ; ± = marge d'erreur">Impact corrigé</th><th title="Note de performance (1,00 = joueur moyen)">Note</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th title="Premiers kills – premières morts du round">Premiers duels</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>RK.rows[b.i].adj-RK.rows[a.i].adj).map(row).join('')}</tbody></table></div>`;
 const LS=errLessons(deathsOf(d,M,S.F).filter(e=>e.x===me&&!e.won)),DI=deathInsights(d,me),FS=focusState(),ft=FS&&FS.ev.ticks.find(t=>t.id===d.id);
 const GAIN_FR={ouverture:'Premiers kills du round',trade:'Coéquipiers vengés (trades)',clutch:'Clutchs (dernier vivant de ton équipe)',mid:'Kills en milieu de round',post:'Kills après le plant de ton équipe',retake:'Kills pendant une reprise de site'};
 const gRows=Object.entries(GN.cats).filter(([c,o])=>GAIN_FR[c]&&o.g>=.05).sort((x,y)=>y[1].g-x[1].g),BK=GN.kills.filter(k=>k.g>=.1).slice(0,3);
 const gainHtml=`<div class="card mt8"><h3>Ce que tu as rapporté</h3>
     <p class="muted small">On mesure ton impact en « rounds » : un kill fait monter les chances de gagner le round, une mort les fait baisser. +1 round = l'équivalent d'un round gagné en plus pour ton équipe.</p>
-    <div class="kpis mt8"><div class="kpi"><span>Tes kills</span><b style="color:var(--ok)">${sg(GN.up)}</b><small>${rdw(GN.up)} rapportés à ton équipe</small></div><div class="kpi"><span>Tes morts</span><b style="color:var(--bad)">${GN.down<.05?'0':'−'+fmt(GN.down)}</b><small>${rdw(GN.down)} perdus par ton équipe</small></div></div>
+    <div class="kpis mt8"><div class="kpi"><span>Tes kills et assists</span><b style="color:var(--ok)">${sg(GN.up)}</b><small>${rdw(GN.up)} rapportés à ton équipe</small></div><div class="kpi"><span>Tes morts</span><b style="color:var(--bad)">${GN.down<.05?'0':'−'+fmt(GN.down)}</b><small>${rdw(GN.down)} perdus par ton équipe</small></div></div>
     ${gRows.length?`<h4 class="mt8">D'où viennent tes gains</h4>${gRows.map(([c,o])=>drow(`${esc(GAIN_FR[c])}<small class="muted">${o.n} kill${o.n>1?'s':''}</small>`,o.g)).join('')}`:'<p class="muted mt8">Aucun kill décisif cette partie.</p>'}
     ${BK.length?`<p class="small mt8">Tes meilleurs kills (touche un round pour le voir sur la carte) :</p><span class="rds">${BK.map(k=>`<button type="button" class="rd W" data-act="repRound:${k.r}" aria-label="Voir le round ${k.r+1} sur la carte">${k.r+1}<small>${sg(k.g)}</small></button>`).join('')}</span>`:''}</div>`;
 const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'Ta leçon':`Tes ${LS.length} leçons`} : ce qui t'a coûté le plus de rounds`:'Ce qui t\'a coûté des rounds'}</h3>
@@ -2617,10 +2682,28 @@ const rpHtml=hasRp?`<div class="card mt" data-link="rpl"><h3>Replay round par ro
     <div class="rp-roster" id="rpRoster"></div><div class="rp-ev" id="rpEv" aria-label="Événements du round"></div>
     <p class="note">Non fournis par l'API de Riot, donc absents : emplacements des smokes, flashes, reveals (flèches, caméras, pièges), réanimations et trajets réels entre deux relevés.</p></div>`
 :`<div class="card mt"><h3>Replay round par round</h3><p class="muted small">${mapOk(d.map)?'Le détail de cette partie est une ancienne version, sans les positions de tous les joueurs : rouvre le rapport dans un instant (il se recharge tout seul quand le service répond).':'Carte non prise en charge pour le replay.'}</p></div>`;
+const who=i=>d.pl[i].rid?ridHtml(d,i):esc(d.pl[i].a),sgr=(x,n=1)=>sg(x,n);
+const whyHtml=`<div class="card mt"><h3>Pourquoi ce classement</h3>
+    <p class="muted small">Impact = chances de gagner le round gagnées ou perdues à chaque kill et mort. Le tueur garde ${Math.round((1-ASSIST_SHARE)*100)} % du crédit d'un kill assisté, les assistants se partagent ${Math.round(ASSIST_SHARE*100)} %. Une mort utile compte 0 pour la victime comme pour le tueur. On retire ensuite le biais moyen du rôle (mesuré sur tes parties détaillées). Deux joueurs du même palier ne sont pas sûrement différents (90 %). Ouvre un joueur pour voir le détail.</p>
+    ${RK.rows.slice().sort((a,b)=>b.adj-a.adj).map(r=>{const p=d.pl[r.i],cats=Object.entries(S.iv.cats[r.i]||{}).filter(([,v])=>Math.abs(v)>=.05).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,5),
+per=(S.iv.per[r.i]||[]).map((v,k)=>[k,v]).filter(x=>Math.abs(x[1])>=.05),top=per.slice().sort((a,b)=>b[1]-a[1]).slice(0,2).filter(x=>x[1]>0),low=per.slice().sort((a,b)=>a[1]-b[1]).slice(0,2).filter(x=>x[1]<0),
+rb=([k])=>`<button type="button" class="rd ${(d.rounds[k].w===1)===(p.t===1)?'W':'L'}" data-act="repRound:${k}" aria-label="Voir le round ${k+1}">${k+1}</button>`;
+return`<details class="why"><summary><span class="pill${r.tier===1?' ok':''}">${r.tier}</span> ${r.i===me?'<b>Toi</b> · ':''}${who(r.i)} <small class="muted">${esc(p.a)} · ${sgr(r.adj*nRd)} ± ${fmt(r.se*nRd,1)}</small></summary>
+        <ul class="small"><li>Impact brut ${sgr(r.m*nRd)}${r.role?`, correction du rôle (${esc(r.role)}) ${sgr(-r.bias*nRd)}`:''} → <b>${sgr(r.adj*nRd)}</b> rounds sur ${nRd}.</li>
+        ${cats.length?`<li>${cats.map(([c,v])=>`${esc(c==='assist'?'Assists':CAT_FR[c]||c)} ${sgr(v)}`).join(' · ')}</li>`:''}
+        ${S.iv.neutral[r.i]?`<li>${S.iv.neutral[r.i]} mort${S.iv.neutral[r.i]>1?'s utiles non comptées':' utile non comptée'}.</li>`:''}
+        ${top.length||low.length?`<li>${top.length?`Meilleurs rounds : <span class="rds">${top.map(rb).join('')}</span> `:''}${low.length?`Pires rounds : <span class="rds">${low.map(rb).join('')}</span>`:''}</li>`:''}</ul></details>`;}).join('')}</div>`;
+const CB=d.kills.length&&(APP.D||[]).length>=8?calibLazy():null,RBs=Object.entries(FD.bias).filter(([,b])=>b.n>=5).sort((a,b)=>b[1].mean-a[1].mean);
+const fairHtml=`<div class="card mt"><details><summary><b>Fiabilité du modèle et équité par rôle</b></summary>
+    ${RBs.length?`<p class="muted small mt8">Impact brut moyen par round de chaque rôle, sur tes ${(APP.D||[]).length} parties détaillées. Un rôle dont la moyenne s'écarte sûrement de 0 est corrigé dans le classement (sinon il serait avantagé ou pénalisé par son seul rôle).</p>
+    <div class="tbl"><table class="small"><thead><tr><th>Rôle</th><th>Mesures</th><th>Impact / partie de 24 rounds</th><th>Biais</th></tr></thead><tbody>${RBs.map(([ro,b])=>`<tr><td>${esc(ro)}</td><td>${b.n}</td><td>${sgr(b.mean*24)} <small class="muted">± ${fmt(b.se*24,1)}</small></td><td>${b.n<BIAS_MIN?'trop peu de mesures':b.sig?'corrigé':'pas d\'écart sûr'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small mt8">Pas assez de parties détaillées pour mesurer le biais des rôles.</p>'}
+    ${CB?`<p class="small mt8"><b>Calibration (testée hors échantillon, ${CB.n} parties, ${CB.points} situations).</b> Écart moyen entre chance annoncée et fréquence observée : <b>${fmt(CB.ece*100,1)} points</b> ${CB.good?'(fiable)':'(à prendre avec prudence : peu de données ou modèle imprécis)'}. Erreur de Brier ${fmt(CB.brier,3)} (un modèle sans information : ${fmt(CB.brierBase,3)}).</p>
+    <div class="tbl"><table class="small"><thead><tr><th>Chance annoncée</th><th>Situations</th><th>Moyenne annoncée</th><th>Gagné en vrai</th></tr></thead><tbody>${CB.bins.filter(b=>b.n>=20).map(b=>`<tr><td>${Math.round(b.lo*100)}–${Math.round(b.hi*100)} %</td><td>${b.n}</td><td>${fmt(b.pred*100,0)} %</td><td>${fmt(b.obs*100,0)} %</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small mt8">Calibration : il faut au moins 8 parties détaillées.</p>'}
+    <p class="note">Les situations d'un même round sont liées : la marge réelle est plus large que le nombre de situations ne le laisse croire.</p></details></div>`;
 const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
 dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
       <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
-      <p>${S.place===1?'<span class="pill ok">MVP de la partie</span> ':S.teamTop?'<span class="pill ok">Meilleur de ton équipe</span> ':''}${S.place}<sup>e</sup> sur ${d.pl.length} au score</p></div></div>
+      <p>${mvpMe?'<span class="pill ok">MVP de la partie</span> ':teamMe?'<span class="pill ok">Meilleur de ton équipe</span> ':rme.tier===1?'<span class="pill">Au sommet, à égalité</span> ':''}<b>${rme.tier}<sup>${rme.tier===1?'er':'e'}</sup> palier</b> sur ${RK.nT} <small class="muted">(impact corrigé du rôle ; ${S.place}<sup>${S.place===1?'er':'e'}</sup> au score)</small></p></div></div>
     ${verdictHtml(v,'Ton bilan sur la partie')}${gainHtml}${lesHtml}${ctxHtml}
     ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b><small>kills / morts / assists</small></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b><small>score de combat par round</small></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b><small>rounds où tu as été utile</small></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>premiers kills – premières morts</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b><small>de tes tirs</small></div></div>`:''}
     <div class="grid g2 mt">
@@ -2630,6 +2713,7 @@ dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class
     </div>
     ${rpHtml}
     <h3 class="mt">Ton équipe</h3>${tb(myT)}<h3>Adversaires</h3>${tb(1-myT)}
+    ${whyHtml}${fairHtml}
     <p class="note">${d.pl.some(p=>p.rid)?'Riot ID tels que donnés par les données de la partie, gardés seulement dans ce navigateur ; touche un Riot ID pour ouvrir son profil.':'Joueurs anonymes (détail ancien).'} Impact = rounds rapportés (+) ou perdus (−) par les kills et les morts de chaque joueur. Note = performance de la partie (1,00 = moyen).</p>
     <details class="card mt"><summary><b>Pour aller plus loin</b> <span class="muted small">(détail par phase, rounds jetés, calcul)</span></summary>
       <div class="grid g2 mt8"><div><h3>Ton impact par phase</h3><p class="muted small">Ce que tes kills ont rapporté moins ce que tes morts ont coûté, selon le moment du round.</p>${mine.map(dbar).join('')||empty('Peu d\'actions décisives.')}</div><div><h3>D'où viennent les rounds (équipe)</h3><p class="muted small">Pour toute ton équipe : à quels moments du round les chances de gagner ont monté (+) ou baissé (−).</p>${cats.map(dbar).join('')||empty('Rien de marquant.')}</div></div>
