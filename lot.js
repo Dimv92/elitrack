@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0432. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0457. */
 "use strict";
 const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
 const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
@@ -289,7 +289,7 @@ const rxList=()=>{const a=ST.get('rx',[]);return Array.isArray(a)?a.filter(x=>x&
 const evDate=ts=>{const d=new Date(ts-6*36e5);return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);};
 function trCtx(){
 const P=APP.prof,D=APP.D||[],lv=trLevel(P.mmr.tier),L=TR_LEVELS[lv],V=D.length>=3?coachData():null;
-const items=V?(V.rk?V.C.items:coachPub(coachStats())):[],next=V&&V.rk?V.C.next||[]:[];
+const items=V?(V.rk?V.PL:coachPub(coachStats())):[],next=V&&V.rk?V.C.next||[]:[];
 const keys=[...items.filter(x=>x.lvl>=2).map(x=>x.k),...next.filter(x=>x.below&&x.sure).map(x=>'up_'+x.k)],focus=trFocus(keys);
 return{P,D,lv,L,items,next,up:V&&V.rk?V.C.up:0,keys,focus,role:ROLE_OF[mainAgent(P.rows)]||'',tool:ST.get('trTool','range'),min:ST.get('trMin',20),ctx:ST.get('trCtx','echauffement')};
 }
