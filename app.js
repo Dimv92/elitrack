@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261012-1337. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0423. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -640,22 +640,22 @@ const next=up?RANK_METS.map(([k,t,dir=1])=>{const x=cmp(k);return x.me==null||x.
 return{n,rpg,rk,up,tot:cmp('imp'),cats,items,strong,next};
 }
 const RANK_METS=[['hsP','Balles dans la tête'],['trP','Tes morts vengées en 3 s'],['trk','Rounds où tu venges un coéquipier'],['cast','Capacités utilisées par round'],
-['e_seul','Morts sans allié à moins de 15 m (pour 100 rounds)',-1]];
+['e_seul','Morts loin de tes coéquipiers (aucun à moins de 15 m), pour 100 rounds',-1]];
 const ERR_ISO=15,ERR_TRADE=3000;
 const ERR_DEF={
-ouvSeul:{t:'Premier mort du round, loin de tes alliés',fix:'N\'entre pas seul : avance avec un coéquipier à 1-2 s derrière toi, ou après une capacité (flash, info).',
+ouvSeul:{t:'Première mort du round, loin de tes coéquipiers',fix:'N\'entre pas seul : avance avec un coéquipier juste derrière toi (1 à 2 secondes), ou après une capacité (flash, info).',
 fixD:'Seul sur ton angle, tu meurs en premier : change de position d\'un round à l\'autre et recule après ton premier tir au lieu de rester.'},
-ouv:{t:'Premier mort du round, sans être vengé',fix:'Le premier duel ne se prend pas « à sec » : attends une info ou une capacité, et vérifie qu\'un allié peut reprendre ton duel.'},
-post:{t:'Mort après votre plant alors que vous étiez à égalité ou en avance',fix:'Après le plant, c\'est à eux de venir : joue loin du spike, à couvert, et laisse tourner le temps.'},
-avant:{t:'Mort alors que ton équipe avait l\'avantage',fix:'En avance (4 contre 3, 3 contre 2…), ne cherche pas le duel : regroupez-vous et laissez l\'ennemi venir.'},
-notr:{t:'Mort non vengée',fix:'Reste à portée de reprise : un allié doit pouvoir voir ton tueur dans les 3 s. Annonce ta position avant de sortir.'}
+ouv:{t:'Première mort du round, non vengée',fix:'Ne prends pas le premier duel sans info ni capacité, et vérifie qu\'un coéquipier peut te venger.'},
+post:{t:'Mort après le plant du spike, alors que vous n\'étiez pas en infériorité',fix:'Après le plant, c\'est à eux de venir : reste loin du spike, à couvert, et laisse le temps passer.'},
+avant:{t:'Mort alors que ton équipe était plus nombreuse',fix:'Quand vous êtes plus nombreux (4 contre 3, 3 contre 2…), ne cherche pas le duel : restez groupés et laissez-les venir.'},
+notr:{t:'Mort non vengée',fix:'Reste assez près d\'un coéquipier pour qu\'il puisse te venger (il doit voir ton tueur dans les 3 secondes). Dis où tu vas avant de sortir.'}
 };
 const ERR_KEYS=Object.keys(ERR_DEF);
 ERR_KEYS.forEach(k=>{MET['e_'+k]=['e_'+k,'rE',100];});
 const ERR_CAUSE={
-xf:{t:'Pris entre deux ennemis',d:'un 2e ennemi te visait déjà',fix:'Avant de sortir, coupe un des deux angles (smoke, flash, mur) ou prends-les un par un : un « jiggle peek » pour voir combien ils sont, puis duel sur un seul.'},
-seul:{t:'Mort sans allié à moins de 15 m',d:'aucun allié à moins de 15 m',fix:'Joue à 5-10 m d\'un coéquipier : à plus de 25 m, à peine 3 % des morts sont vengées.'},
-nocov:{t:'Allié proche, mais personne ne visait ton tueur',d:'ton allié était proche mais regardait ailleurs',fix:'Avant de sortir, dis « je peek, couvre-moi » : ton allié vise l\'angle d\'où on peut te tuer. Couvert, ta mort est vengée 6 fois plus souvent.'}
+xf:{t:'Pris entre deux ennemis',d:'un deuxième ennemi te visait déjà',fix:'Avant de sortir, bloque un des deux angles (smoke, flash, mur) pour n\'affronter qu\'un ennemi à la fois. Un « jiggle peek » (sortir une demi-seconde puis rentrer) permet de compter les ennemis.'},
+seul:{t:'Mort loin de tes coéquipiers (aucun à moins de 15 m)',d:'aucun coéquipier n\'était à moins de 15 m',fix:'Reste à 5-10 m d\'un coéquipier. Au-delà de 25 m, à peine 3 % des morts sont vengées.'},
+nocov:{t:'Coéquipier proche, mais qui ne visait pas ton tueur',d:'un coéquipier était proche mais regardait ailleurs',fix:'Avant de sortir, dis « je peek, couvre-moi » : ton coéquipier surveille l\'angle d\'où on peut te tuer. Quand quelqu\'un te couvre, ta mort est vengée 6 fois plus souvent.'}
 };
 const CAUSE_KEYS=Object.keys(ERR_CAUSE);
 const causeOf=k=>!k||k.length<13?null:k[10]>=1?'xf':k[12]<0||k[12]>ERR_ISO?'seul':k[11]===0?'nocov':null;
@@ -1366,7 +1366,7 @@ const BG_FR={auto:'Auto',art:'Art de l\'agent',portrait:'Portrait de l\'agent',s
 const BLOCK_FR={kpis:'Chiffres clés',session:'Session du soir',objectif:'Objectif de rang',forme:'Forme récente',rr:'Courbe de RR',agents:'Meilleurs agents',cartes:'Meilleures cartes',records:'Records',dernier:'Dernière partie',defis:'Défis de la semaine',succes:'Succès'};
 const ABIL_FR={'Nova Pulse':'Impulsion nova','Gravity Well':'Puits de gravité','Flashpoint':'Point d\'ignition','Fault Line':'Ligne de fracture','Aftershock':'Réplique','Rolling Thunder':'Onde sismique','Stim Beacon':'Balise stimulante','Incendiary':'Bombe incendiaire','Sky Smoke':'Frappe fumigène','Orbital Strike':'Rayon orbital','Rendezvous':'Rendez-vous','Trademark':'Guet-apens','Headhunter':'Chasseur de têtes','Tour De Force':'Tour de force','Pick-me-up':'Coup de boost','Not Dead Yet':'Toujours debout','Meddle':'Trouble-fête','Cyber Cage':'Cybercage','Spycam':'Caméra espionne','Trapwire':'Fil de détente','Neural Theft':'Vol neural','Sonic Sensor':'Radar ultrason','Barrier Mesh':'Disque barrière','Seize':'Capture','Haunt':'Hanteur','Prowler':'Rôdeur','Nightfall':'Nuit tombante','Wingman':'Altego','Dizzy':'Verti','Mosh Pit':'Pogo','Thrash':'Mordicus','High Tide':'Marée haute','Storm Surge':'Tempête déferlante','Cove':'Dôme aqueux','Reckoning':'Raz-de-marée','Undercut':'Sape','Kill Contract':'Duel à huis clos','Double Tap':'Tir couplé','Contingency':'Contingence','Updraft':'Courant ascendant','Tailwind':'Vent arrière','Cloudburst':'Averse','Blade Storm':'Tempête de lames','FLASH/drive':'MÉMOIRE/flash','ZERO/point':'POINT/zéro','NULL/cmd':'CMD/null','Nanoswarm':'Essaim de nanites','ALARMBOT':'Bot-alarme','TURRET':'Tourelle','Lockdown':'Confinement','M-pulse':'M-pulsion','Waveform':'Forme d\'onde','Harmonize':'Harmonisation','Bassquake':'Basse sismique','High Gear':'Vitesse supérieure','Relay Bolt':'Éclair relais','Fast Lane':'Voie rapide','Overdrive':'Ultra-vitesse','Paranoia':'Paranoïa','Dark Cover':'Voile sombre','Shrouded Step':'Voie des ombres','From the Shadows':'Depuis les ombres','Blaze':'Brasier','Hot Hands':'Mains brûlantes','Curveball':'Balle courbe','Run it Back':'Revanche','Blast Pack':'Pack explosif','Paint Shells':'Grenade gigogne','Boom Bot':'Boum Bot','Showstopper':'Bouquet final','Devour':'Dévoration','Dismiss':'Rebuffade','Leer':'Œillade','Empress':'Impératrice','Slow Orb':'Orbe de lenteur','Healing Orb':'Orbe de soin','Barrier Orb':'Orbe barrière','Resurrection':'Résurrection','Trailblazer':'Éclaireur','Guiding Light':'Guide éclatant','Regrowth':'Revitalisation','Seekers':'Traqueurs','Shock Bolt':'Électroflèche','Recon Bolt':'Flèche de reconnaissance','Owl Drone':'Drone rapace','Hunter\'s Fury':'Fureur du chasseur','Guided Salvo':'Salve autoguidée','Special Delivery':'Livraison spéciale','Armageddon':'Apocalypse','Stealth Drone':'Drone furtif','Interceptor':'Intercepteur','Crosscut':'Vortex','Evolution':'Évolution','Chokehold':'Étranglement','Poison Cloud':'Nuage de poison','Toxic Screen':'Écran toxique','Snake Bite':'Morsure du serpent','Viper\'s Pit':'Nid de vipères','Shear':'Cisaille','Arc Rose':'Rose métallique','Razorvine':'Ronces barbelées','Steel Garden':'Jardin d\'acier','Refract':'Réfraction','Saturate':'Saturation','Lightspeed':'Vitesse lumière','Convergent Paths':'Croisée des chemins','FAKEOUT':'Feinte','BLINDSIDE':'Angle mort','GATECRASH':'Visite surprise','DIMENSIONAL DRIFT':'Transfert dimensionnel'};
 const wpnFr=w=>!w?'':w==='Melee'?'Couteau':ABIL_FR[w]||ABIL_FR[Object.keys(ABIL_FR).find(k=>k.toLowerCase()===String(w).toLowerCase())]||w;
-const CAT_FR={ouverture:'Duels d\'ouverture',trade:'Trades',mid:'Milieu de round',clutch:'Clutchs',post:'Après ton plant',retake:'Retakes',plant:'Plants',rea:'Réanimations',fin:'Fin de round'};
+const CAT_FR={ouverture:'Premiers duels du round',trade:'Trades (échanges de kills en 3 s)',mid:'Milieu de round',clutch:'Clutchs (dernier vivant)',post:'Après le plant de ton équipe',retake:'Reprise du site (retake)',plant:'Plant du spike',rea:'Réanimations',fin:'Fin de round'};
 const END_FR={elim:'tous éliminés',spike:'spike explosé',defuse:'spike désamorcé',time:'temps écoulé'};
 const BUY_FR={eco:'Éco',force:'Force',full:'Full buy'};
 const DRILL={
@@ -1442,6 +1442,7 @@ const GLOSS=[['ACS','Score de combat moyen par round (kills, dégâts, assists).
 ['K/D','Kills divisés par morts. 1,0 = autant de kills que de morts.'],['KAST','% de rounds où tu as fait un kill, un assist, survécu ou été vengé (3 s). 70 % et plus, c\'est très bien.'],
 ['Rating','Note globale d\'une partie (formule proche de HLTV 2.0). 1,00 = joueur moyen de la partie.'],['Impact','Rounds gagnés ou perdus par tes kills et tes morts, d\'après les chances de gagner le round avant et après chaque action.'],
 ['Ouverture','Le premier kill d\'un round. Le gagner donne environ 70 % de chances de gagner le round.'],['Trade','Venger un coéquipier dans les 3 secondes après sa mort.'],
+['Clutch','Être le dernier vivant de ton équipe face à un ou plusieurs ennemis.'],['Retake','Reprendre un site après que l\'ennemi a posé le spike.'],
 ['Spot','Un endroit précis de la carte (à 4 m près) où tu as pris plusieurs duels.'],['Lissé','Taux corrigé quand il y a peu de données : on le tire vers la moyenne pour éviter les conclusions sur 2 ou 3 duels.'],
 ['Fiabilité','Vert ou rouge seulement quand l\'écart est sûr à 9 chances sur 10 (intervalle de Wilson).'],['eDPI','DPI de la souris × sensibilité du jeu. La plupart des joueurs sont entre 200 et 400.']];
 ;
@@ -1971,12 +1972,12 @@ AFTER.length=0;
 if(f&&!featOn(f,APP.plan,APP.cfg)){el.innerHTML=teaser(f);return;}
 if(['position','strategie','entrainement','meta'].includes(APP.tab)&&typeof tabTrain==='undefined'){el.innerHTML=skel(4);lotLoad().then(()=>renderTab(),e=>{el.innerHTML=stateHtml('!','Onglet indisponible',e.message,['Réessayer','retab'],true);});return;}
 const V={vue:tabVue,parties:tabParties,agents:tabAgents,position:()=>tabPosition(),strategie:()=>tabStrat(),entrainement:()=>tabTrain(),meta:()=>tabMeta(),visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer};
-try{el.innerHTML=(V[APP.tab]||tabVue)();runAfter();}
+try{el.innerHTML=(['visee','coach','position','strategie','entrainement','progression'].includes(APP.tab)?detPick():'')+(V[APP.tab]||tabVue)();runAfter();}
 catch(e){console.error(e);el.innerHTML=`<div class="card">${empty('Affichage impossible : '+e.message)}</div>`;logErr(e);}
 if(['visee','coach','vue','position','strategie','entrainement','progression'].includes(APP.tab))detNeed();
 if(APP.tab==='meta'&&APP.meta===undefined)metaLoad().then(()=>{if(APP.tab==='meta'&&canRerender())renderTab();});
 if(APP.tab==='position'&&(APP.atlas===undefined||!APP.D)){
-const P=APP.prof,tab=APP.tab;Promise.all([atlasLoad(),APP.D?null:detAll(P).then(D=>{if(!APP.D)APP.D=D;})])
+const P=APP.prof,tab=APP.tab;Promise.all([atlasLoad(),APP.D?null:detLoad(P).then(D=>{if(!APP.D)APP.D=D;})])
 .then(()=>{if(APP.prof===P&&APP.tab===tab&&canRerender())renderTab();}).catch(e=>logErr(e));
 }
 }
@@ -2165,25 +2166,32 @@ const canRerender=()=>!(APP.tab==='entrainement'&&typeof RX!=='undefined'&&['wai
 const detFresh=D=>(D||[]).filter(d=>(d.v||0)>=6).length;
 const benchLoad=()=>APP.benchP||(APP.benchP=fetch('bench.json').then(r=>r.ok?r.json():null).then(j=>{APP.bench=j?benchClean(j):null;}).catch(()=>{APP.bench=null;}));
 const modelOf=D=>APP.bench&&APP.bench.M?APP.bench.M:wpFit(D);
+const DET_CHOIX=[10,25,50,100,0];
+const detN=()=>{const v=ST.get('detN',25);return DET_CHOIX.includes(v)?v:25;};
+const detWin=P=>detN()?Math.min(detN(),P.rows.length):P.rows.length;
+async function detLoad(P){const ids=new Set(P.rows.slice(0,detWin(P)).map(r=>r.id));return(await detAll(P)).filter(d=>ids.has(d.id));}
+function detPick(){
+const P=APP.prof;if(P.demo)return'';const n=detN(),have=detFresh(APP.D),w=detWin(P);
+return`<div class="row detpick" role="group" aria-label="Parties analysées"><span class="muted small">Analyse sur</span>${DET_CHOIX.map(v=>`<button class="btn ${v===n?'':'ghost'} sm" data-act="detN:${v}" aria-pressed="${v===n}">${v?`${v} dernières`:`Tout (${P.rows.length})`}</button>`).join('')}
+    <span class="muted small">${have<w?`${have}/${w} prêtes, la suite arrive (1 partie / 2 s)…`:`${nPart(have)} analysée${have>1?'s':''}`}</span></div>`;
+}
 async function detNeed(){
 if(APP.detBusy)return;const P=APP.prof,before=(APP.D||[]).length,bv=detFresh(APP.D);
-await benchLoad();APP.D=await detAll(P);APP.M=modelOf(APP.D);
+await benchLoad();APP.D=await detLoad(P);APP.M=modelOf(APP.D);
 if((APP.D.length!==before||detFresh(APP.D)!==bv)&&APP.prof===P&&canRerender())return renderTab();
-const on=f=>featOn(f,APP.plan,APP.cfg),want=on('position')||on('strategie')?25:on('visee')||on('coach')||on('entrainement')?15:0;
+const on=f=>featOn(f,APP.plan,APP.cfg),want=on('position')||on('strategie')||on('visee')||on('coach')||on('entrainement')?detWin(P):0;
 if(!want||P.demo||!apiReady()||detFresh(APP.D)>=Math.min(want,P.rows.length)||APP.detTried===P.rid)return;
 APP.detBusy=true;APP.detTried=P.rid;
 const n=await detFill(P,want,async(i,t)=>{const s=$('#detProg');if(s)s.textContent=`Analyse des parties : ${i}/${t}…`;statut(`Analyse de tes parties en arrière-plan : ${i}/${t}`);
-if((i===3||i===10)&&i<t&&APP.prof===P){APP.D=await detAll(P);APP.M=modelOf(APP.D);if(s&&canRerender())renderTab();}});
+if((i===3||i%20===10)&&i<t&&APP.prof===P){APP.D=await detLoad(P);APP.M=modelOf(APP.D);if(canRerender())renderTab();}});
 APP.detBusy=false;statut('');
-if(n){APP.D=await detAll(P);APP.M=modelOf(APP.D);if(APP.prof===P&&canRerender())renderTab();}
+if(n||detWin(P)!==want){APP.D=await detLoad(P);
+APP.M=modelOf(APP.D);if(APP.prof===P&&canRerender())renderTab();}
 }
-async function detMore(){
+function detMore(){
 const P=APP.prof;if(APP.detBusy||P.demo||!apiReady())return;
-if(P.rows.length<=detFresh(APP.D))return toast(featOn('historique',APP.plan,APP.cfg)?'Toutes tes parties chargées sont déjà analysées : charge plus de parties dans l\'onglet Parties.':'Toutes tes parties chargées sont déjà analysées.');
-APP.detBusy=true;toast('Analyse lancée : 1 partie toutes les 2 secondes, tu peux continuer à naviguer.');
-const n=await detFill(P,40,(i,t)=>statut(`Analyse de tes parties : ${i}/${t}`));
-APP.detBusy=false;statut('');
-APP.D=await detAll(P);APP.M=modelOf(APP.D);if(APP.prof===P&&canRerender())renderTab();toast(`${nPart(n)} de plus analysée${n>1?'s':''}`);
+const i=DET_CHOIX.indexOf(detN());if(!detN()||detWin(P)>=P.rows.length)return toast('Tout ton historique est déjà dans l\'analyse.');
+ACT.detN(DET_CHOIX[i+1]);toast('Analyse lancée : 1 partie toutes les 2 secondes, tu peux continuer à naviguer.');
 }
 const meIdx=d=>d.pl.findIndex(p=>p.n==='moi');
 function detWait(min=3){
@@ -2319,7 +2327,7 @@ return`<div class="card"><div class="card-h"><h2>Focus de la semaine</h2><span c
 function focusChallenge(){const S=focusState();if(!S)return null;const d0=Date.parse(weekStart(today())+'T00:00:00');
 return{t:`Focus : 3 parties meilleures que ta base (${S.f.t.replace(/ \(pour 100 rounds\)$/,'')})`,cur:S.ev.ticks.filter(t=>t.ts>=d0&&t.ok).length,goal:3};}
 function coachItems(){if((APP.D||[]).length<3)return[];const V=coachData();return V.rk?V.C.items:coachPub(coachStats());}
-const metTxt=(k,v,x=0)=>v==null?'—':k.startsWith('e_')?`${fmt(v,1+x)}/100 rounds`:MET[k][2]===100?(x?`${fmt(v,x)} %`:pc0(v)):fmt(v,(k==='cast'?2:0)+x);
+const metTxt=(k,v,x=0)=>v==null?'—':k.startsWith('e_')?`${fmt(v,1+x)} pour 100 rounds`:MET[k][2]===100?(x?`${fmt(v,x)} %`:pc0(v)):fmt(v,(k==='cast'?2:0)+x);
 const metX=(x,refs)=>x.below&&refs.some(v=>v!=null&&metTxt(x.k,v)===metTxt(x.k,x.me))?1:0;
 function tabCoach(){
 const w=detWait();if(w)return w;
@@ -2404,29 +2412,44 @@ const pc=x=>`${Math.round(x*100)} %`,cats=Object.entries(S.cats).filter(([,v])=>
 const mine=Object.entries(S.mine).filter(([,v])=>Math.abs(v)>=.1).sort((a,b)=>b[1]-a[1]),best=mine[0],worst=mine[mine.length-1];
 const ev=e=>e.killer==null?'':`${e.killer===me?`<b>Tu</b> tues ${esc(nm(e.victim))}`:`${esc(nm(e.killer))} te tue`} (${e.st}, ${e.t} s${e.w?', '+esc(wpnFr(e.w)):''})`;
 const low=s=>s.toLowerCase(),imp=S.myImp||0;
+const GN=(()=>{const o={up:0,down:0,cats:{},kills:[]};
+S.F.forEach(f=>f.ev.forEach(e=>{if(e.killer==null||e.victim==null)return;const g=e.ours?e.d:-e.d;
+if(e.killer===me){o.up+=g;if(d.pl[e.victim]&&d.pl[e.victim].t!==d.pl[me].t){const c=o.cats[e.cat]||(o.cats[e.cat]={n:0,g:0});c.n++;c.g+=g;o.kills.push({r:f.i,e,g});}}
+if(e.victim===me)o.down+=g;}));
+o.kills.sort((a,b)=>b.g-a.g);return o;})();
+const rdw=x=>`round${Math.abs(x)>=2?'s':''}`;
 const v={cls:imp>=.3?'ok':imp<=-.3?'bad':'neutral',img:agImg(r.agent,'ag'),
-h:Math.abs(imp)<.05?'Impact neutre sur cette partie':imp>0?`Tu as rapporté ${fmt(imp)} round${imp>=2?'s':''} à ton équipe`:`Tu as coûté ${fmt(-imp)} round${-imp>=2?'s':''} à ton équipe`,
-p:best&&best[1]>0?`Surtout grâce à : ${low(CAT_FR[best[0]])}.${worst&&worst[1]<0?` À travailler : ${low(CAT_FR[worst[0]])}.`:''}`:worst&&worst[1]<0?`Surtout perdu sur : ${low(CAT_FR[worst[0]])}.`:'Peu d\'actions décisives : ni gain ni perte nette.',
-facts:[['Rounds de l\'équipe',`<b class="${S.won-S.exp>=0?'up':'down'}">${sg(S.won-S.exp)}</b>`,`${S.won} gagnés pour ${fmt(S.exp)} attendus d'après les achats des deux équipes`],L&&['Rating',`<b>${fmt(L.rating,2)}</b>`,'HLTV 2.0 approché (1,00 = moyen)']].filter(Boolean)};
-const dbar=([c,x])=>`<div class="drow"><span>${esc(CAT_FR[c])}</span><span class="dbar" aria-hidden="true"><i class="${x>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(x)*20)}%"></i></span><b class="${x>=0?'up':'down'}">${sg(x)}</b></div>`;
+h:Math.abs(imp)<.05?'Bilan neutre sur cette partie':imp>0?`Au final, tu as rapporté ${fmt(imp)} ${rdw(imp)} à ton équipe`:`Au final, tu as coûté ${fmt(-imp)} ${rdw(imp)} à ton équipe`,
+p:GN.up<.05&&GN.down<.05?'Peu d\'actions décisives : ni gain ni perte nette.':`Tes kills ont rapporté ${fmt(GN.up)} ${rdw(GN.up)}, tes morts en ont coûté ${fmt(GN.down)}.${best&&best[1]>0?` Ton point fort : ${low(CAT_FR[best[0]])} — ${sg(best[1])} ${rdw(best[1])}.`:''}${worst&&worst[1]<0?` Ton point faible : ${low(CAT_FR[worst[0]])} — ${sg(worst[1])} ${rdw(worst[1])}.`:''}`,
+facts:[['Rounds gagnés par ton équipe',`<b class="${S.won-S.exp>=0?'up':'down'}">${sg(S.won-S.exp)}</b>`,`Ton équipe a gagné ${S.won} round${S.won>1?'s':''}. D'après les armes achetées par les deux équipes, on en attendait ${fmt(S.exp)} : l'écart est de ${sg(S.won-S.exp)}.`],L&&['Note de performance',`<b>${fmt(L.rating,2)}</b>`,'Style HLTV 2.0 : 1,00 = joueur moyen, plus haut = mieux.']].filter(Boolean)};
+const drow=(lab,x)=>`<div class="drow"><span>${lab}</span><span class="dbar" aria-hidden="true"><i class="${x>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(x)*20)}%"></i></span><b class="${x>=0?'up':'down'}">${sg(x)}</b></div>`;
+const dbar=([c,x])=>drow(esc(CAT_FR[c]),x);
 const strip=S.F.map(f=>{const x=f.r;return`<button type="button" class="rd ${x.w?'W':'L'}${f.thrown||f.stolen?' hot':''}${f.i===12?' half':''}" data-act="repRound:${f.i}" data-r="${f.i}" aria-pressed="false" aria-label="Round ${f.i+1} ${x.w?'gagné':'perdu'}" title="${esc(`Round ${f.i+1} · ${x.w?'gagné':'perdu'} (${END_FR[x.e]}) · chances au départ ${pc(f.p0)} · max ${pc(f.mx)} · min ${pc(f.mn)}\nAchats : vous ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.ol)]} · eux ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.tl)]}${x.p?`\nSpike posé en ${x.p} par ${x.pu===1?'vous':'eux'}`:''}`)}">${f.i+1}<small>${pc(f.p0)}</small></button>`;}).join('');
 const row=l=>{const x=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${x>=0?'up':'down'}">${sg(x)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
-const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th>Impact</th><th>Rating</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th>FK-FD</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>(S.imp[b.i]||0)-(S.imp[a.i]||0)).map(row).join('')}</tbody></table></div>`;
+const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th title="Rounds rapportés (+) ou perdus (−) par les kills et les morts du joueur">Impact</th><th>Rating</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th title="Premiers kills – premières morts du round">FK-FD</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>(S.imp[b.i]||0)-(S.imp[a.i]||0)).map(row).join('')}</tbody></table></div>`;
 const LS=errLessons(deathsOf(d,M,S.F).filter(e=>e.x===me)),FS=focusState(),ft=FS&&FS.ev.ticks.find(t=>t.id===d.id);
-const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'La leçon':`Les ${LS.length} leçons`} de cette partie`:'Leçons de cette partie'}</h3>
-    ${LS.length?`<ol class="plan">${LS.map(l=>`<li><b>${esc(ERR_DEF[l.tag].t)}</b> : ${l.n} fois, <b class="down">−${fmt(l.cost,1)} round${l.cost>=2?'s':''}</b>
+const GAIN_FR={ouverture:'Premiers kills du round',trade:'Coéquipiers vengés (trades)',clutch:'Clutchs (dernier vivant de ton équipe)',mid:'Kills en milieu de round',post:'Kills après le plant de ton équipe',retake:'Kills pendant une reprise de site'};
+const gRows=Object.entries(GN.cats).filter(([c,o])=>GAIN_FR[c]&&o.g>=.05).sort((x,y)=>y[1].g-x[1].g),BK=GN.kills.filter(k=>k.g>=.1).slice(0,3);
+const gainHtml=`<div class="card mt8"><h3>Ce que tu as rapporté</h3>
+    <p class="muted small">Chaque kill augmente les chances de gagner le round, chaque mort les diminue. On additionne tout en « rounds ». Exemple : un kill qui fait passer les chances de ton équipe de 40 % à 70 % rapporte +0,3 round.</p>
+    <div class="kpis mt8"><div class="kpi"><span>Tes kills</span><b style="color:var(--ok)">${sg(GN.up)}</b><small>${rdw(GN.up)} rapportés</small></div><div class="kpi"><span>Tes morts</span><b style="color:var(--bad)">${GN.down<.05?'0':'−'+fmt(GN.down)}</b><small>${rdw(GN.down)} perdus</small></div><div class="kpi"><span>Bilan</span><b style="color:var(${imp>=0?'--ok':'--bad'})">${sg(imp)}</b><small>${rdw(imp)}</small></div></div>
+    ${gRows.length?`<h4 class="mt8">D'où viennent tes gains</h4>${gRows.map(([c,o])=>drow(`${esc(GAIN_FR[c])}<small class="muted">${o.n} kill${o.n>1?'s':''}</small>`,o.g)).join('')}`:'<p class="muted mt8">Aucun kill décisif cette partie.</p>'}
+    ${BK.length?`<p class="small mt8">Tes meilleurs kills (touche un round pour le voir sur la carte) :</p><span class="rds">${BK.map(k=>`<button type="button" class="rd W" data-act="repRound:${k.r}" aria-label="Voir le round ${k.r+1} sur la carte">${k.r+1}<small>${sg(k.g)}</small></button>`).join('')}</span>`:''}</div>`;
+const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'Ta leçon':`Tes ${LS.length} leçons`} : ce qui t'a coûté le plus de rounds`:'Ce qui t\'a coûté des rounds'}</h3>
+    <p class="muted small">Tes morts les plus coûteuses, regroupées par type. Mourir n'est pas une erreur en soi : une mort vengée dans les 3 secondes n'est jamais comptée. Touche un numéro de round pour voir le duel sur la carte.</p>
+    ${LS.length?`<ol class="plan">${LS.map(l=>`<li><b>${esc(ERR_DEF[l.tag].t)}</b><br><span class="small">${l.n} fois · coût : <b class="down">−${fmt(l.cost,1)} ${rdw(l.cost)}</b></span>
       <span class="rds">${l.rounds.map(r=>`<button type="button" class="rd L" data-act="repRound:${r}" aria-label="Voir le round ${r+1} sur la carte">${r+1}</button>`).join('')}</span>
-      ${l.cause&&l.causeN?`<p class="small">Pourquoi : ${l.causeN===l.n?'':`${l.causeN} fois sur ${l.n}, `}${esc(ERR_CAUSE[l.cause].d)}.</p>`:''}
-      <p class="fix small">→ ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées ou sans conséquence.</p>'}
-    ${ft?`<p class="small mt8">Ton focus (<b>${esc(FS.f.t)}</b>) : ${metTxt(FS.f.k,ft.v)} contre ${metTxt(FS.f.k,FS.ev.base)} d'habitude <span class="sem ${ft.ok?'ok':'bad'}">${ft.ok?'✓':'✕'}</span></p>`:''}
-    <p class="note">Règles fixes : une mort vengée en 3 s n'est jamais une erreur ; « loin » = aucun allié à moins de 15 m. Coût = chances de gagner le round perdues à ta mort.</p></div>`;
+      ${l.cause&&l.causeN?`<p class="small">Cause la plus fréquente : ${l.n===1?'dans cette mort':l.causeN===l.n?'dans toutes ces morts':`dans ${l.causeN} de ces ${l.n} morts`}, ${esc(ERR_CAUSE[l.cause].d)}.</p>`:''}
+      <p class="fix small">À faire : ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées ou sans conséquence.</p>'}
+    ${ft?`<p class="small mt8">Ton objectif de la semaine : <b>${esc(FS.f.t)}</b>. Sur cette partie : ${metTxt(FS.f.k,ft.v)}, contre ${metTxt(FS.f.k,FS.ev.base)} d'habitude chez toi. <span class="sem ${ft.ok?'ok':'bad'}">${ft.ok?'✓ mieux que d\'habitude':'✕ moins bien que d\'habitude'}</span></p>`:''}
+    <p class="note">Comment c'est compté : une mort est une erreur seulement si personne ne la venge dans les 3 secondes et si le round était encore jouable. « Loin » veut dire qu'aucun coéquipier n'est à moins de 15 m. Le coût est le nombre de chances de gagner le round que ton équipe perd à ta mort.</p></div>`;
 const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
 dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
       <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
       <p>${S.place===1?'<span class="pill ok">MVP de la partie</span> ':S.teamTop?'<span class="pill ok">Meilleur de ton équipe</span> ':''}${S.place}<sup>e</sup> sur ${d.pl.length} au score</p></div></div>
-    ${verdictHtml(v,'Ton impact sur la partie')}${lesHtml}
+    ${verdictHtml(v,'Ton bilan sur la partie')}${gainHtml}${lesHtml}
     ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>gagnés-perdus</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b></div></div>`:''}
-    <div class="grid g2 mt"><div><h3>Ton impact par phase</h3>${mine.map(dbar).join('')||empty('Peu d\'actions décisives.')}</div><div><h3>D'où viennent les rounds (équipe)</h3>${cats.map(dbar).join('')||empty('Rien de marquant.')}</div></div>
+    <div class="grid g2 mt"><div><h3>Ton impact par phase</h3><p class="muted small">Ce que tes kills ont rapporté moins ce que tes morts ont coûté, selon le moment du round.</p>${mine.map(dbar).join('')||empty('Peu d\'actions décisives.')}</div><div><h3>D'où viennent les rounds (équipe)</h3><p class="muted small">Pour toute ton équipe : à quels moments du round les chances de gagner ont monté (+) ou baissé (−).</p>${cats.map(dbar).join('')||empty('Rien de marquant.')}</div></div>
     <p class="note">Rounds gagnés (+) ou perdus (−) : variation des chances de gagner le round à chaque kill, mort, plant (modèle appris sur ${APP.bench&&APP.bench.M?'les parties collectées':'tes parties'}).</p>
     <div class="grid g2 mt">
       <div><h3>Tes moments clés</h3>${S.key.length?`<ol class="plist">${S.key.map(k=>`<li class="krow" data-act="repRound:${k.r}" tabindex="0"><span class="mk ${k.e.pa>=k.e.pb?'ok':'bad'}" aria-hidden="true"></span><div><b>R${k.r+1}</b> · ${ev(k.e)}<small>chances de ton équipe : ${pc(k.e.pb)} → <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pa)}</b></small></div></li>`).join('')}</ol>`:empty('Pas de moment décisif.')}
@@ -2753,6 +2776,7 @@ dlgClose:()=>$('#dlg').close(),
 side:arg=>{const[k,s]=arg.split(':');if(APP[k]&&(s==='A'||s==='D')){APP[k].side=s;renderTab();}},
 posgo:m=>{if(APP.pos){APP.pos.map=m;renderTab();window.scrollTo({top:$('#tabIn').offsetTop-80,behavior:'smooth'});}},
 detMore:()=>detMore(),
+detN:v=>{v=+v;if(!DET_CHOIX.includes(v)||v===detN())return;ST.set('detN',v);APP.detTried='';APP.D=null;renderTab();},
 brief:()=>lotLoad().then(()=>briefOpen()),
 retab:()=>renderTab(),
 briefCopy:()=>APP.briefTxt&&copyText(APP.briefTxt,'Briefing copié : colle-le sur Discord'),
