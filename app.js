@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0523. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261014-0653. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -346,10 +346,10 @@ if(s&&x.ts-s[s.length-1].ts<=gapH*36e5)s.push(x);else S.push([x]);});
 return S;
 }
 function serieOf(rows){const a=(rows||[]).slice().sort((x,y)=>y.ts-x.ts).filter(x=>x.res!=='D');let n=0;while(n<a.length&&a[n].res===a[0].res)n++;return a.length?{res:a[0].res,n}:null;}
-function v4Detail(md,team,nameOf){
+function v4Detail(md,team,nameOf,withIds){
 const meta=md.metadata||{},players=md.players||[],idx={};
 const pl=players.map((p,i)=>{idx[p.puuid]=i;const st=p.stats||{},ac=p.ability_casts||{};
-return{n:nameOf?nameOf(p)||'':'',a:(p.agent||{}).name||'?',t:p.team_id===team?1:0,sc:st.score||0,k:st.kills||0,d:st.deaths||0,as:st.assists||0,
+return{n:nameOf?nameOf(p)||'':'',...(withIds&&p.name&&p.tag?{rid:`${String(p.name).slice(0,24)}#${String(p.tag).slice(0,8)}`}:{}),a:(p.agent||{}).name||'?',t:p.team_id===team?1:0,sc:st.score||0,k:st.kills||0,d:st.deaths||0,as:st.assists||0,
 hs:st.headshots||0,sh:(st.headshots||0)+(st.bodyshots||0)+(st.legshots||0),lg:st.legshots||0,dmg:(st.damage||{}).dealt||0,rec:(st.damage||{}).received||0,
 c:[ac.grenade||0,ac.ability1||0,ac.ability2||0,ac.ultimate||0],tr:(p.tier||{}).id||0,lv:p.account_level||null};});
 const tOf=id=>idx[id]==null?null:pl[idx[id]].t;
@@ -360,6 +360,7 @@ const vote=(a,b)=>{let s=0;for(let i=a;i<Math.min(b,rounds.length);i++)if(plante
 const v1=vote(0,12)-vote(12,24),s1=v1>=0?'A':'D',s2=s1==='A'?'D':'A';
 const sideOf=i=>planter[i]!=null?(planter[i]===1?'A':'D'):v1===0?'?':i<12?s1:i<24?s2:((i-24)%2===0?s1:s2);
 const size=t=>pl.filter(p=>p.t===t).length||5;
+const snapA=locs=>(locs||[]).filter(x=>x&&x.player&&x.location&&idx[x.player.puuid]!=null).map(x=>[idx[x.player.puuid],Math.round(x.location.x),Math.round(x.location.y),typeof x.view_radians==='number'?Math.round(x.view_radians*180/Math.PI):null]);
 const snap=(locs,extra)=>[...(locs||[]).filter(x=>x&&x.player&&x.location&&idx[x.player.puuid]!=null).map(x=>[idx[x.player.puuid],Math.round(x.location.x),Math.round(x.location.y)]),...(extra||[])];
 const rr=rounds.map((r,i)=>{
 const load=t=>(r.stats||[]).filter(s=>s.player&&tOf(s.player.puuid)===t).reduce((a,s)=>a+((s.economy||{}).loadout_value||0),0);
@@ -369,16 +370,19 @@ const f=ks[0],fs=f?snap(f.player_locations,f.location&&idx[f.victim.puuid]!=null
 const pLoc=r.plant&&r.plant.location?[Math.round(r.plant.location.x),Math.round(r.plant.location.y)]:null;
 const eco=f=>pl.map((p,j)=>{const s=(r.stats||[]).find(x=>x.player&&idx[x.player.puuid]===j),e=s&&s.economy;return e&&typeof e[f]==='number'?Math.round(e[f]/100):-1;});
 return{w,s:sideOf(i),ol:load(1),tl:load(0),p:r.plant?(r.plant.site||'?'):'',pu:planter[i]==null?-1:planter[i],pt:r.plant?r.plant.round_time_in_ms||0:0,df:r.defuse?1:0,e,
-fs,pl:pLoc,ps:r.plant?snap(r.plant.player_locations):[],lo:eco('loadout_value'),rm:eco('remaining')};
+fs,pl:pLoc,ps:r.plant?snap(r.plant.player_locations):[],lo:eco('loadout_value'),rm:eco('remaining'),
+pa:r.plant?snapA(r.plant.player_locations):[],pi:r.plant&&r.plant.player&&idx[r.plant.player.puuid]!=null?idx[r.plant.player.puuid]:-1,
+dt:r.defuse?r.defuse.round_time_in_ms||0:0,dl:r.defuse&&r.defuse.location?[Math.round(r.defuse.location.x),Math.round(r.defuse.location.y)]:null,
+da:r.defuse?snapA(r.defuse.player_locations):[],di:r.defuse&&r.defuse.player&&idx[r.defuse.player.puuid]!=null?idx[r.defuse.player.puuid]:-1};
 });
 const pos=(k,id)=>{const x=(k.player_locations||[]).find(p=>p.player&&p.player.puuid===id);return x&&x.location?x.location:null;};
 const kills=kAll.map(k=>{const ri=rounds.findIndex(r=>r.id===k.round+off),vl=k.location||null,kl=k.killer?pos(k,k.killer.puuid):null;
 return[ri,k.time_in_round_in_ms||0,k.killer&&idx[k.killer.puuid]!=null?idx[k.killer.puuid]:-1,idx[k.victim.puuid]??-1,
 vl?Math.round(vl.x):null,vl?Math.round(vl.y):null,kl?Math.round(kl.x):null,kl?Math.round(kl.y):null,(k.weapon||{}).name||'',(k.assistants||[]).map(a=>idx[a.puuid]).filter(x=>x!=null),
-...sightOf(k,vl,kl,p=>idx[p]==null?null:pl[idx[p]].t)];
+...(()=>{const so=sightOf(k,vl,kl,p=>idx[p]==null?null:pl[idx[p]].t);return so.length?so:[null,null,null];})(),snapA(k.player_locations)];
 }).filter(k=>k[0]>=0&&k[3]>=0);
 const t0=Date.parse(meta.started_at)||0;
-return{id:String(meta.match_id||'').toLowerCase(),v:7,map:(meta.map||{}).name||'?',date:t0?isoLoc(new Date(t0)):'',ts:t0,rounds:rr,kills,pl};
+return{id:String(meta.match_id||'').toLowerCase(),v:8,rg:String(meta.region||'').toLowerCase().slice(0,8),map:(meta.map||{}).name||'?',date:t0?isoLoc(new Date(t0)):'',ts:t0,rounds:rr,kills,pl};
 }
 function detTrim(d,n){
 if(!d||!Array.isArray(d.rounds)||!(n>0)||d.rounds.length<=n||(d.kills||[]).some(k=>k[0]>=n))return d;
@@ -709,7 +713,7 @@ else if(mine>theirs&&mine>=2)tag='avant';
 else if(mine>=2)tag='notr';
 if(!tag)return;
 const k=ks.find(q=>q[3]===x&&q[1]===e.ms)||[];
-out.push({x,r:f.i,s:side,ms:e.ms,k:e.killer,tag,c:causeOf(k),cost,sev:errSev(cost),iso,vx:k[4]??null,vy:k[5]??null});
+out.push({x,r:f.i,s:side,ms:e.ms,k:e.killer,tag,c:causeOf(k),cost,sev:errSev(cost),iso,vx:k[4]??null,vy:k[5]??null,won:(t===1)===!!f.r.w});
 });
 });
 return out;
@@ -719,6 +723,53 @@ const g={};(E||[]).forEach(e=>{const o=g[e.tag]||(g[e.tag]={tag:e.tag,n:0,cost:0
 if(e.c)o.cs[e.c]=(o.cs[e.c]||0)+1;});
 return Object.values(g).filter(o=>o.cost>=.1).sort((a,b)=>b.cost-a.cost).slice(0,3)
 .map(o=>{const c=Object.entries(o.cs).sort((a,b)=>b[1]-a[1])[0];return Object.assign(o,{cause:c?c[0]:null,causeN:c?c[1]:0});});
+}
+const CTX_FAR=30,CTX_KILLER=20;
+const CTX_DEF={delay:{t:'Mort utile : tu as retardé leur retour',d:'le spike était posé, tu étais loin du site et seul, et ton tueur était encore loin du site'},
+space:{t:'Mort utile : tu as occupé un défenseur loin du site',d:'tu étais seul loin du site où ton équipe a ensuite posé le spike, et ton tueur était loin du site'},
+gagne:{t:'Mort dans un round gagné',d:'ton équipe a gagné le round : cette mort ne l\'a pas fait perdre'}};
+function deathInsights(d,x){
+const pl=(d&&d.pl)||[],t=pl[x]?pl[x].t:null,out=[];if(t==null)return out;
+const m=(a,b)=>a&&b?Math.hypot(a[0]-b[0],a[1]-b[1])/100:null;
+((d&&d.kills)||[]).forEach(k=>{
+if(k[3]!==x)return;const rd=d.rounds[k[0]];if(!rd)return;
+const won=(t===1)===!!rd.w,atk=rd.pu===1?1:rd.pu===0?0:null,sp=rd.pl,vl=k[4]!=null?[k[4],k[5]]:null,kl=k[6]!=null?[k[6],k[7]]:null;
+const na=typeof k[12]==='number'?k[12]:null,alone=na!=null&&(na<0||na>ERR_ISO),dS=m(vl,sp),dK=m(kl,sp),planted=rd.pt>0&&atk!=null;
+let ctx=null;
+if(won){
+ctx='gagne';
+if(planted&&atk===t&&alone&&dS!=null&&dS>=CTX_FAR&&dK!=null&&dK>=CTX_KILLER)ctx=k[1]>=rd.pt?'delay':'space';
+}
+out.push({x,r:k[0],ms:k[1],k:k[2],won,ctx,dS,dK,na});
+});
+return out;
+}
+function replayOf(d,ri){
+const rd=d&&d.rounds?d.rounds[ri]:null;if(!rd)return null;
+const ks=(d.kills||[]).filter(k=>k[0]===ri).sort((a,b)=>a[1]-b[1]),F=[],ev=[];
+const mk=(t,arr,extra)=>{const p={};(arr||[]).forEach(a=>{p[a[0]]=[a[1],a[2],a[3]==null?null:a[3]];});return Object.assign({t,p},extra);};
+ks.forEach(k=>{if(!Array.isArray(k[13])||!k[13].length)return;const f=mk(k[1],k[13],{kind:'kill',k});if(k[3]>=0&&k[4]!=null)f.p[k[3]]=[k[4],k[5],null];F.push(f);});
+if(rd.pt>0&&rd.pa&&rd.pa.length)F.push(mk(rd.pt,rd.pa,{kind:'plant'}));
+if(rd.dt>0&&rd.da&&rd.da.length)F.push(mk(rd.dt,rd.da,{kind:'defuse'}));
+F.sort((a,b)=>a.t-b.t);if(!F.length)return null;
+ks.forEach(k=>ev.push({t:k[1],kind:'kill',k}));
+if(rd.pt>0)ev.push({t:rd.pt,kind:'plant',site:rd.p,by:rd.pi,loc:rd.pl});
+if(rd.dt>0)ev.push({t:rd.dt,kind:'defuse',by:rd.di,loc:rd.dl});
+ev.sort((a,b)=>a.t-b.t);
+const t0=F[0].t,t1=Math.max(F[F.length-1].t,...ev.map(e=>e.t));
+const at=T=>{
+const dead={};ks.forEach(k=>{if(k[1]<=T&&k[3]>=0)dead[k[3]]={x:k[4],y:k[5],t:k[1],by:k[2]};});
+const alive={},trail={},ids=new Set();F.forEach(f=>Object.keys(f.p).forEach(j=>ids.add(+j)));
+ids.forEach(j=>{
+if(dead[j])return;let a=null,b=null;F.forEach(f=>{if(!f.p[j])return;if(f.t<=T)a=f;else if(!b)b=f;});
+if(!a)return;const pa=a.p[j];let pos=pa;
+if(b){const r=(T-a.t)/Math.max(1,b.t-a.t),pb=b.p[j];pos=[pa[0]+(pb[0]-pa[0])*r,pa[1]+(pb[1]-pa[1])*r,pa[2]];}
+alive[j]={x:pos[0],y:pos[1],a:pos[2],exact:a.t===T};
+trail[j]=F.filter(f=>f.t<=T&&f.p[j]).map(f=>[f.p[j][0],f.p[j][1]]).concat(b?[[pos[0],pos[1]]]:[]);
+});
+return{alive,dead,trail,kills:ks.filter(k=>k[1]<=T),planted:rd.pt>0&&rd.pt<=T,defused:rd.dt>0&&rd.dt<=T};
+};
+return{t0,t1,frames:F,events:ev,at,plant:rd.pl,site:rd.p,round:rd};
 }
 const errFix=(tag,sides)=>{const D=ERR_DEF[tag];return D.fixD&&sides&&(sides.D||0)>(sides.A||0)?D.fixD:D.fix;};
 function errAgg(D,M,Eof){
@@ -1300,7 +1351,7 @@ ridNorm,b64uEnc,b64uDec,utf8,fromUtf8,LIC_PLANS,licBody,licHead,licParse,licChec
 FEATURES,PREM_DEF,featOn,PUB_DEF,httpsUrl,isGoogle,proxyUrl,pubCfg,smRow,rowsAgg,aggBy,mainAgent,sessionsOf,serieOf,
 v4Detail,detTrim,plLines,BUYK,wpFit,wpProb,flowOf,matchSum,coachPub,
 RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,COACH_RULES,COACH_CATS,coachV2,coachPlan,poisTail,GAIN_MIN,RANK_METS,
-ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
+ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,ERR_ISO,deathInsights,CTX_DEF,CTX_FAR,CTX_KILLER,replayOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
 rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggDetail,aggPublish,META_RK,META_MIN,META_TIERS,metaNew,metaAdd,ftWin,normCdf,metaFit,metaWin,metaTier,metaClean,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
 stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
@@ -1567,6 +1618,8 @@ trap:(x,y)=>`<path d="${poly(x,y,[0,1,2].map(i=>[i*2.094-Math.PI/2,13]))}"/>`,sp
 me:(x,y)=>`<path d="${poly(x,y,star(5,15,6.5))}"/>`};
 (L.utils||[]).filter(m=>m.kind==='smoke').forEach(m=>{const[x,y]=P(m.x,m.y);o.push(`<g class="mv-u smoke" data-k="${m.k}"${tip(m.tip)} stroke-width="${f(2.2*u)}">${UT.smoke(x,y)}</g>`);});
 (L.rings||[]).forEach(r=>{const[x,y]=P(r.x,r.y);o.push(`<circle class="mv-ring" data-k="${r.k}"${tip(r.tip)} cx="${f(x)}" cy="${f(y)}" r="${f((14+26*Math.min(1,r.pres||0))*u)}" stroke-width="${f(2.5*u)}" stroke-dasharray="${f(6*u)} ${f(4*u)}"/>`);});
+(L.paths||[]).forEach(a=>{const pts=(a.pts||[]).map(([x,y])=>P(x,y));if(pts.length<2)return;
+o.push(`<polyline class="mv-path${a.cls?' '+a.cls:''}" data-k="${a.k}" points="${pts.map(q=>f(q[0])+','+f(q[1])).join(' ')}" stroke-width="${f(2.4*u)}" stroke-dasharray="${f(6*u)} ${f(5*u)}" stroke-linejoin="round"/>`);});
 (L.lines||[]).forEach(a=>o.push(arrow(a,' line')));
 (L.arrows||[]).forEach(a=>o.push(arrow(a,a.bad?' bad':'')));
 (L.foes||[]).forEach(t=>{const[x,y]=P(t.x,t.y),s=(8+Math.min(6,(t.size||1)/8))*u;o.push(`<path class="mv-foe${t.low?' low':''}" data-k="${t.k}"${tip(t.tip)} d="M${f(x)},${f(y-s)}L${f(x+s)},${f(y)}L${f(x)},${f(y+s)}L${f(x-s)},${f(y)}Z" stroke-width="${f(2*u)}"/>`);});
@@ -1685,7 +1738,8 @@ r.onsuccess=()=>{const db=r.result,tx=db.transaction('md',mode),q=fn(tx.objectSt
 }
 const mdKey=(prof,id)=>`${prof.demo?'demo':prof.puuid||prof.rid}:${id}`;
 const DET={mem:{},miss:new Set()};
-const DET_V=7;
+const DET_V=8;
+const idsOn=()=>!APP.cfg||APP.cfg.riotIds!==false;
 const detFix=(prof,d)=>{const r=d&&(prof.rows||[]).find(x=>x.id===d.id);return r?detTrim(d,r.us+r.them):d;};
 async function detGet(prof,id,fresh){
 const k=mdKey(prof,id),old=x=>fresh&&(x.v||0)<DET_V;if(DET.mem[k]&&!old(DET.mem[k]))return DET.mem[k];
@@ -1695,7 +1749,7 @@ if(prof.demo)return d?DET.mem[k]=detFix(prof,d):null;
 let md=null;try{md=(await apiGet(`/v4/match/${prof.region}/${encodeURIComponent(id)}`,3,{lic:true,to:25000})).data;}catch(e){if(d)return DET.mem[k]=detFix(prof,d);throw e;}
 if(!md)return d?DET.mem[k]=detFix(prof,d):null;
 const me=(md.players||[]).find(p=>(prof.puuid&&p.puuid===prof.puuid)||ridNorm(`${p.name}#${p.tag}`)===prof.rid);if(!me)return null;
-d=v4Detail(md,me.team_id,p=>p===me?'moi':'');
+d=v4Detail(md,me.team_id,p=>p===me?'moi':'',idsOn());
 try{await idb('readwrite',s=>s.put(d,k));}catch(e){console.warn('Détail non gardé',e);}
 return DET.mem[k]=detFix(prof,d);
 }
@@ -1744,6 +1798,7 @@ mmr:{tier:Math.floor(elo/100)+3,rr:elo%100,last:hist[hist.length-1].ch,elo,need:
 rows.slice(0,45).forEach(r=>{const d=demoDetail(r,rnd,ri,pickW);DET.mem[mdKey(prof,r.id)]=d;});
 return prof;
 }
+const DEMO_IDS=['Démo#FR1','Alba#2201','Corbeau#7788','Nimbus#0042','Kestrel#9910','Zéphyr#3141','Orchidée#5050','Mistral#1212','Quartz#8080','Lynx#6006'];
 function demoDetail(row,rnd,ri,pickW){
 const AGS=['Omen','Sova','Killjoy','Sage','Fade','Raze','Brimstone','Cypher','Skye','Viper','Jett','Reyna','Breach','Clove'];
 const W=[['Vandal',30],['Phantom',26],['Operator',5],['Sheriff',6],['Spectre',8],['Ghost',6],['Classic',5],['Judge',3],['Marshal',2],['Outlaw',2]];
@@ -1751,7 +1806,7 @@ const cos=(window.CALLOUTS||{})[row.map]||[],sites=[...new Set(cos.map(c=>c[0]).
 const dist=(c,s)=>s?Math.hypot(c[2]-s[2],c[3]-s[3]):0,jit=(c,j=320)=>[Math.round(c[2]+(rnd()-.5)*2*j),Math.round(c[3]+(rnd()-.5)*2*j)];
 const ATK=/Main|Lobby|Long/i,atkZ=s=>cos.filter(c=>c[0]===s&&c[1]!=='Site'&&(ATK.test(c[1])||dist(c,sa)<dist(c,sd))),defZ=s=>cos.filter(c=>c[0]===s&&(c[1]==='Site'||(!ATK.test(c[1])&&dist(c,sd)<=dist(c,sa))));
 const fav=sites.length?sites[row.map.length%sites.length]:null;
-const pl=[];for(let i=0;i<10;i++)pl.push({n:i?'':'moi',a:i?AGS[ri(0,AGS.length-1)]:row.agent,t:i<5?1:0,sc:0,k:0,d:0,as:0,hs:0,sh:0,lg:0,dmg:0,rec:0,c:[ri(4,16),ri(6,22),ri(5,18),ri(0,3)],tr:row.tier+ri(-2,2),lv:ri(40,400)});
+const pl=[];for(let i=0;i<10;i++)pl.push({n:i?'':'moi',rid:DEMO_IDS[i],a:i?AGS[ri(0,AGS.length-1)]:row.agent,t:i<5?1:0,sc:0,k:0,d:0,as:0,hs:0,sh:0,lg:0,dmg:0,rec:0,c:[ri(4,16),ri(6,22),ri(5,18),ri(0,3)],tr:row.tier+ri(-2,2),lv:ri(40,400)});
 const nR=row.us+row.them,wins=Array.from({length:nR},(_,i)=>i<row.us?1:0);for(let i=nR-1;i>0;i--){const j=ri(0,i);[wins[i],wins[j]]=[wins[j],wins[i]];}
 const rounds=[],kills=[],first=rnd()<.5?'A':'D',meSkill=row.res==='W'?1.2:.95;
 for(let r=0;r<nR;r++){
@@ -1778,17 +1833,18 @@ alive[vt]=alive[vt].filter(x=>x!==vic);if(vt===loseT)dead++;
 const atkK=(kk<5?1:0)===atkT,fix=atkK?pos[vic]:pos[kk],mov=atkK?pos[kk]:pos[vic],L0=Math.hypot(mov[0]-fix[0],mov[1]-fix[1])||1,dd=Math.min(L0,ri(600,3500));
 const mp=[Math.round(fix[0]+(mov[0]-fix[0])*dd/L0),Math.round(fix[1]+(mov[1]-fix[1])*dd/L0)],[vx,vy]=atkK?fix:mp,[kx,ky]=atkK?mp:fix;
 const wpn=pickW(W),ast=rnd()<.45?alive[1-vt].filter(x=>x!==kk).slice(0,1):[];
-kills.push([r,tm,kk,vic,vx,vy,kx,ky,wpn,ast]);
+const sn=[...alive[vt],...alive[1-vt],vic].filter((x,i,A)=>A.indexOf(x)===i&&x!==vic).map(i=>i===kk?[i,kx,ky,null]:[i,pos[i][0],pos[i][1],null]);
+kills.push([r,tm,kk,vic,vx,vy,kx,ky,wpn,ast,null,null,null,sn]);
 pl[kk].k++;pl[vic].d++;ast.forEach(a=>pl[a].as++);pl[kk].dmg+=ri(140,190);pl[vic].rec+=ri(140,190);
 const shots=ri(3,6),hs=rnd()<(kk===0?.55:.45)?ri(1,2):0;pl[kk].sh+=shots;pl[kk].hs+=hs;pl[kk].lg+=rnd()<.3?1:0;
 tm+=ri(1,9)*1000;
 }
 const e=!alive[loseT].length?'elim':plant&&atkT===winT?'spike':plant?'defuse':'time',siteC=S&&cos.find(c=>c[0]===S&&c[1]==='Site');
 const ps=plant&&siteC?[...alive[atkT].map(i=>[i,...jit(siteC,650)]),...alive[1-atkT].map(i=>[i,pos[i][0],pos[i][1]])]:[];
-rounds.push({w,s,ol:buy(w===1),tl:buy(w!==1),p:plant?S||'A':'',pu:plant?atkT:-1,pt,df:e==='defuse'?1:0,e,fs,pl:plant&&siteC?jit(siteC,250):null,ps});
+rounds.push({w,s,ol:buy(w===1),tl:buy(w!==1),p:plant?S||'A':'',pu:plant?atkT:-1,pt,df:e==='defuse'?1:0,e,fs,pl:plant&&siteC?jit(siteC,250):null,ps,pa:ps,pi:-1,dt:0,dl:null,da:[],di:-1});
 }
 pl.forEach(p=>{p.sc=Math.round(p.k*160+p.as*30+p.dmg/4+ri(400,1200));});
-return{id:row.id,v:6,map:row.map,date:row.date,ts:row.ts,rounds,kills,pl,demo:true};
+return{id:row.id,v:8,rg:'eu',map:row.map,date:row.date,ts:row.ts,rounds,kills,pl,demo:true};
 }
 ;
 "use strict";
@@ -2486,6 +2542,15 @@ return`<div class="card"><h2>Toi contre ${esc(C.name)}</h2>${form}
     <div class="cmpgrid mt">${pair('Victoires %',a.wr,b.wr,0)}${pair('K/D',a.kd,b.kd,2)}${pair('ACS',a.acs,b.acs,0)}${pair('ADR',a.adr,b.adr,0)}${pair('Tête %',a.hsP,b.hsP,1)}${pair('DDΔ',a.dd,b.dd,0)}${pair('Kills / round',a.kpr,b.kpr,2)}</div>
     <p class="note">Sur les 20 dernières parties classées de chacun · ✓ = le meilleur des deux · ta barre est à ta couleur.</p></div>`;
 }
+const RG_OK=/^(eu|na|latam|br|ap|kr)$/;
+function ridHtml(d,i){
+const p=d&&d.pl&&d.pl[i];if(!p||!p.rid)return'';
+const k=p.rid.lastIndexOf('#'),lab=`${esc(p.rid.slice(0,k))}<small>${esc(p.rid.slice(k))}</small>`;
+if(!APP.prof||APP.prof.demo||d.demo)return`<span class="rid">${lab}</span>`;
+const rg=RG_OK.test(d.rg||'')?d.rg:(APP.prof.region||'eu');
+return`<a class="rid" href="#/${rg}/${encodeURIComponent(p.rid)}/vue" title="Ouvrir le profil EliTrack de ${esc(p.rid)}">${lab}</a>`;
+}
+const mmss=ms=>{const s=Math.max(0,Math.round(ms/1000));return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 async function openReport(id){
 const P=APP.prof,r=P.rows.find(x=>x.id===id);if(!r)return;
 if(!(featOn('rapports',APP.plan,APP.cfg)||(featOn('dernier',APP.plan,APP.cfg)&&id===P.rows[0].id)))return premiumOpen('rapports');
@@ -2494,7 +2559,7 @@ let d=null;try{d=await detGet(P,id,true);}catch(e){return dlgOpen(stateHtml('!',
 if(!d)return dlgOpen(stateHtml('!','Rapport indisponible','Le service ne donne pas le détail de cette partie (trop ancienne ou introuvable).',null,true));
 const D=await detAll(P);if(!D.some(x=>x.id===d.id))D.push(d);
 await benchLoad();const M=modelOf(D),me=meIdx(d),S=matchSum(d,M,me),L=S.me;
-const nm=i=>i===me?'Toi':d.pl[i]?`${d.pl[i].a}${d.pl[i].t===d.pl[me].t?' (allié)':' (adverse)'}`:'?';
+const nm=i=>i===me?'Toi':d.pl[i]?(d.pl[i].rid?`${d.pl[i].rid} (${d.pl[i].a})`:`${d.pl[i].a}${d.pl[i].t===d.pl[me].t?' (allié)':' (adverse)'}`):'?';
 const pc=x=>`${Math.round(x*100)} %`,cats=Object.entries(S.cats).filter(([,v])=>Math.abs(v)>=.15).sort((a,b)=>b[1]-a[1]);
 const mine=Object.entries(S.mine).filter(([,v])=>Math.abs(v)>=.1).sort((a,b)=>b[1]-a[1]),best=mine[0],worst=mine[mine.length-1];
 const ev=e=>e.killer==null?'':`${e.killer===me?`<b>Tu</b> tues ${esc(nm(e.victim))}`:`${esc(nm(e.killer))} te tue`}${e.w?` (${esc(wpnFr(e.w))})`:''}, ${e.t} s après le début du round`;
@@ -2515,9 +2580,9 @@ facts:[['Ton impact sur la partie',`<b style="color:var(${imp>=0?'--ok':'--bad'}
 const drow=(lab,x)=>`<div class="drow"><span>${lab}</span><span class="dbar" aria-hidden="true"><i class="${x>=0?'pos':'neg'}" style="width:${Math.min(50,Math.abs(x)*20)}%"></i></span><b class="${x>=0?'up':'down'}">${sg(x)}</b></div>`;
 const dbar=([c,x])=>drow(esc(CAT_FR[c]),x);
 const strip=S.F.map(f=>{const x=f.r;return`<button type="button" class="rd ${x.w?'W':'L'}${f.thrown||f.stolen?' hot':''}${f.i===12?' half':''}" data-act="repRound:${f.i}" data-r="${f.i}" aria-pressed="false" aria-label="Round ${f.i+1} ${x.w?'gagné':'perdu'}" title="${esc(`Round ${f.i+1} · ${x.w?'gagné':'perdu'} (${END_FR[x.e]}) · chances au départ ${pc(f.p0)} · max ${pc(f.mx)} · min ${pc(f.mn)}\nAchats : vous ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.ol)]} · eux ${f.i===0||f.i===12?'pistol':BUY_FR[BUYK(x.tl)]}${x.p?`\nSpike posé en ${x.p} par ${x.pu===1?'vous':'eux'}`:''}`)}">${f.i+1}<small>${pc(f.p0)}</small></button>`;}).join('');
-const row=l=>{const x=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${x>=0?'up':'down'}">${sg(x)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
+const row=l=>{const x=S.imp[l.i]||0;return`<tr class="${l.i===me?'me':''}"><td class="nm">${agImg(l.p.a)}${l.p.rid?`${l.i===me?'<b>Toi</b> · ':''}${ridHtml(d,l.i)} <small class="muted">${esc(l.p.a)}</small>`:esc(nm(l.i))}</td><td>${l.p.tr>2?`<img class="rki" src="${IMG.rank(l.p.tr)}" alt="${esc(tierFr(l.p.tr))}" title="${esc(tierFr(l.p.tr))}">`:'—'}</td><td class="${x>=0?'up':'down'}">${sg(x)}</td><td>${fmt(l.rating,2)}</td><td>${l.p.k}/${l.p.d}/${l.p.as}</td><td>${fmt(l.acs,0)}</td><td>${fmt(l.kast,0)} %</td><td>${l.fk}-${l.fd}</td></tr>`;};
 const tb=t=>`<div class="tbl"><table class="small"><thead><tr><th>Joueur</th><th>Rang</th><th title="Rounds rapportés (+) ou perdus (−) par les kills et les morts du joueur">Impact</th><th title="Note de performance (1,00 = joueur moyen)">Note</th><th>K/D/A</th><th>ACS</th><th>KAST</th><th title="Premiers kills – premières morts du round">Premiers duels</th></tr></thead><tbody>${S.L.filter(l=>l.p.t===t).sort((a,b)=>(S.imp[b.i]||0)-(S.imp[a.i]||0)).map(row).join('')}</tbody></table></div>`;
-const LS=errLessons(deathsOf(d,M,S.F).filter(e=>e.x===me)),FS=focusState(),ft=FS&&FS.ev.ticks.find(t=>t.id===d.id);
+const LS=errLessons(deathsOf(d,M,S.F).filter(e=>e.x===me&&!e.won)),DI=deathInsights(d,me),FS=focusState(),ft=FS&&FS.ev.ticks.find(t=>t.id===d.id);
 const GAIN_FR={ouverture:'Premiers kills du round',trade:'Coéquipiers vengés (trades)',clutch:'Clutchs (dernier vivant de ton équipe)',mid:'Kills en milieu de round',post:'Kills après le plant de ton équipe',retake:'Kills pendant une reprise de site'};
 const gRows=Object.entries(GN.cats).filter(([c,o])=>GAIN_FR[c]&&o.g>=.05).sort((x,y)=>y[1].g-x[1].g),BK=GN.kills.filter(k=>k.g>=.1).slice(0,3);
 const gainHtml=`<div class="card mt8"><h3>Ce que tu as rapporté</h3>
@@ -2526,25 +2591,46 @@ const gainHtml=`<div class="card mt8"><h3>Ce que tu as rapporté</h3>
     ${gRows.length?`<h4 class="mt8">D'où viennent tes gains</h4>${gRows.map(([c,o])=>drow(`${esc(GAIN_FR[c])}<small class="muted">${o.n} kill${o.n>1?'s':''}</small>`,o.g)).join('')}`:'<p class="muted mt8">Aucun kill décisif cette partie.</p>'}
     ${BK.length?`<p class="small mt8">Tes meilleurs kills (touche un round pour le voir sur la carte) :</p><span class="rds">${BK.map(k=>`<button type="button" class="rd W" data-act="repRound:${k.r}" aria-label="Voir le round ${k.r+1} sur la carte">${k.r+1}<small>${sg(k.g)}</small></button>`).join('')}</span>`:''}</div>`;
 const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'Ta leçon':`Tes ${LS.length} leçons`} : ce qui t'a coûté le plus de rounds`:'Ce qui t\'a coûté des rounds'}</h3>
-    <p class="muted small">Tes morts les plus coûteuses, par type. Une mort vengée dans les 3 secondes n'est pas une erreur. Touche un numéro de round pour revoir le duel sur la carte.</p>
+    <p class="muted small">Tes morts les plus coûteuses <b>dans les rounds perdus</b>, par type. Une mort dans un round gagné n'est jamais comptée (voir plus bas), ni une mort vengée dans les 3 secondes. Touche un numéro de round pour revoir le duel sur la carte.</p>
     ${LS.length?`<ol class="plan">${LS.map(l=>`<li><b>${esc(ERR_DEF[l.tag].t)}</b><br><span class="small">${l.n} fois · coût : <b class="down">−${fmt(l.cost,1)} ${rdw(l.cost)}</b></span>
       <span class="rds">${l.rounds.map(r=>`<button type="button" class="rd L" data-act="repRound:${r}" aria-label="Voir le round ${r+1} sur la carte">${r+1}</button>`).join('')}</span>
       ${l.cause&&l.causeN?`<p class="small">Cause la plus fréquente : ${l.n===1?'dans cette mort':l.causeN===l.n?'dans toutes ces morts':`dans ${l.causeN} de ces ${l.n} morts`}, ${esc(ERR_CAUSE[l.cause].d)}.</p>`:''}
-      <p class="fix small">À faire : ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées ou sans conséquence.</p>'}
+      <p class="fix small">À faire : ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées, utiles, ou dans des rounds gagnés.</p>'}
     ${ft?`<p class="small mt8">Ton objectif de la semaine : <b>${esc(FS.f.t)}</b>. Sur cette partie : ${metTxt(FS.f.k,ft.v)}, contre ${metTxt(FS.f.k,FS.ev.base)} d'habitude chez toi. <span class="sem ${ft.ok?'ok':'bad'}">${ft.ok?'✓ mieux que d\'habitude':'✕ moins bien que d\'habitude'}</span></p>`:''}</div>`;
+const DW=DI.filter(e=>e.won),DU=DW.filter(e=>e.ctx!=='gagne'),pls=n=>n>1?'s':'';
+const ctxHtml=DI.length?`<div class="card mt8"><h3>Tes morts dans les rounds gagnés</h3>
+    <p class="muted small">Si ton équipe gagne le round, ta mort ne l'a pas fait perdre : elle n'est pas une erreur. On repère en plus les morts qui ont servi (retarder ou occuper un défenseur loin du site, pendant que ton équipe joue le spike).</p>
+    <p class="small"><b>${DW.length}</b> mort${pls(DW.length)} sur ${DI.length} dans un round gagné${DU.length?`, dont <b>${DU.length}</b> utile${pls(DU.length)}`:''}.</p>
+    ${DU.length?`<ol class="plan">${DU.map(e=>`<li><b>${esc(CTX_DEF[e.ctx].t)}</b> · round ${e.r+1}, ${mmss(e.ms)}<br><span class="small">${esc(CTX_DEF[e.ctx].d)} (toi à ${Math.round(e.dS)} m du spike, ton tueur à ${Math.round(e.dK)} m).</span>
+      <span class="rds"><button type="button" class="rd W" data-act="repRound:${e.r}" aria-label="Voir le round ${e.r+1}">${e.r+1}</button></span></li>`).join('')}</ol>`:''}
+    <p class="note">Repères : « loin » = à plus de ${CTX_FAR} m du spike ; « seul » = aucun allié à moins de ${ERR_ISO} m ; tueur « loin » = à plus de ${CTX_KILLER} m du spike. Ce sont des seuils fixes, pas des preuves.</p></div>`:'';
+const hasRp=d.kills.some(k=>Array.isArray(k[13])&&k[13].length)&&mapOk(d.map);
+const rpFirst=Math.max(0,d.rounds.findIndex((x,i)=>d.kills.some(k=>k[0]===i&&(k[2]===me||k[3]===me)&&Array.isArray(k[13]))));
+const rpHtml=hasRp?`<div class="card mt" data-link="rpl"><h3>Replay round par round <small class="muted" id="rpCnt"></small></h3>
+    <p class="muted small">Les 10 joueurs aux instants où le jeu donne leurs positions : à chaque kill, au plant et au désamorçage. Entre deux relevés, le déplacement est estimé en ligne droite (pointillés) ; avant le premier kill du round, les positions sont inconnues.</p>
+    <div class="rp-ctl"><select data-rpround aria-label="Round du replay">${d.rounds.map((x,i)=>`<option value="${i}"${i===rpFirst?' selected':''}>Round ${i+1} (${x.w?'gagné':'perdu'})</option>`).join('')}</select>
+      <button type="button" class="btn sm" id="rpPlay" data-act="rpPlay">▶ Lecture</button>
+      <select data-rpspd aria-label="Vitesse"><option value="1">×1</option><option value="2">×2</option><option value="4" selected>×4</option><option value="8">×8</option></select>
+      <input type="range" id="rpT" data-rpt min="0" max="1" value="0" aria-label="Moment du round"><span class="rp-clock" id="rpClock">0:00</span></div>
+    ${svgMapHtml('rpMv',d.map,`Replay sur ${d.map}`)}
+    ${legendHtml([['me','Toi (le trait court = ton regard au relevé)'],['neutral','Tes alliés (numéro = ordre dans le tableau)'],['foe','Adversaires'],['bad','Mort (✕)'],['neutral','Trait blanc : ton équipe tue'],['foe','Trait ambre : l\'adversaire tue']])}
+    <div class="rp-roster" id="rpRoster"></div><div class="rp-ev" id="rpEv" aria-label="Événements du round"></div>
+    <p class="note">Non fournis par l'API de Riot, donc absents : emplacements des smokes, flashes, reveals (flèches, caméras, pièges), réanimations et trajets réels entre deux relevés.</p></div>`
+:`<div class="card mt"><h3>Replay round par round</h3><p class="muted small">${mapOk(d.map)?'Le détail de cette partie est une ancienne version, sans les positions de tous les joueurs : rouvre le rapport dans un instant (il se recharge tout seul quand le service répond).':'Carte non prise en charge pour le replay.'}</p></div>`;
 const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
 dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
       <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
       <p>${S.place===1?'<span class="pill ok">MVP de la partie</span> ':S.teamTop?'<span class="pill ok">Meilleur de ton équipe</span> ':''}${S.place}<sup>e</sup> sur ${d.pl.length} au score</p></div></div>
-    ${verdictHtml(v,'Ton bilan sur la partie')}${gainHtml}${lesHtml}
+    ${verdictHtml(v,'Ton bilan sur la partie')}${gainHtml}${lesHtml}${ctxHtml}
     ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b><small>kills / morts / assists</small></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b><small>score de combat par round</small></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b><small>rounds où tu as été utile</small></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>premiers kills – premières morts</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b><small>de tes tirs</small></div></div>`:''}
     <div class="grid g2 mt">
       <div><h3>Tes moments clés</h3>${S.key.length?`<ol class="plist">${S.key.map(k=>`<li class="krow" data-act="repRound:${k.r}" tabindex="0"><span class="mk ${k.e.pa>=k.e.pb?'ok':'bad'}" aria-hidden="true"></span><div><b>Round ${k.r+1}</b> · ${ev(k.e)}<small>${vsTxt(k.e)}chances de gagner le round : ${pc(k.e.pb)} → <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pa)}</b></small></div></li>`).join('')}</ol>`:empty('Pas de moment décisif.')}</div>
       ${hasMap?`<div data-link="rep"><h3>Tes duels sur la carte <small class="muted" id="repCnt"></small></h3><div class="row filt"><select data-repround aria-label="Round affiché"><option value="all">Tous les rounds</option>${d.rounds.map((x,i)=>`<option value="${i}">Round ${i+1} (${x.w?'gagné':'perdu'})</option>`).join('')}</select></div>
         ${svgMapHtml('repMv',d.map,`Tes duels sur ${d.map}`)}${legendHtml([['ok','D\'où tu as tué (trait : vers ta victime)'],['bad','Où tu es mort'],['foe','D\'où on t\'a tué (pointillés : son tir)']])}</div>`:'<div><h3>Tes duels sur la carte</h3>'+empty('Positions indisponibles pour cette partie.')+'</div>'}
     </div>
+    ${rpHtml}
     <h3 class="mt">Ton équipe</h3>${tb(myT)}<h3>Adversaires</h3>${tb(1-myT)}
-    <p class="note">Joueurs anonymes. Impact = rounds rapportés (+) ou perdus (−) par les kills et les morts de chaque joueur. Note = performance de la partie (1,00 = moyen).</p>
+    <p class="note">${d.pl.some(p=>p.rid)?'Riot ID tels que donnés par les données de la partie, gardés seulement dans ce navigateur ; touche un Riot ID pour ouvrir son profil.':'Joueurs anonymes (détail ancien).'} Impact = rounds rapportés (+) ou perdus (−) par les kills et les morts de chaque joueur. Note = performance de la partie (1,00 = moyen).</p>
     <details class="card mt"><summary><b>Pour aller plus loin</b> <span class="muted small">(détail par phase, rounds jetés, calcul)</span></summary>
       <div class="grid g2 mt8"><div><h3>Ton impact par phase</h3><p class="muted small">Ce que tes kills ont rapporté moins ce que tes morts ont coûté, selon le moment du round.</p>${mine.map(dbar).join('')||empty('Peu d\'actions décisives.')}</div><div><h3>D'où viennent les rounds (équipe)</h3><p class="muted small">Pour toute ton équipe : à quels moments du round les chances de gagner ont monté (+) ou baissé (−).</p>${cats.map(dbar).join('')||empty('Rien de marquant.')}</div></div>
       <h3 class="mt">Rounds <small class="muted">(chances de gagner au départ)</small></h3><div class="rds">${strip}</div>
@@ -2561,7 +2647,7 @@ dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class
       <li><b>KAST</b> : % de rounds où tu as fait un kill, une assist, survécu ou été vengé. 70 % et plus, c'est très bien.</li>
       <li><b>ACS</b> : score de combat moyen par round (kills, dégâts, assists).</li>
       <li><b>Note de performance</b> : note globale de la partie. 1,00 = joueur moyen.</li></ul></details>`);
-APP.rep={d,me,nm};setTimeout(()=>drawRep('all'),0);
+APP.rep={d,me,nm};APP.rp=null;setTimeout(()=>{drawRep('all');if(hasRp)rpSet(rpFirst);},0);
 }
 function drawRep(round){
 const R=APP.rep,svg=$('#repMv');if(!R||!svg)return;const{d,me,nm}=R,all=round==='all'||round==null,K=d.kills.filter(k=>all||k[0]===+round);
@@ -2575,8 +2661,48 @@ $$('#dlg .rd').forEach(b=>b.setAttribute('aria-pressed',String(!all&&+b.dataset.
 const s=$('#dlg [data-repround]');if(s)s.value=all?'all':String(round);
 const c=$('#repCnt');if(c)c.textContent=`· ${win.length} kill${win.length>1?'s':''}, ${lose.length} mort${lose.length>1?'s':''}${all?'':` au round ${+round+1}`}`;
 }
+function rpSet(ri){
+const R=APP.rep,box=$('#rpMv');if(!R||!box)return;const Q=replayOf(R.d,ri);APP.rp={ri,R:Q,T:Q?Q.t0:0,play:false,last:0,spd:+(($('[data-rpspd]')||{}).value||4)};
+const ev=$('#rpEv'),sl=$('#rpT'),ro=$('#rpRoster'),c=$('#rpCnt');rpBtn();
+if(!Q){if(ev)ev.innerHTML='<p class="muted small">Pas de positions pour ce round (aucun kill relevé).</p>';if(ro)ro.innerHTML='';if(sl){sl.max=1;sl.value=0;}svgDraw(box,R.d.map,{exact:true});return;}
+const{d,me,nm}=R,myT=d.pl[me].t,who=i=>i==null||i<0?'Le spike':nm(i);
+if(sl){sl.max=Math.max(1,Math.ceil((Q.t1-Q.t0)/100));sl.value=0;}
+if(c)c.textContent=`· round ${ri+1} ${Q.round.w?'gagné':'perdu'} · ${Q.frames.length} relevés`;
+if(ev)ev.innerHTML=Q.events.map((e,i)=>{const k=e.k,mine=k?d.pl[k[2]]&&d.pl[k[2]].t===myT:null;
+const txt=e.kind==='kill'?`${esc(who(k[2]))} tue ${esc(nm(k[3]))}${k[8]?` (${esc(wpnFr(k[8]))})`:''}`:e.kind==='plant'?`${esc(who(e.by))} pose le spike${e.site?' en '+esc(e.site):''}`:`${esc(who(e.by))} désamorce le spike`;
+return`<div class="krow" data-act="rpGo:${e.t}" data-ei="${i}" tabindex="0"><span class="mk ${e.kind==='kill'?(mine?'ok':'bad'):''}" aria-hidden="true"></span><div><b>${mmss(e.t)}</b> · ${txt}</div></div>`;}).join('');
+rpDraw();
+}
+function rpBtn(){const b=$('#rpPlay');if(b)b.textContent=APP.rp&&APP.rp.play?'⏸ Pause':'▶ Lecture';}
+function rpDraw(){
+const Q=APP.rp,R=APP.rep,svg=$('#rpMv');if(!Q||!Q.R||!R||!svg)return;const{d,me,nm}=R,S=Q.R.at(Q.T),myT=d.pl[me].t,no={};
+d.pl.forEach((p,j)=>{if(p.t===myT)no[j]=Object.keys(no).length+1;});
+const L={exact:true,spots:[],foes:[],utils:[],paths:[],lines:[],arrows:[]},rad=Math.PI/180;
+Object.entries(S.alive).forEach(([j,p])=>{j=+j;const ally=d.pl[j].t===myT,k='p'+j,tip=`${nm(j)} · ${d.pl[j].a}${p.exact?'':' · position estimée'}`;
+if(j===me)L.utils.push({k,kind:'me',x:p.x,y:p.y,tip});else if(ally)L.spots.push({k,kind:'neutral',num:no[j],x:p.x,y:p.y,tip});else L.foes.push({k,x:p.x,y:p.y,size:8,tip});
+if(p.exact&&p.a!=null)L.lines.push({k,cls:j===me?'me':ally?'':'foe',show:true,max:16,x1:p.x,y1:p.y,x2:p.x+Math.cos(p.a*rad)*1000,y2:p.y+Math.sin(p.a*rad)*1000});
+const tr=S.trail[j];if(tr&&tr.length>1)L.paths.push({k,pts:tr,cls:j===me?'me':ally?'':'foe'});});
+Object.entries(S.dead).forEach(([j,x])=>{if(x.x!=null)L.spots.push({k:'p'+j,kind:'bad',low:true,x:x.x,y:x.y,tip:`${nm(+j)} · mort à ${mmss(x.t)}`});});
+S.kills.forEach((k,i)=>{if(k[4]!=null&&k[6]!=null)L.arrows.push({k:'kl'+i,show:true,cls:d.pl[k[2]]&&d.pl[k[2]].t===myT?'':'foe',x1:k[6],y1:k[7],x2:k[4],y2:k[5]});});
+if(S.planted&&Q.R.plant)L.utils.push({k:'sp',kind:'spike',x:Q.R.plant[0],y:Q.R.plant[1],tip:`Spike posé${Q.R.site?' en '+Q.R.site:''} à ${mmss(Q.R.round.pt)}`});
+if(S.defused&&Q.R.round.dl)L.utils.push({k:'sd',kind:'info',x:Q.R.round.dl[0],y:Q.R.round.dl[1],tip:`Spike désamorcé à ${mmss(Q.R.round.dt)}`});
+if(svg._m){svg._m.L=L;svgPaint(svg);}else svgDraw(svg,d.map,L);
+const clk=$('#rpClock');if(clk)clk.textContent=`${mmss(Q.T)} / ${mmss(Q.R.t1)}`;
+const sl=$('#rpT');if(sl&&document.activeElement!==sl)sl.value=String(Math.round((Q.T-Q.R.t0)/100));
+const ro=$('#rpRoster');if(ro)ro.innerHTML=d.pl.map((p,j)=>j).sort((a,b)=>(d.pl[b].t===myT)-(d.pl[a].t===myT)||a-b).map(j=>{const p=d.pl[j],dd=S.dead[j],ally=p.t===myT;
+return`<div class="rp-p${dd?' dead':''}" data-k="p${j}">${agImg(p.a)}<span>${ally?`<b>${j===me?'Toi':no[j]}</b> · `:''}${p.rid?ridHtml(d,j):esc(p.a)}</span><small>${dd?'✕ '+mmss(dd.t):S.alive[j]?'en vie':'?'}</small></div>`;}).join('');
+let last=-1;Q.R.events.forEach((e,i)=>{if(e.t<=Q.T)last=i;});$$('#rpEv .krow').forEach(r=>r.classList.toggle('now',+r.dataset.ei===last));
+}
+function rpTick(ts){
+const Q=APP.rp;if(!Q||!Q.play||!$('#rpMv')){if(Q)Q.play=false;return rpBtn();}
+if(Q.last)Q.T=Math.min(Q.R.t1,Q.T+(ts-Q.last)*Q.spd);Q.last=ts;rpDraw();
+if(Q.T>=Q.R.t1){Q.play=false;return rpBtn();}requestAnimationFrame(rpTick);
+}
+ACT.rpPlay=()=>{const Q=APP.rp;if(!Q||!Q.R)return;Q.play=!Q.play;if(Q.play&&Q.T>=Q.R.t1)Q.T=Q.R.t0;Q.last=0;rpBtn();if(Q.play)requestAnimationFrame(rpTick);};
+ACT.rpGo=ms=>{const Q=APP.rp;if(!Q||!Q.R)return;Q.play=false;Q.T=Math.max(Q.R.t0,Math.min(Q.R.t1,+ms));rpBtn();rpDraw();};
+function rpSeek(v){const Q=APP.rp;if(!Q||!Q.R)return;Q.play=false;Q.T=Q.R.t0+v*100;rpBtn();rpDraw();}
 ACT.rapR=a=>{const[id,r]=a.split('|');openReport(id).then(()=>{if(APP.rep&&APP.rep.d.id===id)setTimeout(()=>ACT.repRound(+r),30);});};
-ACT.repRound=i=>{drawRep(i);const m=$('#repMv');if(m){const b=m.getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)m.scrollIntoView({block:'center',behavior:'smooth'});}};
+ACT.repRound=i=>{drawRep(i);if(APP.rp&&i!=='all'&&i!==''){const sel=$('[data-rpround]');if(sel)sel.value=String(i);rpSet(+i);}const m=$('#repMv');if(m){const b=m.getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)m.scrollIntoView({block:'center',behavior:'smooth'});}};
 function premiumOpen(f){
 const C=APP.cfg,why=f&&FEATURES[f]?`<div class="infobox">★ <b>${esc(FEATURES[f].n)}</b> fait partie de Premium.</div>`:'';
 dlgOpen(`<h2>Premium</h2>${why}${pricingHtml().replace('class="pricing mt"','class="pricing"')}${codeHtml()}`);
@@ -2917,8 +3043,11 @@ const p=e.target.closest('[data-pick]');if(p){const k=p.dataset.pick;if(APP[k]){
 const fo=e.target.closest('[data-focus]');if(fo&&fo.value)return ACT.focusSet(fo.value);
 const g=e.target.closest('[data-goal]');if(g&&APP.prof){ST.set('goal:'+APP.prof.rid,+g.value);return renderTab();}
 const r=e.target.closest('[data-repround]');if(r)return drawRep(r.value);
+const rr=e.target.closest('[data-rpround]');if(rr)return rpSet(+rr.value);
+const rs=e.target.closest('[data-rpspd]');if(rs){if(APP.rp)APP.rp.spd=+rs.value;return;}
 if(e.target.id==='impFile'&&e.target.files[0])dataImport(e.target.files[0]);
 });
+document.addEventListener('input',e=>{const t=e.target.closest&&e.target.closest('[data-rpt]');if(t)rpSeek(+t.value);});
 document.addEventListener('keydown',e=>{
 if(e.key==='Escape'&&!$('#perso').hidden)return persoClose();
 const tb=e.target&&e.target.closest&&e.target.closest('[role=tab]');
