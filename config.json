@@ -32,5 +32,6 @@
   "maintenance": false,
   "revoked": [],
   "limite": 20,
-  "maj": "2026-10-12"
+  "maj": "2026-10-12",
+  "dataMode": "personal"
 }
