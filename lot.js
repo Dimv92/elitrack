@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261015-1109. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261016-2145. */
 "use strict";
 const VCOL={ok:['rgba(62,224,168,.32)','#3ee0a8'],warn:['rgba(255,200,87,.26)','#ffc857'],bad:['rgba(255,90,106,.3)','#ff5a6a'],'':['rgba(150,140,160,.18)','#8a8094']};
 const KIND_FR={def:'Tenue par la défense',atk:'Côté attaque',mix:'Disputée'};
@@ -448,8 +448,9 @@ if(S.map!=='*'&&!maps.includes(S.map))S.map='*';
 return{S,maps};
 }
 function tabMeta(){
-if(APP.meta===undefined)return`${skel(1)}${skel(6,'mt')}`;
-if(!APP.meta)return stateHtml('!','Méta indisponible','Le fichier de la méta n\'a pas pu se charger. Vérifie ta connexion puis réessaie.',['Réessayer','metaRetry'],true);
+const fresh=metaFreshness(APP.meta);
+if(APP.meta===undefined)return`<div data-meta-freshness="${esc(fresh.status)}" data-meta-load="loading">${skel(1)}${skel(6,'mt')}</div>`;
+if(!APP.meta)return`<div data-meta-freshness="${esc(fresh.status)}" data-meta-load="unavailable">${stateHtml('!','Méta indisponible','Le fichier de la méta n\'a pas pu se charger. Vérifie ta connexion puis réessaie.',['Réessayer','metaRetry'],true)}</div>`;
 const M=APP.meta,{S,maps}=metaState(),map=S.map==='*'?null:S.map,myRg=rgOf(APP.prof.mmr.tier);
 const rgKey=S.rg&&M.s[S.rg]?S.rg:'',base=M.s[rgKey||'*'],sc=map?M.s[map]:base,G=metaRows(M.s['*']),rows=metaRows(sc);
 const mine=metaMine(map),mineAll=metaMine(null),gOf=Object.fromEntries(G.map(r=>[r.a,r]));
@@ -458,9 +459,9 @@ const shown=rows.filter(r=>!S.role||r.role===S.role);
 const sel=`<div class="row filt"><select data-pick="metaS" aria-label="Carte"><option value="*"${!map?' selected':''}>Toutes les cartes · ${M.s['*'].n.toLocaleString('fr-FR')} p.</option>${maps.map(m=>`<option value="${esc(m)}"${m===map?' selected':''}>${esc(m)} · ${M.s[m].n} p.</option>`).join('')}</select>
     <div class="chips" role="group" aria-label="Niveau des joueurs">${[['','Tous les rangs'],['g1',RG_FR[1]],['g2',RG_FR[2]],['g3',RG_FR[3]]].filter(([k])=>!k||M.s[k]).map(([k,t])=>`<button type="button" class="chip${(S.rg||'')===k?' on':''}" data-act="metaRg:${k||'-'}" aria-pressed="${(S.rg||'')===k}">${esc(t)}${k&&+k[1]===myRg?' <small>(toi)</small>':''}</button>`).join('')}</div>
     <div class="chips" role="group" aria-label="Rôle">${[''].concat(ROLE_ORDER).map(r=>`<button type="button" class="chip${(S.role||'')===r?' on':''}" data-act="metaRole:${r||'-'}" aria-pressed="${(S.role||'')===r}">${r?esc(ROLE_FR[r]||r):'Tous les rôles'}</button>`).join('')}</div></div>`;
-const fresh=metaFreshness(M),patchNote=fresh.ok?`<p class="note">Données certifiées pour le patch <b>${esc(fresh.patch)}</b> · ${esc(M.patchSource)}.</p>`:`<div class="infobox warn"><b>Patch non vérifié.</b> ${esc(fresh.reason)} : cette tier list reste exploratoire et ne doit pas être présentée comme la méta du patch courant.</div>`;
+const patchNote=fresh.ok?`<p class="note" data-meta-freshness="${esc(fresh.status)}" data-meta-load="ready">Données certifiées pour le patch <b>${esc(fresh.patch)}</b> · ${esc(M.patchSource)}.</p>`:`<div class="infobox warn" data-meta-freshness="${esc(fresh.status)}" data-meta-load="ready"><b>Patch non vérifié.</b> ${esc(fresh.reason)} : cette tier list reste exploratoire et ne doit pas être présentée comme la méta du patch courant.</div>`;
 const head=`<div class="card"><div class="card-h"><h2>Méta des agents</h2><span class="muted small">${M.region?esc(M.region.toUpperCase())+' · ':''}parties classées du ${esc(dFr(M.du,{day:'numeric',month:'short'}))} au ${esc(dFr(M.au,{day:'numeric',month:'short'}))}</span></div>${patchNote}${sel}</div>`;
-return`${head}${metaVerdict(rows,map,mine,mineAll,gOf,moved)}
+return`${head}${metaVerdict(rows,map,mine,mineAll,gOf,moved,fresh)}
     <div class="card mt"><div class="card-h"><h3>Tier list${map?` · ${esc(map)}`:''}${rgKey&&!map?` · ${esc(RG_FR[+rgKey[1]])}`:''}</h3><span class="muted small">victoires estimées vs un agent moyen · touche un agent pour le détail</span></div>
       ${map&&rgKey?`<p class="note" style="margin-top:0">Sur une carte précise, le classement utilise tous les rangs (trop peu de parties par carte et par rang). Ton filtre de rang s'applique à la colonne « Ce que prennent les joueurs ».</p>`:''}
       ${map&&!moved.length?`<p class="note" style="margin-top:0">Sur ${esc(map)}, les données ne montrent encore <b>aucun écart sûr</b> avec la méta générale : le classement est presque le même. Ce qui change vraiment d'une carte à l'autre, c'est ce que prennent les joueurs (plus bas).</p>`:''}
@@ -470,14 +471,17 @@ return`${head}${metaVerdict(rows,map,mine,mineAll,gOf,moved)}
     ${map?metaPicks(M,map,S.rg||(myRg?'g'+myRg:'g3'),rows):''}
     ${metaHow(M,G)}`;
 }
-function metaVerdict(rows,map,mine,mineAll,gOf,moved){
+function metaVerdict(rows,map,mine,mineAll,gOf,moved,fresh){
 const top=rows.filter(r=>(r.t==='S'||r.t==='A')&&r.sure!=='flou').slice(0,3),my=Object.values(map?mine:mineAll).sort((a,b)=>b.n-a.n)[0];
 const me=my&&rows.find(r=>r.a===my.key),alt=me&&rows.find(r=>r.role===me.role&&r.a!==me.a&&r.dw-me.dw>=1.5&&r.sure!=='flou');
+const allowRecommendation=!!(fresh&&fresh.status==='verified'&&fresh.ok);
+const observed=me?`Ton agent ${map?'ici':'principal'}, ${me.a}, est classé ${me.t} (${wTxt(me.dw)} de victoires estimées, ${META_SURE[me.sure][0]}).`:'Joue quelques parties pour situer tes agents dans les observations.';
+const prescription=me?(alt?` Dans son rôle, ${alt.a} fait mieux (${wTxt(alt.dw)}) : à tester en 2e agent.`:me.t==='C'||me.t==='D'?' Ton aisance avec lui compte aussi : regarde ton bilan dans le détail avant de changer.':' Bon choix d\'après les données.'):'';
 const v={cls:me?META_COL[me.t]:'',img:me?agImg(me.a,'ag lg'):'',
-h:top.length?`${map?`Sur ${map}`:'Partout'}, ce qui gagne le plus : ${top.map(r=>r.a).join(', ')}`:'Aucun agent ne sort nettement du lot pour l\'instant',
-p:me?`Ton agent ${map?'ici':'principal'}, ${me.a}, est classé ${me.t} (${wTxt(me.dw)} de victoires estimées, ${META_SURE[me.sure][0]}).${alt?` Dans son rôle, ${alt.a} fait mieux (${wTxt(alt.dw)}) : à tester en 2e agent.`:me.t==='C'||me.t==='D'?' Ton aisance avec lui compte aussi : regarde ton bilan dans le détail avant de changer.':' Bon choix d\'après les données.'}`:'Joue quelques parties pour situer tes agents dans la méta.',
+h:top.length?`${map?`Sur ${map}`:'Partout'}, agents aux estimations les plus élevées : ${top.map(r=>r.a).join(', ')}`:'Aucun agent ne sort nettement du lot pour l\'instant',
+p:allowRecommendation?observed+prescription:`${observed} Patch non vérifié : aucune recommandation de changement d'agent n'est formulée à partir de ces données.`,
 facts:[['Parties analysées',`<b>${(map?APP.meta.s[map]:APP.meta.s['*']).n.toLocaleString('fr-FR')}</b>`,'pondérées : récentes d\'abord'],['Écart S ↔ D',`<b>${fmt(rows.length?rows[0].dw-rows[rows.length-1].dw:0,1)} %</b>`,'de victoires, du 1er au dernier'],map?['Propre à la carte',`<b>${moved.length}</b>`,'agent(s) avec un écart sûr']:['Agents sûrs',`<b>${rows.filter(r=>r.sure==='sur').length}</b>`,'au-dessus ou en dessous à 90 %']]};
-return verdictHtml(v,map?`Méta · ${esc(map)}`:'Méta · toutes les cartes');
+return`<div data-meta-recommendation="${allowRecommendation?'allowed':'withheld'}">${verdictHtml(v,map?`Méta · ${esc(map)}`:'Méta · toutes les cartes')}</div>`;
 }
 function metaTiers(rows,mine,map){
 if(!rows.length)return empty('Aucun agent dans ce filtre.');
@@ -487,7 +491,7 @@ return`<button type="button" class="tag-a${m&&m.n>=1?' me':''}${r.low?' low':''}
 function metaRoles(rows,map,mine){
 const L=ROLE_ORDER.map(ro=>{const R=rows.filter(r=>r.role===ro);if(!R.length)return'';const b=R[0],m=Object.values(mine).filter(a=>ROLE_OF[a.key]===ro).sort((x,y)=>y.n-x.n)[0],mr=m&&R.find(r=>r.a===m.key);
 return`<tr><td>${esc(ROLE_FR[ro]||ro)}</td><td><span class="nm">${agImg(b.a)} <b>${esc(b.a)}</b> <small class="muted">${b.t} · ${wTxt(b.dw)}</small></span></td><td>${mr?`<span class="nm">${agImg(mr.a)} ${esc(mr.a)} <small class="muted">${mr.t} · ${m.n} p. à toi</small></span>`:'<span class="muted">—</span>'}</td></tr>`;}).join('');
-return`<div class="card mt"><div class="card-h"><h3>Le meilleur de chaque rôle${map?` sur ${esc(map)}`:''}</h3><span class="muted small">pour choisir selon ce qui manque à ton équipe</span></div>
+return`<div class="card mt"><div class="card-h"><h3>Classement observé par rôle${map?` sur ${esc(map)}`:''}</h3><span class="muted small">comparaison descriptive, pas une consigne de sélection</span></div>
     <div class="tbl"><table class="small"><thead><tr><th>Rôle</th><th>Le mieux classé</th><th>Ton agent${map?' ici':''}</th></tr></thead><tbody>${L}</tbody></table></div></div>`;
 }
 function metaPicks(M,map,g,rows){
@@ -495,7 +499,7 @@ const h=(M.s[map].h||{})[g]||(M.s[map].h||{}).g3;if(!h)return'';
 const gg=(M.s[map].h||{})[g]?g:'g3',T=Object.fromEntries(rows.map(r=>[r.a,r.t])),L=Object.entries(h).sort((a,b)=>b[1]-a[1]).slice(0,10),mx=L.length?L[0][1]:1;
 return`<div class="card mt"><div class="card-h"><h3>Ce que prennent les joueurs ${esc(RG_FR[+gg[1]])} sur ${esc(map)}</h3><span class="muted small">part des équipes · populaire ≠ fort</span></div>
     <ul class="mpicks">${L.map(([a,p])=>`<li>${agImg(a)}<b>${esc(a)}</b><span class="rbar neutral" aria-hidden="true"><i style="width:${Math.round(p/mx*100)}%"></i></span><span>${fmt(p,0)} %</span><small class="muted">${T[a]?'niveau '+T[a]:''}</small></li>`).join('')}</ul>
-    <p class="note">Les joueurs d'un niveau élevé choisissent selon la carte (vision, angles, exécutions) : un agent très pris ici et bien classé est une valeur sûre. Très pris mais mal classé : populaire, sans plus.</p></div>`;
+    <p class="note">Cette section décrit les choix observés et leur classement. Popularité et niveau estimé ne constituent pas, à eux seuls, une recommandation de sélection.</p></div>`;
 }
 function metaHow(M,G){
 const odd=G.filter(r=>r.n>=40&&r.raw!=null&&Math.abs(r.raw*100-50)>=4&&Math.abs(r.dw)<1).sort((a,b)=>Math.abs(b.raw-.5)-Math.abs(a.raw-.5))[0];
@@ -775,306 +779,3 @@ render,
 fromHash(){const h=parse();if(h){if(!S.prof||S.prof.riot!==h.riot)open(h.riot,h.plat,{noPush:true});}else{S.prof=null;render();}}
 });
 })();
-;
-"use strict";
-(function(T){
-const STAGE1_ROUNDS=4,STAGE_ROUNDS=7;
-const RANKED=1100;
-const clean=s=>String(s==null?'':s).replace(/^TFT\d*_/i,'').replace(/^(?:Item|Augment)_/i,'').replace(/^Set\d+_/i,'');
-function stageOf(lr,q){
-if(q!==RANKED||!Number.isFinite(lr)||lr<1)return null;
-if(lr<=STAGE1_ROUNDS)return'1-'+lr;
-const k=lr-STAGE1_ROUNDS-1;
-return(2+Math.floor(k/STAGE_ROUNDS))+'-'+((k%STAGE_ROUNDS)+1);
-}
-const traitsOf=p=>(p.traits||[]).filter(t=>t&&t.tier_current>0&&t.style>0)
-.sort((a,b)=>b.style-a.style||b.num_units-a.num_units||(a.name<b.name?-1:1))
-.map(t=>([clean(t.name),t.num_units|0,t.style|0]));
-function compactMatch(raw,puuid){
-try{
-const info=raw&&raw.info,meta=raw&&raw.metadata;
-if(!info||!Array.isArray(info.participants)||!puuid)return null;
-const me=info.participants.find(x=>x&&x.puuid===puuid);if(!me)return null;
-const tr=traitsOf(me),main=tr[0]?tr[0][0]:'';
-const others=info.participants.filter(x=>x!==me);
-const win=others.find(x=>x.placement===1);
-const units=(me.units||[]).map(u=>([clean(u.character_id||u.name),u.tier|0,(u.itemNames||u.items||[]).map(clean)]))
-.sort((a,b)=>b[2].length-a[2].length||b[1]-a[1]);
-return{
-v:1,id:String((meta&&meta.match_id)||''),t:Math.floor((info.game_datetime||0)/1000),q:info.queue_id|0,set:info.tft_set_number|0,
-p:me.placement|0,lv:me.level|0,lr:me.last_round|0,stg:stageOf(me.last_round,info.queue_id),gl:me.gold_left|0,
-dmg:me.total_damage_to_players|0,el:me.players_eliminated|0,
-aug:(me.augments||[]).map(clean),tr,un:units,
-lob:{w:win?traitsOf(win).slice(0,2).map(x=>x[0]):[],
-ct:main?others.filter(x=>{const t=traitsOf(x)[0];return t&&t[0]===main;}).length:0}
-};
-}catch(e){return null;}
-}
-function toLLM(m){const o=Object.assign({},m);delete o.id;delete o.v;delete o.t;delete o.dmg;delete o.el;return o;}
-const compSig=m=>m.tr.slice(0,2).map(x=>x[0]).join('+')||'sans-trait';
-T.parser={compactMatch,toLLM,compSig,stageOf,clean,RANKED};
-})(window.TFT=window.TFT||{});
-;
-"use strict";
-(function(T){
-const MIN_N=3;
-const r1=x=>Math.round(x*10)/10;
-function bucket(map,k,m){
-const b=map.get(k)||{k,n:0,sum:0,top4:0,win:0};
-b.n++;b.sum+=m.p;if(m.p<=4)b.top4++;if(m.p===1)b.win++;map.set(k,b);
-}
-const fin=(map,min)=>[...map.values()].map(b=>({k:b.k,n:b.n,avg:r1(b.sum/b.n),top4:Math.round(100*b.top4/b.n),win:Math.round(100*b.win/b.n),low:b.n<MIN_N}))
-.filter(b=>b.n>=(min||1)).sort((a,b)=>b.n-a.n||a.avg-b.avg);
-function aggregate(L,o){
-const list=(L||[]).filter(m=>m&&(!o||!o.queue||m.q===o.queue));
-const comps=new Map(),augs=new Map(),carries=new Map(),places=[0,0,0,0,0,0,0,0];
-let sum=0,top4=0,win=0,lv=0,gl=0,lvN=0;
-for(const m of list){
-sum+=m.p;if(m.p<=4)top4++;if(m.p===1)win++;if(m.p>=1&&m.p<=8)places[m.p-1]++;
-bucket(comps,T.parser.compSig(m),m);
-(m.aug||[]).forEach(a=>bucket(augs,a,m));
-const c=(m.un||[]).find(u=>u[2].length>0);if(c)bucket(carries,c[0],m);
-if(m.p>4){lv+=m.lv;gl+=m.gl;lvN++;}
-}
-const n=list.length;
-return{
-n,avg:n?r1(sum/n):null,top4:n?Math.round(100*top4/n):null,win:n?Math.round(100*win/n):null,places,
-comps:fin(comps),augs:fin(augs),carries:fin(carries),
-lostAvg:lvN?{lv:r1(lv/lvN),gl:r1(gl/lvN),n:lvN}:null
-};
-}
-function history(L,m,k){
-return(L||[]).filter(x=>x.t<m.t&&x.q===m.q).sort((a,b)=>b.t-a.t).slice(0,k||8)
-.map(x=>[x.p,T.parser.compSig(x),x.aug]);
-}
-T.stats={aggregate,history,MIN_N};
-})(window.TFT=window.TFT||{});
-;
-"use strict";
-(function(T){
-const SYSTEM=`Tu es un coach Teamfight Tactics (TFT). Tu ne connais QUE le JSON fourni. Réponds en français, en JSON valide uniquement (pas de markdown, pas de texte autour).
-
-ENTRÉE {m, h?}
-m = une partie : p placement 1-8 (≤4 = top 4) · lv niveau final · lr dernier round brut · stg stage-round approximatif (±1) ou null · gl or non dépensé à la fin · aug augments dans l'ordre de l'API (≈ 2-1, 3-2, 4-2) · tr traits actifs [nom, unités, style 1 bronze 2 argent 3 or 4 chromatique] · un plateau final [champion, étoiles, objets] (porteurs d'objets d'abord) · lob {w traits du vainqueur, ct nb de joueurs sur ton trait principal} · q queue (1100 classé) · set.
-h = tes parties précédentes [placement, comp, augments], plus récente d'abord. Peut manquer.
-
-LIMITES (obligatoires)
-- Tu n'as PAS l'or, le niveau, le plateau ni les achats par stage. Interdit d'en inventer. L'économie se juge seulement par gl, lv, lr, stg ; fiabilité "basse" par défaut.
-- Un pivot en cours de partie est invisible. Tu ne peux juger que : cohérence du plateau final (traits actifs, styles, objets sur un porteur clair) et constance des comps/augments dans h. Sans h → pivot.detecte = null.
-- Tu ne connais pas la force des augments ni du patch : juge leur synergie avec la comp finale, pas leur "tier". Pas de méta, pas de patch, pas de noms de joueurs.
-- Donnée absente ou insuffisante → null et une phrase dans "limites". Jamais de certitude sur un seul match.
-- Reste strictement dans TFT.
-
-ANALYSE
-1 augments : synergie avec tr/un, régularité dans h, alternative plausible.
-2 économie/tempo : or gâché (gl élevé à l'élimination = argent mort), niveau trop bas/haut pour lr, mort précoce (stg).
-3 pivot/transition : plateau final éclaté (beaucoup de traits à style 1, aucun ≥3), comp différente à chaque partie de h, lob.ct élevé = comp contestée.
-4 objets : porteur principal avec 3 objets, objets dispersés sur plusieurs unités 1 étoile.
-Priorise 1 à 3 erreurs, impact fort d'abord.
-
-SORTIE (exactement ce schéma ; textes ≤ 220 caractères)
-{"v":1,"verdict":{"grade":"A|B|C|D|F","resume":""},
-"augments":{"note":0-10|null,"analyse":"","alt":[""]},
-"economie":{"note":0-10|null,"analyse":"","fiabilite":"basse|moyenne|haute"},
-"pivot":{"detecte":true|false|null,"analyse":""},
-"composition":{"note":0-10|null,"analyse":"","objets":""},
-"erreurs":[{"sujet":"augment|eco|compo|objets|tempo","detail":"","impact":"faible|moyen|fort"}],
-"plan":["", "", ""],
-"limites":[""]}`;
-function buildDossier(m,hist){
-const body={m:T.parser.toLLM(m)};if(hist&&hist.length)body.h=hist;
-return{system:SYSTEM,user:JSON.stringify(body),text:SYSTEM+'\n\nDONNÉES :\n'+JSON.stringify(body)};
-}
-const num=x=>x===null||(typeof x==='number'&&x>=0&&x<=10);
-const str=(x,n)=>typeof x==='string'&&x.length<=(n||400);
-function validate(txt){
-let o;try{o=JSON.parse(String(txt).trim().replace(/^```(?:json)?\s*|\s*```$/g,''));}catch(e){return{ok:false,err:'JSON illisible'};}
-const bad=k=>({ok:false,err:'Champ invalide : '+k});
-if(!o||o.v!==1)return bad('v');
-if(!o.verdict||!/^[A-F]$/.test(o.verdict.grade)||!str(o.verdict.resume))return bad('verdict');
-for(const k of['augments','economie','composition'])if(!o[k]||!num(o[k].note)||!str(o[k].analyse))return bad(k);
-if(!o.pivot||![true,false,null].includes(o.pivot.detecte)||!str(o.pivot.analyse))return bad('pivot');
-if(!Array.isArray(o.erreurs)||o.erreurs.length>5||!o.erreurs.every(e=>e&&str(e.detail)&&['augment','eco','compo','objets','tempo'].includes(e.sujet)&&['faible','moyen','fort'].includes(e.impact)))return bad('erreurs');
-if(!Array.isArray(o.plan)||o.plan.length>5||!o.plan.every(s=>str(s)))return bad('plan');
-if(!Array.isArray(o.limites)||!o.limites.every(s=>str(s)))return bad('limites');
-return{ok:true,data:o};
-}
-T.coach={SYSTEM,buildDossier,validate};
-})(window.TFT=window.TFT||{});
-;
-"use strict";
-(function(T){
-const PLAT={euw:['euw1','EU Ouest'],eune:['eun1','EU Nord-Est'],tr:['tr1','Turquie'],na:['na1','Amérique du Nord'],br:['br1','Brésil'],
-lan:['la1','LAN'],las:['la2','LAS'],oce:['oc1','Océanie'],kr:['kr','Corée'],jp:['jp1','Japon']};
-const MAX_KEEP=60,TTL_PROF=10*60*1000,seg=encodeURIComponent;
-let CFG=null;
-async function cfg(){
-if(CFG)return CFG;
-try{CFG=await(await fetch('tft.config.json',{cache:'no-cache'})).json();}catch(e){CFG={proxy:''};}
-return CFG;
-}
-async function call(plat,path,tries=3){
-const c=await cfg();if(!c.proxy)throw new Error('Le serveur Teamfight Tactics n\'est pas encore installé (tft.config.json).');
-for(let a=0;;a++){
-let res;
-try{res=await fetch(`${c.proxy.replace(/\/+$/,'')}/${plat}${path}`);}catch(e){if(a<tries-1){await sleep(2000);continue;}throw new Error('Pas de connexion, ou le service ne répond pas.');}
-if(res.status===429&&a<tries-1){await sleep(clamp(+res.headers.get('Retry-After')||10,3,30)*1000);continue;}
-if(res.status>=500&&a<tries-1){await sleep(2000);continue;}
-if(res.status===404)throw Object.assign(new Error('Introuvable : vérifie le pseudo, le #tag et le serveur.'),{code:404});
-if(res.status===401||res.status===403)throw new Error('Le serveur TFT est mal réglé (clé Riot refusée ou expirée).');
-if(!res.ok)throw new Error(`Le service TFT a répondu une erreur (${res.status}).`);
-return res.json();
-}
-}
-function splitRiot(r){const s=String(r||'').trim(),i=s.lastIndexOf('#');return i>0&&i<s.length-1&&i<=22&&s.length-i<=7?[s.slice(0,i).trim(),s.slice(i+1).trim()]:null;}
-const key=(plat,riot)=>plat+':'+String(riot).toLowerCase();
-async function profile(plat,riot,fresh){
-const P=PLAT[plat],sp=splitRiot(riot);if(!P||!sp)throw new Error('Riot ID invalide (Pseudo#TAG).');
-const ck='tft_p:'+key(plat,riot),c=ST.get(ck);
-if(!fresh&&c&&Date.now()-c.at<TTL_PROF)return c.p;
-const acc=await call(P[0],`/riot/account/v1/accounts/by-riot-id/${seg(sp[0])}/${seg(sp[1])}`);
-if(!acc||!acc.puuid)throw new Error('Compte introuvable : vérifie le Pseudo#TAG et la région.');
-let entries=[];try{entries=await call(P[0],`/tft/league/v1/by-puuid/${seg(acc.puuid)}`);}catch(e){if(e.code!==404)throw e;}
-const pick=q=>(entries||[]).find(x=>x.queueType===q)||null;
-const p={plat,riot:`${acc.gameName||sp[0]}#${acc.tagLine||sp[1]}`,puuid:acc.puuid,rank:pick('RANKED_TFT'),turbo:pick('RANKED_TFT_TURBO'),dbl:pick('RANKED_TFT_DOUBLE_UP')};
-ST.set(ck,{at:Date.now(),p});return p;
-}
-async function matches(prof,count,onProg){
-const code=PLAT[prof.plat][0],hk='tft_h:'+key(prof.plat,prof.riot);
-let kept=ST.get(hk,[]);
-const ids=await call(code,`/tft/match/v1/matches/by-puuid/${seg(prof.puuid)}/ids?count=${clamp(count||20,1,30)}`);
-const have=new Set(kept.map(m=>m.id)),need=(ids||[]).filter(i=>!have.has(i));
-let done=0;
-for(let i=0;i<need.length;i+=4){
-const out=await Promise.all(need.slice(i,i+4).map(id=>call(code,`/tft/match/v1/matches/${seg(id)}`).then(raw=>T.parser.compactMatch(raw,prof.puuid)).catch(e=>{if(window.logErr)logErr(e);return null;})));
-kept=kept.concat(out.filter(Boolean));done+=out.length;if(onProg)onProg(done,need.length);
-}
-kept=kept.sort((a,b)=>b.t-a.t).slice(0,MAX_KEEP);ST.set(hk,kept);return kept;
-}
-const cutoffs=plat=>call(PLAT[plat][0],'/cutoffs',1);
-T.api={PLAT,profile,matches,cutoffs,splitRiot,MAX_KEEP};
-})(window.TFT=window.TFT||{});
-;
-"use strict";
-(function(T){
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const el=s=>document.querySelector(s);
-const nice=s=>String(s).replace(/([a-z])([A-Z])/g,'$1 $2');
-const TABS=[['overview','Vue d\'ensemble'],['history','Parties'],['comps','Compos & stats'],['coach','Coach IA']];
-const TIER={IRON:'Fer',BRONZE:'Bronze',SILVER:'Argent',GOLD:'Or',PLATINUM:'Platine',EMERALD:'Émeraude',DIAMOND:'Diamant',MASTER:'Master',GRANDMASTER:'Grand Maître',CHALLENGER:'Challenger'};
-const APEX=['MASTER','GRANDMASTER','CHALLENGER'];
-const S={view:'search',plat:'euw',riot:'',tab:'overview',prof:null,list:[],queue:1100,sel:null,coach:{},cut:null,busy:'',err:''};
-const hash=()=>S.prof?`#/tft/${S.plat}/${encodeURIComponent(S.prof.riot)}/${S.tab}`:'#/tft';
-function setHash(push){if(SHELL.cur!=='tft')return;const h=hash();if(location.hash===h)return;try{history[push?'pushState':'replaceState'](null,'',h);}catch(e){}}
-function readHash(){
-const m=/^#\/tft(?:\/([a-z]+))?(?:\/([^/]+))?(?:\/([a-z]+))?$/.exec(location.hash||'');if(!m)return null;
-let riot='';try{riot=decodeURIComponent(m[2]||'');}catch(e){}
-return{plat:T.api.PLAT[m[1]]?m[1]:null,riot:T.api.splitRiot(riot)?riot:'',tab:TABS.some(t=>t[0]===m[3])?m[3]:'overview'};
-}
-function css(){
-if(el('#tftCss'))return;const s=document.createElement('style');s.id='tftCss';
-s.textContent=`.tft .tt{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:var(--s3) 0}.tft .tt button{background:none;border:0;color:var(--muted);font:inherit;padding:10px 14px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}.tft .tt button[aria-selected=true]{color:var(--text);border-color:var(--accent)}
-.tft .pl{display:inline-grid;place-items:center;min-width:34px;height:34px;border-radius:9px;font-weight:700;background:var(--bad-s);color:var(--bad)}.tft .pl.t4{background:var(--ok-s);color:var(--ok)}.tft .pl.w{background:var(--foe-s);color:var(--foe)}
-.tft .ch{display:inline-block;padding:2px 8px;margin:2px 3px 2px 0;border-radius:999px;font-size:12px;border:1px solid var(--line2)}.tft .s1{border-color:#cd7f32}.tft .s2{border-color:#c0c8d0}.tft .s3{border-color:#ffd166;color:#ffd166}.tft .s4{border-color:var(--accent);color:var(--accent-t)}
-.tft .bar{display:flex;align-items:flex-end;gap:6px;height:90px}.tft .bar i{flex:1;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}.tft .bar span{display:block;text-align:center;font-size:11px;color:var(--muted)}
-.tft table{width:100%;border-collapse:collapse;font-size:13px}.tft th,.tft td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}.tft .low{opacity:.55}
-.tft .kp{font-size:var(--fs-2xl);font-weight:700;line-height:1}.tft details{border-top:1px solid var(--line);padding:8px 0}.tft summary{cursor:pointer;list-style:none}
-.tft textarea{width:100%;min-height:110px;background:var(--sub);color:var(--text);border:1px solid var(--line2);border-radius:var(--r-sm);padding:10px;font:12px/1.4 monospace}
-.tft .imp-fort{color:var(--bad)}.tft .imp-moyen{color:var(--foe)}.tft .imp-faible{color:var(--neutral)}`;
-document.head.appendChild(s);
-}
-const plBadge=p=>`<span class="pl ${p===1?'w':p<=4?'t4':''}" title="Placement ${p}">${p}</span>`;
-const traitChips=tr=>(tr||[]).map(t=>`<span class="ch s${t[2]}" title="${esc(t[0])} · ${t[1]} unités">${esc(nice(t[0]))} ${t[1]}</span>`).join('');
-const unitLine=u=>`${esc(nice(u[0]))}${'★'.repeat(u[1]||1)}${u[2].length?` <span class="muted">(${u[2].map(i=>esc(nice(i))).join(', ')})</span>`:''}`;
-const rankTxt=r=>!r?'Non classé':`${esc(TIER[r.tier]||r.tier)}${APEX.includes(r.tier)?'':' '+esc(r.rank)} · ${r.leaguePoints} LP`;
-const stateCard=(ic,t,p,btn)=>`<div class="card state"><div class="state-i" aria-hidden="true">${ic}</div><h2>${esc(t)}</h2><p>${esc(p)}</p>${btn||''}</div>`;
-const kpi=(v,l)=>`<div class="card"><div class="kp">${v==null?'–':v}</div><div class="muted small">${l}</div></div>`;
-const data=()=>T.stats.aggregate(S.list,{queue:S.queue||0});
-const queueSel=()=>`<label class="muted small">File <select data-tft="queue"><option value="1100"${S.queue===1100?' selected':''}>Classé</option><option value="0"${!S.queue?' selected':''}>Toutes</option></select></label>`;
-const V={};
-V.search=()=>`<section class="card" style="max-width:560px;margin:var(--s5) auto"><h1>Teamfight Tactics</h1><p class="muted">Rang, parties, compos et coach IA. Données Riot officielles, gratuit, sans compte.</p>
-    <form id="tftForm" autocomplete="off" class="grid" style="gap:var(--s3)"><input id="tftRiot" placeholder="Pseudo#TAG" maxlength="30" aria-label="Riot ID (Pseudo#TAG)" value="${esc(S.riot)}">
-    <select id="tftPlat" aria-label="Région">${Object.entries(T.api.PLAT).map(([k,v])=>`<option value="${k}"${k===S.plat?' selected':''}>${esc(v[3])}</option>`).join('')}</select>
-    <label class="small"><input type="checkbox" id="tftOk"> C'est mon compte (je ne regarde pas celui d'un adversaire)</label><button class="btn" type="submit">Voir</button></form>
-    ${S.err?`<p class="note imp-fort">${esc(S.err)}</p>`:''}<p class="note">Elitrack n'est pas approuvé par Riot Games.</p></section>`;
-V.head=()=>{const P=S.prof,r=P.rank;
-return`<div class="card"><div class="row" style="display:flex;gap:var(--s3);align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:0"><h1 style="margin:0">${esc(P.riot)}</h1>
-      <div class="muted">${rankTxt(r)}${r?` · ${r.wins} V / ${r.losses} D`:''}${S.cut&&r&&APEX.includes(r.tier)?` · GM ≥ ${S.cut.gm} LP · Chall ≥ ${S.cut.c} LP`:''}</div></div>
-      <button class="btn ghost sm" data-act="tft:refresh">Actualiser</button><button class="btn ghost sm" data-act="tft:reset">Autre joueur</button></div></div>
-      <div class="tt" role="tablist" aria-label="TFT">${TABS.map(t=>`<button role="tab" data-act="tft:tab:${t[0]}" aria-selected="${S.tab===t[0]}">${t[1]}</button>`).join('')}</div>`;};
-V.overview=()=>{const a=data(),mx=Math.max(1,...a.places);
-if(!a.n)return stateCard('🎲','Aucune partie','Aucune partie dans cette file sur tes 20 dernières. Essaie « Toutes ».');
-return`<div style="margin-bottom:var(--s3)">${queueSel()}</div><div class="grid g3" style="margin-bottom:var(--gap)">${kpi(a.avg,'Placement moyen ('+a.n+' parties)')}${kpi(a.top4+' %','Top 4')}${kpi(a.win+' %','Victoires')}</div>
-      <div class="card"><h2>Répartition des placements</h2><div class="bar">${a.places.map(n=>`<div style="flex:1"><i style="display:block;height:${Math.round(90*n/mx)}px" title="${n}"></i><span>${n}</span></div>`).join('')}</div><div class="bar" style="height:auto;margin-top:2px">${a.places.map((n,i)=>`<span style="flex:1">${i+1}</span>`).join('')}</div></div>
-      ${a.lostAvg?`<div class="card" style="margin-top:var(--gap)"><h2>Quand tu finis 5-8</h2><p>Niveau moyen à l'élimination <b>${a.lostAvg.lv}</b>, or non dépensé <b>${a.lostAvg.gl}</b> (${a.lostAvg.n} parties). Un or élevé à la mort = argent jamais converti en puissance.</p><p class="note">L'API ne donne pas l'économie par stage : seul l'état final est connu.</p></div>`:''}`;};
-V.history=()=>{const L=S.list.filter(m=>!S.queue||m.q===S.queue);
-if(!L.length)return stateCard('📜','Aucune partie','Rien à afficher dans cette file.');
-return`<div class="card"><div style="margin-bottom:var(--s3)">${queueSel()}</div>${L.map(m=>`<details><summary style="display:flex;gap:var(--s3);align-items:center">${plBadge(m.p)}<span style="flex:1;min-width:0"><b>${esc(nice(T.parser.compSig(m)))}</b> <span class="muted small">niv. ${m.lv}${m.stg?' · éliminé '+m.stg:''} · ${m.gl} or</span><br>${traitChips(m.tr.slice(0,5))}</span><span class="muted small">${new Date(m.t*1000).toLocaleDateString('fr-FR')}</span></summary>
-      <p class="small"><b>Augments :</b> ${m.aug.length?m.aug.map(x=>esc(nice(x))).join(' → '):'–'}</p><p class="small"><b>Plateau :</b><br>${m.un.map(unitLine).join('<br>')}</p>
-      <p class="small muted">${m.lob.ct?m.lob.ct+' autre(s) joueur(s) sur ton trait principal':'Comp non contestée'}</p><button class="btn ghost sm" data-act="tft:pick:${esc(m.id)}">Analyser avec le coach</button></details>`).join('')}</div>`;};
-const tbl=(title,rows,label)=>`<div class="card"><h2>${title}</h2><table><tr><th>${label}</th><th>Parties</th><th>Moy.</th><th>Top 4</th><th>Vict.</th></tr>${rows.slice(0,10).map(r=>`<tr class="${r.low?'low':''}"><td>${esc(nice(r.k))}${r.low?' <span class="muted small" title="Moins de '+T.stats.MIN_N+' parties : pas fiable">·</span>':''}</td><td>${r.n}</td><td>${r.avg}</td><td>${r.top4} %</td><td>${r.win} %</td></tr>`).join('')}</table></div>`;
-V.comps=()=>{const a=data();if(!a.n)return stateCard('🧩','Pas assez de parties','Joue quelques parties puis actualise.');
-return`<div style="margin-bottom:var(--s3)">${queueSel()}</div><div class="grid g2">${tbl('Compositions',a.comps,'Comp (2 traits)')}${tbl('Augments',a.augs,'Augment')}</div><div style="margin-top:var(--gap)">${tbl('Porteurs d\'objets',a.carries,'Champion')}</div><p class="note">Les lignes grisées ont moins de ${T.stats.MIN_N} parties : ne conclus rien dessus.</p>`;};
-const cardRow=(t,n,a)=>`<div class="card"><h3>${t}${n!=null?` <span class="muted">${n}/10</span>`:''}</h3><p>${esc(a)}</p></div>`;
-V.coachResult=o=>`<div class="card"><h2>Verdict : ${esc(o.verdict.grade)}</h2><p>${esc(o.verdict.resume)}</p></div><div class="grid g2" style="margin-top:var(--gap)">
-    ${cardRow('Augments',o.augments.note,o.augments.analyse+(o.augments.alt&&o.augments.alt.length?' Alternatives : '+o.augments.alt.join(', '):''))}
-    ${cardRow('Économie / tempo',o.economie.note,o.economie.analyse+' (fiabilité '+(o.economie.fiabilite||'basse')+')')}
-    ${cardRow('Pivot / transition',null,(o.pivot.detecte===null?'Non déterminable. ':o.pivot.detecte?'Pivot détecté. ':'Pas de pivot. ')+o.pivot.analyse)}
-    ${cardRow('Composition & objets',o.composition.note,o.composition.analyse+' '+(o.composition.objets||''))}</div>
-    ${o.erreurs.length?`<div class="card" style="margin-top:var(--gap)"><h3>Erreurs</h3>${o.erreurs.map(e=>`<p><b class="imp-${e.impact}">${esc(e.impact)}</b> · ${esc(e.sujet)} — ${esc(e.detail)}</p>`).join('')}</div>`:''}
-    <div class="card" style="margin-top:var(--gap)"><h3>Plan pour la prochaine partie</h3><ol>${o.plan.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>${o.limites.length?`<p class="note">Limites : ${o.limites.map(esc).join(' · ')}</p>`:''}</div>`;
-V.coach=()=>{const L=S.list.filter(m=>m.q===1100||!S.queue);if(!L.length)return stateCard('🤖','Aucune partie','Le coach a besoin d\'au moins une partie.');
-const m=L.find(x=>x.id===S.sel)||L[0],got=S.coach[m.id];
-return`<div class="card"><h2>Coach IA</h2><p class="muted small">Le site ne paie aucune IA : copie le dossier (≈ 300 tokens, aucun identifiant), colle-le dans l'IA de ton choix, puis colle ici sa réponse JSON.</p>
-      <label class="small">Partie <select data-tft="sel">${L.slice(0,20).map(x=>`<option value="${esc(x.id)}"${x.id===m.id?' selected':''}>${new Date(x.t*1000).toLocaleDateString('fr-FR')} · ${x.p}ᵉ · ${esc(nice(T.parser.compSig(x)))}</option>`).join('')}</select></label>
-      <div class="row" style="margin:var(--s3) 0"><button class="btn" data-act="tft:copy">Copier le dossier pour l'IA</button></div>
-      <textarea id="tftCoachIn" placeholder="Colle ici la réponse JSON de l'IA"></textarea><div style="margin-top:var(--s3)"><button class="btn ghost" data-act="tft:check">Afficher l'analyse</button></div><p id="tftCoachErr" class="note imp-fort"></p></div>
-      ${got?'<div style="margin-top:var(--gap)">'+V.coachResult(got)+'</div>':''}`;};
-function render(){
-if(SHELL.cur!=='tft')return;css();
-const app=el('#app');if(!app)return;
-let h;
-if(S.busy)h=`<div class="card state" role="status" aria-busy="true"><h2>${esc(S.busy)}</h2></div>`;
-else if(S.view==='search'||!S.prof)h=V.search();
-else h=V.head()+(V[S.tab]||V.overview)();
-app.innerHTML=`<div class="tft" data-game="tft">${h}</div>`;
-}
-async function load(plat,riot,tab,fresh,push){
-S.plat=plat;S.riot=riot;S.err='';S.tab=tab||'overview';S.busy='Chargement du profil…';render();
-try{
-S.prof=await T.api.profile(plat,riot,fresh);S.view='prof';setHash(!!push);
-S.busy='Chargement des parties…';render();
-S.list=await T.api.matches(S.prof,20,(d,n)=>{S.busy=`Parties : ${d}/${n}…`;render();});
-S.list.forEach(m=>{const c=ST.get('tft_c:'+m.id);if(c)S.coach[m.id]=c;});
-S.busy='';S.cut=null;render();
-if(S.prof.rank&&APEX.includes(S.prof.rank.tier))T.api.cutoffs(plat).then(c=>{S.cut=c;render();}).catch(()=>{});
-}catch(e){S.busy='';S.prof=null;S.view='search';S.err=e.message;if(window.logErr)logErr(e);setHash(false);render();}
-}
-const A={
-tab:t=>{S.tab=t;setHash(false);render();},
-refresh:()=>load(S.plat,S.prof?S.prof.riot:S.riot,S.tab,true),
-reset:()=>{S.prof=null;S.list=[];S.view='search';setHash(true);render();},
-pick:id=>{S.sel=id;S.tab='coach';setHash(false);render();},
-copy:()=>{const m=S.list.find(x=>x.id===S.sel)||S.list.find(x=>x.q===1100)||S.list[0];if(!m)return;copyText(T.coach.buildDossier(m,T.stats.history(S.list,m,8)).text,'Dossier copié : colle-le dans ton IA');},
-check:()=>{const m=S.list.find(x=>x.id===S.sel)||S.list.find(x=>x.q===1100)||S.list[0],r=T.coach.validate(el('#tftCoachIn').value);
-if(!r.ok){el('#tftCoachErr').textContent=r.err;return;}S.coach[m.id]=r.data;ST.set('tft_c:'+m.id,r.data);render();}
-};
-Object.assign(ACT,{tft:arg=>{const i=String(arg).indexOf(':'),n=i<0?arg:arg.slice(0,i);if(A[n])A[n](i<0?'':arg.slice(i+1));}});
-document.addEventListener('submit',e=>{
-if(e.target.id!=='tftForm')return;e.preventDefault();
-if(!el('#tftOk').checked)return toast('Coche « C\'est mon compte » pour continuer',true);
-const riot=el('#tftRiot').value.trim();if(!T.api.splitRiot(riot)){S.err='Riot ID invalide : Pseudo#TAG';return render();}
-load(el('#tftPlat').value,riot,'overview',false,true);
-});
-document.addEventListener('change',e=>{const s=e.target.closest('[data-tft]');if(!s||SHELL.cur!=='tft')return;
-if(s.dataset.tft==='queue')S.queue=+s.value;if(s.dataset.tft==='sel')S.sel=s.value;render();});
-function fromHash(){const h=readHash();if(h&&h.riot&&h.plat){if(!S.prof||S.prof.riot!==h.riot||S.plat!==h.plat)load(h.plat,h.riot,h.tab);else{S.tab=h.tab;render();}}else{S.prof=null;S.view='search';render();}}
-SHELL.register('tft',{
-enter(opt){document.body.classList.remove('has-gnav');const r=el('#recherche');if(r)r.hidden=true;const h=readHash();
-if(h&&h.riot&&h.plat&&(!S.prof||S.prof.riot!==h.riot))load(h.plat,h.riot,h.tab);else{S.view=S.prof?'prof':'search';render();if(!opt.noPush)setHash(true);}},
-leave(){S.busy='';},
-render,
-fromHash
-});
-T.views=V;T.render=render;
-})(window.TFT=window.TFT||{});

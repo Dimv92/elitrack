@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261015-1109. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261016-2145. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -1207,7 +1207,7 @@ Object.entries(v.a).slice(0,60).forEach(([ag,r])=>{if(/^[A-Za-z][A-Za-z/ ]{1,11}
 if(!Object.keys(a).length)return;s[k]={n:v.n,a};
 if(obj(v.h))['g1','g2','g3'].forEach(g=>{if(!obj(v.h[g]))return;const h={};Object.entries(v.h[g]).slice(0,60).forEach(([ag,p])=>{if(/^[A-Za-z][A-Za-z/ ]{1,11}$/.test(ag)&&N(p)&&p>=0&&p<=100)h[ag]=p;});(s[k].h=s[k].h||{})[g]=h;});});
 if(!s['*'])return null;const day=v=>RE_DATE.test(v||'')?v:'',patch=/^\d{1,2}\.\d{1,2}$/.test(raw.gamePatch||'')?raw.gamePatch:'unknown';
-return{format:'elitrack-meta',v:1,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),gamePatch:patch,patchSource:patch==='unknown'?'unknown':strMax(raw.patchSource,40)||'declared',lam:N(raw.lam)?raw.lam:null,rk:N(raw.rk)?raw.rk:null,s};
+return{format:'elitrack-meta',v:1,maj:day(raw.maj),du:day(raw.du),au:day(raw.au),region:strMax(raw.region,10),matches:intIn(raw.matches,0,1e7,0),gamePatch:patch,patchSource:patch==='unknown'?'unknown':strMax(raw.patchSource,40)||'unknown',lam:N(raw.lam)?raw.lam:null,rk:N(raw.rk)?raw.rk:null,s};
 }
 function metaFreshness(raw,expectedPatch){
 const patch=raw&&/^\d{1,2}\.\d{1,2}$/.test(raw.gamePatch||'')?raw.gamePatch:'unknown',source=raw&&strMax(raw.patchSource,40);
@@ -1304,6 +1304,45 @@ const st={n:0,w:0,agents:{},maps:{}};
 (rows||[]).forEach(r=>{st.n++;if(r.res==='W')st.w++;const a=st.agents[r.agent]||(st.agents[r.agent]={n:0,w:0});a.n++;if(r.res==='W')a.w++;
 const m=st.maps[r.map]||(st.maps[r.map]={agents:{}}),x=m.agents[r.agent]||(m.agents[r.agent]={n:0,w:0});x.n++;if(r.res==='W')x.w++;});
 return agentPick(st,map,()=>true,4);
+}
+function rankHistoryClean(history,scope={},imported=false){
+const number=v=>{const n=toNum(v);return Number.isFinite(n)?n:null;};
+const token=v=>typeof v==='string'&&/^[\w-]{1,80}$/.test(v)?v:null;
+return(Array.isArray(history)?history:[]).flatMap(h=>{
+if(!obj(h))return[];
+const ts=number(h.ts),t=number(h.t),received=number(h.receivedAt),first=number(h.firstReceivedAt);
+if(ts==null||ts<0||ts>864e13)return[];
+return[{d:new Date(ts).toISOString(),ts,t:t!=null&&Number.isInteger(t)&&t>=0&&t<=27?t:null,
+rr:number(h.rr),ch:number(h.ch),elo:number(h.elo),mid:token(h.mid)||'',map:strMax(h.map,40),
+source:token(h.source)||'unknown',region:token(h.region)||token(scope.region),platform:token(h.platform)||token(scope.platform),
+season:token(h.season),queue:token(h.queue),receivedAt:received!=null&&received>=0?received:null,
+firstReceivedAt:first!=null&&first>=0?first:null,imported:imported||h.imported===true}];
+}).sort((a,b)=>a.ts-b.ts);
+}
+function rankHistoryMerge(previous,received,scope={}){
+const raw=(Array.isArray(received)?received:[]).flatMap(h=>{
+if(!obj(h)||typeof h.date!=='string')return[];
+return[{ts:Date.parse(h.date),t:obj(h.tier)?h.tier.id:null,rr:h.rr,ch:h.last_change,elo:h.elo,
+mid:typeof h.match_id==='string'?h.match_id.toLowerCase():'',map:obj(h.map)?h.map.name:'',
+season:obj(h.season)?h.season.short||h.season.id:null,queue:h.queue,
+source:scope.source,region:scope.region,platform:scope.platform,
+receivedAt:scope.receivedAt,firstReceivedAt:scope.receivedAt}];
+});
+const merged=new Map();
+for(const h of[...rankHistoryClean(previous,scope),...rankHistoryClean(raw,scope)]){
+const key=JSON.stringify([h.region,h.platform,h.queue,h.mid||[h.ts,h.season,h.t,h.rr,h.ch,h.elo]]);
+const old=merged.get(key);
+if(old){
+h.firstReceivedAt=old.firstReceivedAt;
+for(const field of['t','rr','ch','elo','season'])if(h[field]==null)h[field]=old[field];
+}
+merged.set(key,h);
+}
+return[...merged.values()].sort((a,b)=>a.ts-b.ts||a.mid.localeCompare(b.mid));
+}
+function rankRRTotal(history){
+const segment=h=>JSON.stringify([h.region,h.platform,h.queue,h.season,h.source]);
+return history.length&&history.every(h=>Number.isFinite(h.ch)&&segment(h)===segment(history[0]))?history.reduce((s,h)=>s+h.ch,0):null;
 }
 function rrPlan(hist,tier,rr,target){
 const H=(hist||[]).filter(h=>Number.isFinite(h.ch)&&h.ch!==0).slice(-30),G=H.filter(h=>h.ch>0),L=H.filter(h=>h.ch<0);
@@ -1527,7 +1566,7 @@ RANK_FR,rankOf,PG_KEYS,pgAll,benchAdd,benchClean,benchRef,MET,metV,metSE,refMix,
 ERR_DEF,ERR_KEYS,ERR_CAUSE,CAUSE_KEYS,causeOf,sightOf,PG_OPT,ECO_DEF,ecoDesync,ecoAgg,agentAdd,agentUse,deathsOf,ERR_ISO,DEF_V,BIAS_MIN,ASSIST_SHARE,impactV2,roleBias,rankV2,placeV2,calibOf,aggMigrate,deathInsights,CTX_DEF,CTX_FAR,CTX_KILLER,replayOf,errLessons,errFix,errAgg,focusPick,focusEval,focusBase,tiltOf,
 coLabel,coFind,coZone,coSite,coPlay,coSpawn,coSites,zProp,posControl,posDuels,posCluster,posSpots,posZones,posThreats,posGap,
 rgOf,RG_FR,atlasAdd,atlasPack,atlasClean,v4Keep,aggNew,aggDecay,aggAge,aggMatch,aggDetail,aggPublish,META_RK,META_MIN,META_TIERS,metaNew,metaAdd,ftWin,normCdf,metaFit,metaWin,metaTier,metaClean,metaFreshness,atlasSites,sitesMe,atlasControl,atlasSpots,atlasZones,atlasLines,
-stratIntel,ecoStats,agentsForMap,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
+stratIntel,ecoStats,agentsForMap,rankHistoryClean,rankHistoryMerge,rankRRTotal,rrPlan,weekChallenges,badges,trLevel,TR_FOCUS,trFocus,trPlaylists,trRoutine,trWeek,rxSum,trStreak,
 PG_ADVICE,progressOf,progressTeam,progressPlan,roadOf,hexRgb,rgbHex,mixHex,relLum,contrast,readable,THEME_DEF,THEME_ENUM,BLOCKS,themeClean,themeFree,themeDiff,themeCode,themeParse};
 });
 ;
@@ -1957,9 +1996,9 @@ const ROWS_MAX=1500,PAGES_MAX=60;
 async function loadProfile(riot,region,opt={}){
 const sp=splitRiot(riot);if(!sp)throw new Error('Écris ton Riot ID en entier : Pseudo#TAG (exemple : Kebab#EUW).');
 const[nm,tg]=sp,rid=ridNorm(riot),all=!!opt.all,old=ST.get('prof:'+rid);
-if(!opt.force&&!all&&old&&old.v===2&&Date.now()-old.at<10*6e4)return old;
+if(!opt.force&&!all&&old&&old.v===2&&old.region===region&&Date.now()-old.at<10*6e4)return old;
 const size=20;
-const known=old&&old.v===2&&old.puuid&&Date.now()-old.at<7*864e5;
+const known=old&&old.v===2&&old.region===region&&old.puuid&&Date.now()-old.at<7*864e5;
 if(!known)statut('Recherche du compte…');
 const acc=known?{contract:VALPROVIDER.CONTRACT_VERSION,provider:'cache',name:old.name,tag:old.tag,region:old.region,puuid:old.puuid,level:old.level,card:old.card,available:{accountLevel:old.level!=null,playerCard:!!old.card}}
 :VALPROVIDER.normalizeHenrikAccount(await VALDATA.account(nm,tg),{name:nm,tag:tg,region});
@@ -1985,10 +2024,11 @@ const prof={v:2,at:Date.now(),rid,name:strCut(acc.name||nm,24),tag:strCut(acc.ta
 card:typeof acc.card==='string'?acc.card:'',full:full||!!(old&&old.full),tot,
 mmr:{tier:n((c.tier||{}).id)||0,rr:n(c.rr),last:n(c.last_change),elo:n(c.elo),need:n(c.games_needed_for_rating)||0,peak:{tier:n((pk.tier||{}).id)||0,season:strCut((pk.season||{}).short,10)}},
 rows:rows.sort((a,b)=>b.ts-a.ts).slice(0,ROWS_MAX),
-hist:(Array.isArray(hist)?hist:[]).map(h=>({d:String(h.date||''),ts:Date.parse(h.date)||0,ch:n(h.last_change),elo:n(h.elo),t:n((h.tier||{}).id)||0,mid:String(h.match_id||'').toLowerCase(),map:strCut((h.map||{}).name,20)}))
-.filter(h=>h.elo!=null&&h.ts).sort((a,b)=>a.ts-b.ts).slice(-120)};
+hist:rankHistoryMerge(old&&old.v===2&&old.puuid===acc.puuid?rankHistoryClean(old.hist,{region:old.region,platform:'pc'}):[],hist,
+{source:'henrik',region:reg,platform:'pc',receivedAt:Date.now()})};
 prof.riot=`${prof.name}#${prof.tag}`;
-ST.set('prof:'+rid,prof);statut('');
+if(!ST.set('prof:'+rid,prof))toast('Stockage local plein : ces nouvelles observations ne sont pas sauvegardées. Exporte tes données avant de libérer de la place.',true);
+statut('');
 return prof;
 }
 const strCut=(v,n)=>String(v??'').replace(/[\u0000-\u001f]/g,'').slice(0,n);
@@ -2060,7 +2100,7 @@ const ch=win?ri(12,22):-ri(14,24);elo=clamp(elo+ch,1000,1390);peak=Math.max(peak
 const id=`de${String(i).padStart(6,'0')}-0000-4000-8000-${String(1e11+i*7919).slice(-12)}`;
 rows.push({id,ts:t,date:new Date(t-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,10),map,season:'e11a2',agent,tier:Math.floor(elo/100)+3,team:'red',us,them,res:win?'W':'L',r,
 k,d,a:ri(2,9),sc:Math.round(r*(k/r*175+70+ri(-15,25))),hs:Math.max(0,hs),bs:Math.max(0,sh-hs-ls),ls,dmg:Math.round(r*(k/r*128+22+ri(-10,18))),rec:Math.round(r*(d/r*125+20+ri(-10,10)))});
-hist.push({d:new Date(t).toISOString(),ts:t,ch,elo,t:Math.floor(elo/100)+3,mid:id,map});
+hist.push({d:new Date(t).toISOString(),ts:t,ch,elo,t:Math.floor(elo/100)+3,mid:id,map,source:'demo',platform:'pc',region:'eu',season:'e11a2'});
 }
 rows.sort((a,b)=>b.ts-a.ts);
 const prof={v:2,demo:true,at:now,rid:'démo#fr1',name:'Démo',tag:'FR1',riot:'Démo#FR1',region:'eu',puuid:'',level:142,card:'e9c8d760-4d06-4037-4882-6bab3610d9ea',full:true,
@@ -2238,6 +2278,135 @@ persoSet('bg','image');
 }catch(e){toast('Image illisible',true);}
 }
 ;
+(function(root){
+'use strict';
+const STATES=new Set(['fact','hypothesis','insufficient']);
+const SCOPES=new Set(['generic','contextual','personal']);
+const cleanText=value=>typeof value==='string'?value.trim():'';
+const cleanRefs=value=>Array.isArray(value)?value.filter(ref=>ref&&typeof ref==='object'):[];
+const safeHref=value=>{
+const href=cleanText(value);
+if(!href)return'';
+if(href.startsWith('#')||href.startsWith('/')||href.startsWith('./')||href.startsWith('../'))return href;
+try{
+const url=new URL(href);
+return url.protocol==='http:'||url.protocol==='https:'?href:'';
+}catch{
+return'';
+}
+};
+function buildEvidenceReview(input={}){
+const state=STATES.has(input.state)?input.state:'insufficient';
+const scope=SCOPES.has(input.scope)?input.scope:'generic';
+const numerator=Number.isFinite(input.numerator)?input.numerator:null;
+const denominator=Number.isFinite(input.denominator)?input.denominator:null;
+const evidence=cleanRefs(input.evidence);
+const hasUsableEvidence=evidence.some(ref=>Boolean(safeHref(ref.href)));
+const limitations=Array.isArray(input.limitations)?input.limitations.map(cleanText).filter(Boolean):[];
+const sourceProvided=cleanText(input.source);
+const source=sourceProvided||'Source non documentée';
+const observation=cleanText(input.observation);
+const window=cleanText(input.window)||'Fenêtre non documentée';
+const hypothesis=state==='hypothesis'?cleanText(input.hypothesis):'';
+const ratioValid=numerator!==null&&denominator!==null&&denominator>0&&numerator>=0&&numerator<=denominator;
+const factEstablished=Boolean(observation&&sourceProvided&&denominator!==0);
+const hypothesisAllowed=state==='hypothesis'&&factEstablished&&Boolean(hypothesis);
+if(state==='hypothesis'&&!hypothesisAllowed){
+return buildEvidenceReview({
+...input,
+state:'insufficient',
+hypothesis:'',
+limitations:[...limitations,'Hypothèse masquée : le fait source ou sa formulation n’est pas suffisamment établi.']
+});
+}
+const effectiveState=state==='fact'&&!factEstablished?'insufficient':state;
+const effectiveScope=scope==='personal'&&!hasUsableEvidence?'contextual':scope;
+return Object.freeze({
+state:effectiveState,
+scope:effectiveScope,
+observation:observation||'Données insuffisantes pour établir une observation.',
+numerator:ratioValid?numerator:null,
+denominator:ratioValid?denominator:null,
+window,
+context:cleanText(input.context)||'Contexte non documenté',
+source,
+limitations,
+evidence,
+hypothesis:effectiveState==='hypothesis'?hypothesis:'',
+cta:hasUsableEvidence?'Revoir les preuves':'Aucune preuve liée disponible',
+trackingMetric:cleanText(input.trackingMetric),
+verdict:cleanText(input.verdict)||'not_done'
+});
+}
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function renderEvidenceReview(review){
+const r=buildEvidenceReview(review);
+const ratio=r.denominator!==null?`<p data-review-ratio><strong>Population :</strong> ${r.numerator}/${r.denominator}</p>`:'';
+const hypothesis=r.state==='hypothesis'?`<section data-review-hypothesis><h4>Hypothèse à confirmer</h4><p>${esc(r.hypothesis)}</p><p>Aucune causalité n’est établie.</p></section>`:'';
+const insufficient=r.state==='insufficient'?'<p data-review-abstention>Données insuffisantes pour recommander une correction.</p>':'';
+const limitations=r.limitations.length?`<ul data-review-limitations>${r.limitations.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p data-review-limitations>Aucune limite supplémentaire documentée.</p>';
+const hasUsableEvidence=r.evidence.some(ref=>Boolean(safeHref(ref.href)));
+const links=r.evidence.map((ref,index)=>{
+const label=esc(ref.label||`Preuve ${index+1}`);
+const href=safeHref(ref.href);
+return href?`<a data-review-evidence href="${esc(href)}">${label}</a>`:`<span data-review-evidence>${label}</span>`;
+}).join('');
+return`<article class="evidence-review" data-review-state="${r.state}" data-review-scope="${r.scope}">
+    <header><span data-review-badge>${({generic:"Générique",contextual:"Contextuel",personal:"Personnel"})[r.scope]}</span><h3>${({fact:"Fait observé",hypothesis:"Hypothèse à confirmer",insufficient:"Preuves insuffisantes"})[r.state]}</h3></header>
+    <p data-review-observation>${esc(r.observation)}</p>
+    ${ratio}
+    <p data-review-window><strong>Fenêtre :</strong> ${esc(r.window)}</p>
+    <p data-review-context><strong>Contexte :</strong> ${esc(r.context)}</p>
+    <p data-review-source><strong>Source :</strong> ${esc(r.source)}</p>
+    ${limitations}
+    ${hypothesis}
+    ${insufficient}
+    <details data-review-evidence-panel><summary>Preuves disponibles (${r.evidence.length})</summary><div data-review-evidence-list>${links||'<span>Aucune preuve liée disponible</span>'}</div></details>
+    <button type="button" data-review-cta${hasUsableEvidence?'':' disabled'} data-act="reviewEvidence" class="btn">${esc(r.cta)}</button>
+    <p data-review-tracking><strong>Suivi :</strong> ${esc(r.trackingMetric||'À définir avant tout essai')}</p>
+    <p data-review-verdict><strong>Verdict :</strong> ${esc(r.verdict==="not_done"?"Non réalisé — aucune efficacité mesurée":r.verdict)}</p>
+  </article>`;
+}
+root.EvidenceReview=Object.freeze({buildEvidenceReview,renderEvidenceReview});
+})(globalThis);
+;
+'use strict';
+function coachEvidenceReview(rows,details,demo,href){
+const ids=new Set((details||[]).map(d=>d.id));
+const seen=new Set();
+const received=(rows||[]).filter(r=>{
+if(!r||!/^[A-Za-z0-9-]{8,80}$/.test(r.id)||seen.has(r.id)||
+!ids.has(r.id)||!['W','L','D'].includes(r.res))return false;
+seen.add(r.id);return true;
+});
+const n=received.length,wins=rowsAgg(received).w;
+const times=received.map(r=>r.ts).filter(t=>Number.isFinite(t)&&t>0);
+const date=t=>new Date(t).toLocaleDateString('fr-FR',{timeZone:'UTC'});
+return EvidenceReview.buildEvidenceReview({
+state:n?'fact':'insufficient',scope:n?'personal':'contextual',
+observation:n?`${wins} victoire(s) observée(s) sur ${n} match(s) reçu(s) avec rapport disponible.`:
+'Aucun résultat reçu avec rapport disponible dans la fenêtre sélectionnée.',
+numerator:n?wins:null,denominator:n||null,
+window:times.length?`${date(Math.min(...times))} – ${date(Math.max(...times))} (UTC) ; ${n} matchs couverts`:'Dates non documentées',
+context:`Résultats W/L/D reçus ; cartes et agents mixtes ; patch et contexte de jeu non certifiés. ${demo?'Démo : données synthétiques.':''}`,
+source:demo?'Démo Elitrack — fixtures synthétiques':'Historique VALORANT reçu et rapports déjà chargés du profil',
+limitations:['Couverture partielle : seuls les matchs de la fenêtre ayant un rapport chargé sont inclus ; les égalités restent au dénominateur.',
+'Ce bilan ne mesure ni une faiblesse, ni l’efficacité d’un conseil ; aucune cause ni recommandation tactique n’en est déduite.',
+...(times.length<n?['Dates absentes pour certains matchs : bornes temporelles partielles.']:[])],
+evidence:received.map(r=>({label:`${r.map||'Carte inconnue'} · ${r.res} · ${r.id}`,href:href(r.id)})),
+trackingMetric:'Victoires / matchs reçus avec rapport ; aucun essai commencé.',verdict:'not_done'
+});
+}
+function coachEvidenceHtml(){
+const r=coachEvidenceReview(profileWindowRows(),APP.D,APP.prof&&APP.prof.demo,reportHash);
+const hypothesis=r.state==='fact'?EvidenceReview.buildEvidenceReview({...r,state:'hypothesis',
+hypothesis:`Le même bilan (${r.numerator}/${r.denominator}) pourrait se retrouver dans une autre fenêtre de ${r.denominator} matchs avec rapports. À confirmer uniquement si ce compte se répète ; un compte différent le contredirait. Les contextes non certifiés empêchent toute conclusion causale ou prédiction.`}):null;
+return`<section class="card mt" data-coach-review aria-label="Revue des preuves"><h2>Pourquoi Elitrack me dit ça ?</h2>
+    <p class="note">Revue descriptive des preuves disponibles, sans prescription.</p>
+    ${EvidenceReview.renderEvidenceReview(r)}
+    ${hypothesis?`<details><summary>Examiner une hypothèse descriptive, non confirmée</summary>${EvidenceReview.renderEvidenceReview(hypothesis)}</details>`:''}</section>`;
+}
+;
 "use strict";
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -2356,7 +2525,7 @@ $('#app').innerHTML=`
         <div class="rank">${M.tier?`<img src="${IMG.rank(M.tier)}" alt="">`:''}<div>
           <b>${esc(tierFr(M.tier))}</b>${rr!=null?` <span>${rr} RR</span>`:''}${M.last!=null?` <small class="${M.last>=0?'up':'down'}">${sg(M.last,0)}</small>`:''}
           ${rr!=null?`<div class="rrbar" title="${rr} RR sur 100"><i style="width:${rr}%"></i></div>`:M.need?`<p class="small muted">Encore ${nPart(M.need)} de placement</p>`:''}
-          ${M.peak.tier?`<p class="small muted">Pic : ${esc(tierFr(M.peak.tier))}${M.peak.season?` (${esc(M.peak.season)})`:''}</p>`:''}</div></div>
+          ${M.peak.tier?`<p class="small muted">Pic fourni par le service : ${esc(tierFr(M.peak.tier))}${M.peak.season?` (${esc(M.peak.season)})`:''}</p>`:''}</div></div>
       </div>
       <div class="hero-act">
         ${P.demo?'':`<button class="btn ghost sm" data-act="refresh" title="Recharger depuis le service" aria-label="Actualiser">${ico('refresh')}<span class="lbl-m">Actualiser</span></button>`}
@@ -2421,7 +2590,7 @@ return`${profileScopeBar(P)}<div class="vue">${order.filter(b=>B[b]).map(b=>{let
 function sessionLimit(rows){return nightLimit(nthStats(sessionsOf(rows).map(s=>s.map(r=>r.res))));}
 function bSession(){
 const P=APP.prof,R=P.rows,ses=sessionsOf(R).pop()||[],cur=ses.length&&Date.now()-ses[ses.length-1].ts<8*36e5?ses:[],lim=sessionLimit(R);
-const rrOf=S=>P.hist.filter(h=>h.ts>=S[0].ts-6e4&&h.ts<=S[S.length-1].ts+6e4).reduce((s,h)=>s+(h.ch||0),0);
+const rrOf=S=>rankRRTotal(P.hist.filter(h=>h.ts>=S[0].ts-6e4&&h.ts<=S[S.length-1].ts+6e4));
 if(!cur.length){
 const L=ses.length?rowsAgg(ses):null,ids=new Set(ses.map(r=>r.id)),SG=(APP.D||[]).length>=3?coachData().G.filter(g=>ids.has(g.id)):[];
 const eT=ERR_KEYS.map(k=>[k,SG.reduce((s,g)=>s+(g['e_'+k]||0),0)]).sort((a,b)=>b[1]-a[1])[0],sImp=SG.length?SG.reduce((s,g)=>s+g.imp,0)/SG.length:null;
@@ -2441,7 +2610,7 @@ const st=lim&&cur.length>=lim?['bad','Stop conseillé',`Tu as atteint ta limite 
 :['ok','Feu vert','Tu peux continuer : rien d\'inquiétant dans cette session.'];
 if(aft)st[2]+=` Après une défaite, tu meurs en premier plus souvent (${fmt(aft.fdL,0)} % des rounds contre ${fmt(aft.fdW,0)} %) : joue la prochaine en 2e contact.`;
 return verdictHtml({cls:st[0],h:st[1],p:st[2],facts:[['Ce soir',`<b>${A.w} V · ${A.l} D</b>`,`${nulTxt(A)}${cur.length} partie${cur.length>1?'s':''}${lim?` sur ta limite de ${lim}`:''}`],
-P.hist.length&&['RR',`<b class="${rr>=0?'up':'down'}">${sg(rr,0)}</b>`,'gagnés ou perdus ce soir'],
+P.hist.length&&['RR',`<b class="${rr>=0?'up':'down'}">${sg(rr,0)}</b>`,'variations reçues sur les observations disponibles'],
 !low&&['ACS',`<b>${fmt(A.acs,0)}</b>`,before.acs?`${trendTxt(A.acs,before.acs,0)} par rapport à ton habitude (${fmt(before.acs,0)})`:'score de combat par round']].filter(Boolean)},'Session en cours','');
 }
 function bObjectif(){
@@ -2494,24 +2663,30 @@ return`<div class="card"><div class="card-h"><h2>Forme</h2>${s?`<span class="pil
   <div class="strip">${R.slice().reverse().map(r=>{const t=`${dFr(r.ts)} · ${r.map} · ${r.agent} · ${r.us}-${r.them} · ${r.k}/${r.d}/${r.a}`;return`<i class="${r.res}" title="${esc(t)}" role="img" aria-label="${esc((r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité')+' : '+t)}">${IMG.agent(r.agent)?`<img src="${IMG.agent(r.agent)}" alt="" loading="lazy">`:r.res}</i>`;}).join('')}</div>
   <p class="note">De la plus ancienne (gauche) à la plus récente (droite) · ✓ victoire · ✕ défaite.</p></div>`;
 }
-function rrSvg(H,w=640,h=170){
-if(H.length<2)return empty('Pas assez de parties pour tracer la courbe.');
-const L=w<420?62:74,Rt=8,T=10,B=10,xs=H.map((_,i)=>L+i*(w-L-Rt)/(H.length-1)),lo=Math.min(...H.map(x=>x.elo)),hi=Math.max(...H.map(x=>x.elo)),span=Math.max(50,hi-lo);
-const y=v=>T+(h-T-B)*(1-(v-lo+span*.05)/(span*1.1)),pts=H.map((x,i)=>`${xs[i].toFixed(1)},${y(x.elo).toFixed(1)}`),r=H.length>60?2.6:3.6;
-const divs=[];for(let e=Math.ceil(lo/100)*100;e<=hi;e+=100)divs.push(e);
-return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" class="rrsvg" role="img" aria-label="Courbe de RR sur ${H.length} parties : ${sg(H.reduce((s,x)=>s+(x.ch||0),0),0)} RR au total">
-    <defs><linearGradient id="rrg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
-    ${divs.map(e=>`<line x1="${L}" x2="${w-Rt}" y1="${y(e).toFixed(1)}" y2="${y(e).toFixed(1)}" class="gl"/><text x="${L-8}" y="${(y(e)+4).toFixed(1)}" class="gt">${esc(tierFr(Math.floor(e/100)+3))}</text>`).join('')}
-    <polygon points="${xs[0].toFixed(1)},${h-B} ${pts.join(' ')} ${xs[xs.length-1].toFixed(1)},${h-B}" fill="url(#rrg)"/>
-    <polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent-t)" stroke-width="2.5" stroke-linejoin="round"/>
-    ${H.map((x,i)=>`<circle cx="${xs[i].toFixed(1)}" cy="${y(x.elo).toFixed(1)}" r="${r}" class="${(x.ch||0)>=0?'pw':'pl'}"><title>${esc(`${dFr(x.ts)} ${x.map?'· '+x.map:''} : ${sg(x.ch,0)} RR (${tierFr(x.t)})`)}</title></circle>`).join('')}
-  </svg>`;
+function observedRankSvg(H,w=640,h=190){
+const known=H.filter(x=>x.t!=null);if(known.length<2)return empty('Pas assez de rangs observés pour tracer les points.');
+const L=100,B=34,T=12,lo=Math.min(...known.map(x=>x.t)),hi=Math.max(...known.map(x=>x.t));
+const x=i=>L+i*(w-L-12)/Math.max(1,H.length-1),y=t=>T+(h-T-B)*(1-(t-lo)/Math.max(1,hi-lo));
+const ticks=[...new Set(known.map(x=>x.t))].sort((a,b)=>a-b);
+return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" class="rrsvg" role="img" aria-label="Rangs observés : axe horizontal par ordre d'observation, axe vertical par tier reçu, points non reliés" data-rank-axis="observations">
+    ${ticks.map(t=>`<text x="${L-8}" y="${y(t)+4}" class="gt">${esc(tierFr(t))}</text>`).join('')}
+    ${H.map((o,i)=>o.t==null?'':`<circle cx="${x(i)}" cy="${y(o.t)}" r="3.6" class="pw"><title>${esc(`${dFr(o.ts)} ${hFr(o.ts)} · ${tierFr(o.t)} · ${o.source} · ${o.region||'région inconnue'}/${o.platform||'plateforme inconnue'} · ${o.season||'période inconnue'}`)}</title></circle>`).join('')}
+    <text x="${L}" y="${h-6}" class="gt" style="text-anchor:start">Ordre des observations</text></svg>`;
+}
+function rankHistoryHtml(chartId,limit=120){
+const P=APP.prof,H=rankHistoryClean(P.hist,{region:P.region}),S=H.slice(-limit);
+const sources=[...new Set(S.map(o=>o.source))].join(', ')||'unknown';
+if(S.filter(o=>o.t!=null).length>=2)chartMount(chartId,w=>observedRankSvg(S,w));
+return`<div class="card mt" data-rank-history><div class="card-h"><h2>Rangs observés</h2><span class="muted small">${S.length} observations affichées / ${H.length} conservées</span></div>
+    <p class="note">${S.length?`Du ${esc(dFr(S[0].ts))} au ${esc(dFr(S[S.length-1].ts))} · sources : ${esc(sources)}.`:'Aucune observation reçue.'} Couverture partielle : aucun record de carrière, rang final ou historique exhaustif garanti.</p>
+    ${S.filter(o=>o.t!=null).length>=2?`<div class="chart" id="${chartId}" style="height:190px"></div>`:empty('Pas assez de rangs observés pour tracer les points.')}
+    <p class="note">Axe vertical : tier reçu. Axe horizontal : ordre des observations, pas durée écoulée. Points non reliés : trous, changements et resets ne sont pas reconstruits. Le champ tiers elo n'est pas utilisé comme échelle de rang.</p>
+    <details class="mt8"><summary>Voir les observations : dates, valeurs et sources</summary><div class="tbl"><table class="small"><thead><tr><th>Observation</th><th>Rang reçu</th><th>RR reçus</th><th>Variation reçue</th><th>Période / périmètre</th><th>Source / réception</th></tr></thead><tbody>
+    ${S.map(o=>`<tr><td>${esc(dFr(o.ts))} ${esc(hFr(o.ts))}</td><td>${o.t==null?'Inconnu':esc(tierFr(o.t))}</td><td>${fmt(o.rr,0)}</td><td>${sg(o.ch,0)}</td><td>${esc(o.season||'Période inconnue')}<small class="muted"> · ${esc(o.region||'région inconnue')} / ${esc(o.platform||'plateforme inconnue')} / ${esc(o.queue||'file inconnue')}</small></td><td>${esc(o.source)}${o.imported?' (importé, non certifié)':''}<small class="muted"> · ${o.receivedAt==null?'réception inconnue':esc(dFr(o.receivedAt))+' '+esc(hFr(o.receivedAt))}</small></td></tr>`).join('')||'<tr><td colspan="6">Aucune observation disponible.</td></tr>'}</tbody></table></div></details>
+    <p class="note">— : valeur non reçue, distincte de 0. Les RR ne sont jamais déduits du tier, du résultat ou du champ tiers elo. La réception est une date de collecte, pas celle du match.</p></div>`;
 }
 function bRR(){
-const H=APP.prof.hist,full=featOn('progression',APP.plan,APP.cfg),S=full?H:H.slice(-20),net=S.reduce((s,h)=>s+(h.ch||0),0);
-if(S.length>=2)chartMount('rrC',w=>rrSvg(S,w,190));
-return`<div class="card"><div class="card-h"><h2>RR</h2><span class="muted small">${S.length} dernières parties : <b class="${net>=0?'up':'down'}">${sg(net,0)} RR</b>${full?'':` · <a href="#" data-act="tab:progression">courbe complète ★</a>`}</span></div>
-    ${S.length>=2?'<div class="chart" id="rrC" style="height:190px"></div><p class="note">Point plein : victoire · point creux : défaite · survole un point pour le détail.</p>':empty('Pas assez de parties pour tracer la courbe.')}</div>`;
+return rankHistoryHtml('rrC',featOn('progression',APP.plan,APP.cfg)?120:20);
 }
 function miniAgg(a,img,sub){
 return`<div class="mini">${img}<div><b>${esc(a.key)}</b><small>${nPart(a.n)} · <span class="${rateCls(a.w,a.n)||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</span> · K/D ${fmt(a.kd,2)} · ACS ${fmt(a.acs,0)}</small>${sub||''}</div></div>`;
@@ -2565,7 +2740,7 @@ return`<span class="${d>=0?'up':'down'}">${sg(d,0)} ACS</span><small class="mute
 function aggTable(A,first,img,rows,key){
 const base=rowsAgg(rows),T=trendMaps(rows,key);
 return`<div class="tbl"><table><thead><tr><th>${first}</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>ADR</th><th>Tête</th><th>DDΔ</th><th>Vs toi</th><th>Forme</th></tr></thead><tbody>
-  ${A.map(a=>`<tr><td class="nm">${img(a.key)}<b>${esc(a.key)}</b></td><td>${a.n}</td><td><span class="${rateCls(a.w,a.n)||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</span><div class="bar"><i style="width:${a.wr||0}%"></i></div></td><td>${fmt(a.kd,2)}</td><td>${fmt(a.acs,0)}</td><td>${fmt(a.adr,0)}</td><td>${pc0(a.hsP)}</td><td>${sg(a.dd,0)}</td><td>${selfMini(a,base)}</td><td>${trendMini(T[a.key])}</td></tr>`).join('')}</tbody></table></div>`;
+  ${A.map(a=>`<tr><td class="nm">${img(a.key)}<b>${esc(a.key)}</b></td><td>${a.n}</td><td><span class="${rateCls(a.w,a.n)||''}" title="${esc(rateTip(a.w,a.n))}">${pc0(a.wr)}</span><div class="bar"><i style="width:${a.wr||0}%"></i></div></td><td>${fmt(a.kd,2)}<div class="muted small" data-stat="agent-kda" title="KDA : (kills + assists) / morts ; sans mort : kills + assists">KDA&nbsp;${fmt(a.kda,2)}</div></td><td>${fmt(a.acs,0)}</td><td>${fmt(a.adr,0)}</td><td>${pc0(a.hsP)}</td><td>${sg(a.dd,0)}</td><td>${selfMini(a,base)}</td><td>${trendMini(T[a.key])}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function detailCtxTable(A,first,img){
 return`<div class="tbl"><table class="small"><thead><tr><th>${first}</th><th>Parties</th><th>K/D</th><th>KAST</th><th>ADR</th><th>Ouvertures</th><th>Attaque</th><th>Défense</th></tr></thead><tbody>${A.map(a=>`<tr><td class="nm">${img(a.key)}<b>${esc(a.key)}</b></td><td>${a.n}</td><td>${fmt(a.kd,2)}</td><td>${pc0(a.kastP)}</td><td>${fmt(a.adr,0)}</td><td>${a.openN?`<b>${a.fk}-${a.fd}</b><small class="muted">${pc0(a.openP)} gagnés</small>`:'—'}</td><td><b>${fmt(a.atkKd,2)}</b><small class="muted">K/D · KAST ${pc0(a.atkKast)}</small></td><td><b>${fmt(a.defKd,2)}</b><small class="muted">K/D · KAST ${pc0(a.defKast)}</small></td></tr>`).join('')}</tbody></table></div>`;
@@ -2694,7 +2869,7 @@ return`<svg viewBox="0 0 ${w} ${h}" class="spark" role="img" aria-label="Évolut
 function weekRecapHtml(){
 const P=APP.prof,d0=Date.parse(weekStart(today())+'T00:00:00'),d1=d0-7*864e5,inW=(ts,a,b)=>ts>=a&&ts<b;
 const cur=P.rows.filter(r=>r.ts>=d0),prev=P.rows.filter(r=>inW(r.ts,d1,d0));if(!cur.length&&!prev.length)return'';
-const a=rowsAgg(cur),b=rowsAgg(prev),rr=L=>{const ids=new Set(L.map(r=>r.id));return P.hist.filter(h=>ids.has(h.mid)).reduce((s,h)=>s+(h.ch||0),0);};
+const a=rowsAgg(cur),b=rowsAgg(prev),rr=L=>{const ids=new Set(L.map(r=>r.id));return rankRRTotal(P.hist.filter(h=>ids.has(h.mid)));};
 const miss=(L,x,y)=>Math.max(0,P.hist.filter(h=>inW(h.ts,x,y)).length-L.length),mC=miss(cur,d0,Infinity),mP=miss(prev,d1,d0);
 const G=(APP.D||[]).length>=3?coachData().G:[],gc=G.filter(g=>g.ts>=d0),gp=G.filter(g=>inW(g.ts,d1,d0));
 const imp=L=>L.length?L.reduce((s,g)=>s+g.imp,0)/L.length:null,er=L=>{const r=L.reduce((s,g)=>s+g.r,0);return r?L.reduce((s,g)=>s+ERR_KEYS.reduce((t,k)=>t+(g['e_'+k]||0),0),0)/r*100:null;};
@@ -2702,7 +2877,7 @@ const line=(n,x,y,f,better)=>{const c=x==null||y==null||x===y?'':(x>y)===(better
 const S=focusState();
 return`<div class="card mt"><div class="card-h"><h2>Bilan de la semaine</h2><span class="muted small">depuis lundi, contre la semaine d'avant</span></div>
     <div class="tbl"><table><thead><tr><th></th><th>Cette semaine</th><th>Semaine d'avant</th></tr></thead><tbody>
-    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR',a.n?rr(cur):null,b.n?rr(prev):null,x=>sg(x,0),1):''}
+    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR reçus',a.n?rr(cur):null,b.n?rr(prev):null,x=>sg(x,0),1):''}
     ${line('Impact (round/partie)',imp(gc),imp(gp),x=>sg(x,1),1)}${line('Morts « erreur » pour 100 rounds',er(gc),er(gp),x=>fmt(x,1),-1)}</tbody></table></div>
     ${S?`<p class="small mt8">Focus : <b>${esc(S.f.t)}</b> · <span class="pill ${FOCUS_ST[S.ev.st][0]}">${FOCUS_ST[S.ev.st][1]}</span></p>`:''}
     ${mC||mP?`<p class="note">Parties pas encore chargées : ${[mC&&`${mC} cette semaine`,mP&&`${mP} la semaine d'avant`].filter(Boolean).join(', ')} (Parties › « Charger plus »). Les chiffres ci-dessus portent sur les parties chargées.</p>`:''}
@@ -2716,10 +2891,9 @@ const hhmm=ts=>{const x=new Date(ts);return String(x.getHours()).padStart(2,'0')
 const days=[0,1,2,3,4,5,6].map(i=>rowsAgg(R.filter(r=>(new Date(r.ts).getDay()+6)%7===i)));
 const v=lim?{cls:'foe',h:`Arrête-toi après ${lim} partie${lim>1?'s':''}`,p:'Au-delà, dans la même session, tu perds nettement plus souvent (détail par numéro de partie plus bas).'}
 :{cls:'ok',h:'Pas de limite sûre',p:'Ton taux de victoire ne baisse pas à coup sûr avec le nombre de parties : joue tant que tu te sens bien, et arrête-toi après 3 défaites d\'affilée.'};
-v.facts=[['Sessions analysées',`<b>${S.length}</b>`,'groupes de parties à moins de 3 h d\'écart'],['Parties',`<b>${R.length}</b>`,`${P.hist.length} avec leur RR`]];
-if(P.hist.length>=2)chartMount('rrP',w=>rrSvg(P.hist,w,230));
+v.facts=[['Sessions analysées',`<b>${S.length}</b>`,'groupes de parties à moins de 3 h d\'écart'],['Parties',`<b>${R.length}</b>`,`${P.hist.length} observations de rang conservées`]];
 return`${verdictHtml(v,'Progression','')}${weekRecapHtml()}
-  <div class="card mt"><div class="card-h"><h2>Courbe de RR</h2><span class="muted small">${P.hist.length} parties · point plein : victoire, creux : défaite</span></div>${P.hist.length>=2?'<div class="chart" id="rrP" style="height:230px"></div>':empty('Pas assez de parties pour tracer la courbe.')}</div>
+  ${rankHistoryHtml('rrP')}
   <div class="grid g2 mt">
   <div class="card"><h2>Tes semaines</h2><div class="tbl"><table><thead><tr><th>Semaine du</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>Tête</th></tr></thead><tbody>
     ${weeks.map(([w,a])=>{const x=rowsAgg(a);return`<tr><td>${dFr(Date.parse(w+'T12:00:00'),{day:'numeric',month:'short'})}</td><td>${x.n}</td><td class="${rateCls(x.w,x.n)||''}">${pc0(x.wr)}</td><td>${fmt(x.kd,2)}</td><td>${fmt(x.acs,0)}</td><td>${pc0(x.hsP)}</td></tr>`;}).join('')}</tbody></table></div></div>
@@ -2794,7 +2968,8 @@ function coachItems(){if((APP.D||[]).length<3)return[];const V=coachData();retur
 const metTxt=(k,v,x=0)=>v==null?'—':k.startsWith('e_')?`${fmt(v,1+x)} pour 100 rounds`:MET[k][2]===100?(x?`${fmt(v,x)} %`:pc0(v)):fmt(v,(k==='cast'?2:0)+x);
 const metX=(x,refs)=>x.below&&refs.some(v=>v!=null&&metTxt(x.k,v)===metTxt(x.k,x.me))?1:0;
 function tabCoach(){
-const w=detWait();if(w)return w;
+const review=coachEvidenceHtml();
+const w=detWait();if(w)return review+w;
 const s=coachStats(),lp=s.place,Pc=s.pct,V=coachData(),C=V.C,rkN=RANK_FR[C.rk]||'',upN=C.up?RANK_FR[C.up]:'',per=x=>x==null?null:x*C.rpg,rv=x=>x==null?'—':Math.abs(x)<.005?'0':sg(x,Math.abs(x)<1?2:1);
 const items=V.rk?V.PL:coachPub(s),top=items.find(x=>x.lvl>=2),histKey=APP.prof&&!APP.prof.demo?'coach:'+APP.prof.rid:'',
 hist0=histKey?ST.get(histKey,[]):[],hist=histKey&&top?coachHistoryPush(hist0,top,Date.now(),(modelRef('coach')||{}).ref):hist0;
@@ -2844,7 +3019,7 @@ return`<div class="card"><div class="card-h"><h2>Tes capacités en ${esc(u.agent
       ${low.length?`<p class="fix">→ À tester : travaille ${lst(low.map(a=>esc(nm(a.j))))} sur tes prochaines parties. Les joueurs ${esc(upN||rkN)} en ${esc(u.agent)} l'utilisent nettement plus souvent ; ce signal ne prouve pas que « plus = mieux ».</p>`:`<p class="small muted">${u.ab.some(a=>a.ref!=null)?'Tu utilises ton kit autant que les joueurs de ton niveau.':'Pas encore assez de joueurs de ton rang sur cet agent pour comparer.'}</p>`}
       <p class="note">Utilisations par round sur la partie entière (l'API ne donne pas le détail round par round). Ce signal est observationnel : une fréquence plus basse n'est pas une preuve de mauvaise utilisation. Teste le changement et vérifie qu'il ne dégrade pas ton Focus principal.${u.refN?` Référence : ${Math.round(u.refN)} parties ${esc(rkN)}${u.upN?`, ${Math.round(u.upN)} ${esc(upN)}`:''}.`:''}</p></div>`;});
 const side=[fh,...agHtml,ecoHtml].filter(Boolean);
-return`${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
+return`${review}${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
   ${side.length?`<div class="grid g2 mt">${side.join('')}</div>`:''}
   ${errHtml?`<div class="mt">${errHtml}</div>`:''}
   ${rest.length||(C.strong&&C.strong.length)?`<div class="card mt"><h2>${rest.length?(top?'Tes autres priorités':'Autres conseils'):'Tes forces'}</h2>${rest.map(itemHtml).join('')}
@@ -2982,7 +3157,7 @@ dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class
     ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b><small>kills / morts / assists</small></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b><small>score de combat par round</small></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b><small>rounds où tu as été utile</small></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>premiers kills – premières morts</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b><small>de tes tirs</small></div></div>`:''}
     ${matchFactHtml}${ecoMatchHtml}
     <div class="grid g2 mt">
-      <div><h3>Tes moments clés</h3>${S.key.length?`<ol class="plist">${S.key.map(k=>`<li class="krow" data-act="repRound:${k.r}" tabindex="0"><span class="mk ${k.e.pa>=k.e.pb?'ok':'bad'}" aria-hidden="true"></span><div><b>Round ${k.r+1}</b> · ${ev(k.e)}<small>${vsTxt(k.e)}chances de gagner le round : ${pc(k.e.pb)} → <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pa)}</b></small></div></li>`).join('')}</ol>`:empty('Pas de moment décisif.')}</div>
+      <div><h3>Tes moments clés</h3>${S.key.length?`<ol class="plist">${S.key.map(k=>`<li class="krow" role="button" data-act="repRound:${k.r}" tabindex="0"><span class="mk ${k.e.pa>=k.e.pb?'ok':'bad'}" aria-hidden="true"></span><div><b>Round ${k.r+1}</b> · ${ev(k.e)}<small>${vsTxt(k.e)}chances de gagner le round : ${pc(k.e.pb)} → <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pa)}</b></small></div></li>`).join('')}</ol>`:empty('Pas de moment décisif.')}</div>
       ${hasMap?`<div data-link="rep"><h3>Tes duels sur la carte <small class="muted" id="repCnt"></small></h3><div class="row filt"><select data-repround aria-label="Round affiché"><option value="all">Tous les rounds</option>${d.rounds.map((x,i)=>`<option value="${i}">Round ${i+1} (${x.w?'gagné':'perdu'})</option>`).join('')}</select></div>
         ${svgMapHtml('repMv',d.map,`Tes duels sur ${d.map}`)}${legendHtml([['ok','D\'où tu as tué (trait : vers ta victime)'],['bad','Où tu es mort'],['foe','D\'où on t\'a tué (pointillés : son tir)']])}</div>`:'<div><h3>Tes duels sur la carte</h3>'+empty('Positions indisponibles pour cette partie.')+'</div>'}
     </div>
@@ -3029,7 +3204,7 @@ if(sl){sl.max=Math.max(1,Math.ceil((Q.t1-Q.t0)/100));sl.value=0;}
 if(c)c.textContent=`· round ${ri+1} ${Q.round.w?'gagné':'perdu'} · ${Q.frames.length} relevés`;
 if(ev)ev.innerHTML=Q.events.map((e,i)=>{const k=e.k,mine=k?d.pl[k[2]]&&d.pl[k[2]].t===myT:null;
 const txt=e.kind==='kill'?`${esc(who(k[2]))} tue ${esc(nm(k[3]))}${k[8]?` (${esc(wpnFr(k[8]))})`:''}`:e.kind==='plant'?`${esc(who(e.by))} pose le spike${e.site?' en '+esc(e.site):''}`:`${esc(who(e.by))} désamorce le spike`;
-return`<div class="krow" data-act="rpGo:${e.t}" data-ei="${i}" tabindex="0"><span class="mk ${e.kind==='kill'?(mine?'ok':'bad'):''}" aria-hidden="true"></span><div><b>${mmss(e.t)}</b> · ${txt}</div></div>`;}).join('');
+return`<div class="krow" role="button" data-act="rpGo:${e.t}" data-ei="${i}" tabindex="0"><span class="mk ${e.kind==='kill'?(mine?'ok':'bad'):''}" aria-hidden="true"></span><div><b>${mmss(e.t)}</b> · ${txt}</div></div>`;}).join('');
 rpDraw();
 }
 function rpBtn(){const b=$('#rpPlay');if(b)b.textContent=APP.rp&&APP.rp.play?'⏸ Pause':'▶ Lecture';}
@@ -3313,7 +3488,7 @@ try{
 const P=await loadProfile(riot,region,opt),same=APP.prof&&APP.prof.rid===P.rid;
 if(!same||APP.prof.at!==P.at){
 const moved=same&&(APP.prof.rows[0]||{}).id!==(P.rows[0]||{}).id;
-if(same&&!moved&&APP.prof.mmr.rr===P.mmr.rr&&APP.prof.rows.length===P.rows.length){APP.prof=P;}
+if(same&&!moved&&APP.prof.mmr.rr===P.mmr.rr&&APP.prof.rows.length===P.rows.length&&JSON.stringify(APP.prof.hist)===JSON.stringify(P.hist)){APP.prof=P;}
 else{if(moved){APP.D=null;APP.detTried='';}await profShow(P,Object.assign({},opt,early?{noPush:true}:{}),same);}
 }
 if(!opt.all&&!P.full&&featOn('historique',APP.plan,APP.cfg)&&P.rows.length>=20)setTimeout(()=>{if(APP.prof&&APP.prof.rid===P.rid)openProfile(P.riot,P.region,{force:true,all:true,keepTab:true,noPush:true,bg:true,quiet:true});},1500);
@@ -3393,8 +3568,21 @@ if(!o||o.format!=='elitrack-sauvegarde'||!o.data||typeof o.data!=='object')retur
 const E=Object.entries(o.data).filter(([k,v])=>typeof k==='string'&&k.startsWith(PX)&&!SECRET_KEYS.includes(k)&&/^[\w:#.@%-]{1,120}$/.test(k.slice(PX.length))&&typeof v==='string'&&v.length<3e6);
 if(!E.length)return toast('Sauvegarde vide',true);
 if(!confirm(`Remplacer les données de ce navigateur par cette sauvegarde (${E.length} éléments, du ${o.date||'?'}) ?`))return;
-E.forEach(([k,v])=>{try{JSON.parse(v);localStorage.setItem(k,v);}catch(e){}});
-toast('Sauvegarde restaurée');setTimeout(()=>location.reload(),700);
+let restored=0;
+E.forEach(([k,v])=>{try{
+const parsed=JSON.parse(v);
+if(k.startsWith(PX+'prof:')){
+if(!parsed||parsed.v!==2||!Array.isArray(parsed.hist))return;
+const history=rankHistoryClean(parsed.hist,{region:parsed.region},true);
+if(history.length!==parsed.hist.length)return;
+parsed.hist=history;
+v=JSON.stringify(parsed);
+}
+localStorage.setItem(k,v);
+restored++;
+}catch(e){}});
+toast(restored?`Sauvegarde restaurée : ${restored}/${E.length} éléments. Les éléments invalides ou non enregistrables sont ignorés.`:'Aucune donnée restaurée : sauvegarde invalide ou stockage indisponible.',restored!==E.length);
+if(restored)setTimeout(()=>location.reload(),700);
 }
 Object.assign(ACT,{
 accueil:()=>{APP.prof=null;APP.plan='free';APP.lic=null;APP.licCode='';(SHELL.cur==='valorant'?(setHash(true),Promise.resolve()):SHELL.enter('valorant')).then(()=>licRefresh()).then(()=>{themeRefresh();render();window.scrollTo(0,0);});},
@@ -3407,6 +3595,10 @@ grp:g=>{const G=GROUPS.find(x=>x[0]===g);if(G)ACT.tab(G[2].includes(APP.tab)?APP
 refresh:()=>APP.prof&&openProfile(APP.prof.riot,APP.prof.region,{force:true,keepTab:true}),
 more:()=>featOn('historique',APP.plan,APP.cfg)?openProfile(APP.prof.riot,APP.prof.region,{force:true,all:true,keepTab:true}):premiumOpen('historique'),
 rapport:id=>openReport(id),
+reviewEvidence:(_arg,el)=>{
+const article=el.closest('[data-review-state]'),proof=article&&article.querySelector('a[data-review-evidence]');
+if(proof){article.querySelector('[data-review-evidence-panel]').open=true;proof.scrollIntoView({block:'nearest'});proof.focus();}
+},
 reportCopy:id=>{if(APP.prof&&id)copyText(location.origin+location.pathname+reportHash(id),'Lien du rapport copié');},
 roundCopy:id=>{const r=APP.rp&&Number.isInteger(APP.rp.ri)?APP.rp.ri:+(($('[data-rpround]')||{}).value);if(APP.prof&&id&&Number.isInteger(r)&&r>=0)copyText(location.origin+location.pathname+reportHash(id,r),`Lien du round ${r+1} copié`);},
 perso:()=>persoOpen(),
@@ -3482,10 +3674,18 @@ const rs=e.target.closest('[data-rpspd]');if(rs){if(APP.rp)APP.rp.spd=+rs.value;
 if(e.target.id==='impFile'&&e.target.files[0])dataImport(e.target.files[0]);
 });
 document.addEventListener('input',e=>{const t=e.target.closest&&e.target.closest('[data-rpt]');if(t)rpSeek(+t.value);});
+document.addEventListener('click',e=>{
+const skip=e.target&&e.target.closest&&e.target.closest('.skip-link[href="#app"]');
+if(skip){const main=$('#app');if(main){e.preventDefault();main.focus({preventScroll:false});main.scrollIntoView({block:'start'});}}
+});
 document.addEventListener('keydown',e=>{
 if(e.key==='Escape'&&!$('#perso').hidden)return persoClose();
 const tb=e.target&&e.target.closest&&e.target.closest('[role=tab]');
-if(tb&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){const L=$$('[role=tab]',tb.parentNode),n=L[(L.indexOf(tb)+(e.key==='ArrowRight'?1:-1)+L.length)%L.length];e.preventDefault();ACT.tab(n.dataset.act.split(':')[1],n);const f=$('#tb-'+APP.tab);if(f)f.focus();return;}
+if(tb&&['ArrowRight','ArrowLeft','Home','End'].includes(e.key)){
+const L=$$('[role=tab]',tb.parentNode),i=L.indexOf(tb);let n=tb;
+if(e.key==='Home')n=L[0];else if(e.key==='End')n=L[L.length-1];else n=L[(i+(e.key==='ArrowRight'?1:-1)+L.length)%L.length];
+e.preventDefault();ACT.tab(n.dataset.act.split(':')[1],n);const f=$('#tb-'+APP.tab);if(f)f.focus();return;
+}
 const typing=/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')||(e.target&&e.target.isContentEditable);
 if(typing||e.ctrlKey||e.metaKey||e.altKey||$('#dlg').open||SHELL.cur!=='valorant')return;
 if(e.key==='/'){const i=$('#recherche').hidden?$('#landRiot'):$('#qRiot');if(i){e.preventDefault();i.focus();i.select();}}
