@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261019-0153. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261019-1458. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -516,7 +516,7 @@ if(!s||!(s.n>=3))return[{lvl:1,k:'data',t:'Données insuffisantes',why:'Il faut 
 if(P.hs!=null&&P.hs<40)add(P.hs<25?3:2,'hs','Placement du viseur (HS %)',`Tu fais mieux que ${Math.round(P.hs)} % des joueurs de tes parties.`,'10 min de Deathmatch « tête seulement » + viseur à hauteur de tête en te déplaçant.');
 if(s.op&&s.op[0]>=10&&trust(s.op[1],s.op[0])==='bad')add(3,'op','Duels d\'ouverture',`${s.op[1]}/${s.op[0]} gagnés : nettement moins d'un sur deux.`,'Ne prends plus le premier duel « à sec » : demande une flash ou une info avant, ou laisse l\'ouverture au duelliste.');
 if(s.fd!=null&&s.fd>.17)add(2,'fd','Premier mort trop souvent',`${Math.round(s.fd*100)} % des rounds, tu es le premier à mourir.`,'Joue le 2e contact : place-toi derrière un coéquipier pour reprendre son duel (trade).');
-if(s.tr!=null&&s.tr<15&&s.n>=5)add(1,'tr','Morts non vengées',`Seulement ${Math.round(s.tr)} % de tes morts sont vengées en 3 s.`,'Reste à portée de tes coéquipiers : un duo à 1-2 s d\'écart gagne plus de duels.');
+if(s.tr!=null&&s.tr<15&&s.n>=5)add(1,'tr','Morts sans échange rapide',`Seulement ${Math.round(s.tr)} % de tes morts sont vengées en 3 s.`,'Reste à portée de tes coéquipiers : un duo à 1-2 s d\'écart gagne plus de duels.');
 if(P.dmg!=null&&P.dmg<35)add(2,'dmg','Dégâts par round',`Mieux que ${Math.round(P.dmg)} % de tes lobbys seulement.`,'Utilise tes capacités offensives à chaque round et tire dès que tu vois quelqu\'un (spray contrôlé).');
 (s.b||[]).forEach((x,i)=>{if(x&&x[0]>=15&&trust(x[1],x[0])==='bad')add(2,'b'+i,`Duels ${BAND_FR[i].toLowerCase()}`,`${x[1]}/${x[0]} gagnés.`,i===0?'Duels proches : mouvement + crosshair à hauteur de tête, essaie un peu plus de sensibilité.':i===2?'Duels longs : arrête-toi avant de tirer, rafales courtes, essaie un peu moins de sensibilité.':'Duels moyens : tap / rafales de 2-3 balles, contre-strafe avant de tirer.');});
 if(!out.length)add(1,'ok','Rien de faible à coup sûr','Tes chiffres sont dans la moyenne ou au-dessus de tes lobbys.','Garde ta routine ; travaille ton meilleur point pour le rendre décisif.');
@@ -732,10 +732,10 @@ const ERR_ISO=15,ERR_TRADE=3000;
 const ERR_DEF={
 ouvSeul:{t:'Première mort du round, loin de tes coéquipiers',fix:'N\'entre pas seul : avance avec un coéquipier juste derrière toi (1 à 2 secondes), ou après une capacité (flash, info).',
 fixD:'Seul sur ton angle, tu meurs en premier : change de position d\'un round à l\'autre et recule après ton premier tir au lieu de rester.'},
-ouv:{t:'Première mort du round, non vengée',fix:'Ne prends pas le premier duel sans info ni capacité, et vérifie qu\'un coéquipier peut te venger.'},
+ouv:{t:'Première mort du round, sans échange',fix:'Ne prends pas le premier duel sans info ni capacité, et vérifie qu\'un coéquipier peut te venger.'},
 post:{t:'Mort après le plant du spike, alors que vous n\'étiez pas en infériorité',fix:'Après le plant, c\'est à eux de venir : reste loin du spike, à couvert, et laisse le temps passer.'},
 avant:{t:'Mort alors que ton équipe était plus nombreuse',fix:'Quand vous êtes plus nombreux (4 contre 3, 3 contre 2…), ne cherche pas le duel : restez groupés et laissez-les venir.'},
-notr:{t:'Mort non vengée',fix:'Reste assez près d\'un coéquipier pour qu\'il puisse te venger (il doit voir ton tueur dans les 3 secondes). Dis où tu vas avant de sortir.'}
+notr:{t:'Mort sans échange en 3 s',fix:'Reste assez près d\'un coéquipier pour qu\'il puisse te venger (il doit voir ton tueur dans les 3 secondes). Dis où tu vas avant de sortir.'}
 };
 const ERR_KEYS=Object.keys(ERR_DEF);
 ERR_KEYS.forEach(k=>{MET['e_'+k]=['e_'+k,'rE',100];});
@@ -1553,7 +1553,62 @@ canReadOwn:claimed,canExposeToOthers:publicAllowed,
 reason:publicAllowed?'rso-opt-in':(requestedPublic?'rso-opt-in-required':'private-by-default')
 });
 }
-return{MODEL_REGISTRY_VERSION,MODEL_REGISTRY,modelRef,PROFILE_LOCAL_PREFIXES,profileLocalKeys,IDENTITY_STATES,VISIBILITY_STATES,identityConsentState,esc,toNum,
+const CLAIM=Object.freeze({
+obs:{k:'obs',t:'Observé',d:'Compté directement dans tes parties.'},
+est:{k:'est',t:'Estimé',d:'Calculé par un modèle : ordre de grandeur, pas une mesure.'},
+ind:{k:'ind',t:'Indice',d:'Signal statistique : à confirmer sur plus de parties.'},
+hyp:{k:'hyp',t:'Hypothèse',d:'Piste à tester, pas une cause démontrée.'}
+});
+function valState(v){return v===0?'zero':v===undefined?'absent':v===null||(typeof v==='number'&&!Number.isFinite(v))?'inconnu':'ok';}
+const PROG_MIN=5;
+function progressCompare(cur,prev,rrCur,rrPrev){
+const agg=L=>{const n=(L||[]).length,w=(L||[]).filter(x=>x.res==='W').length,r=(L||[]).reduce((s,x)=>s+(x.r||0),0),sc=(L||[]).reduce((s,x)=>s+(x.sc||0),0);
+return{n,w,wr:n?w/n:null,acs:r?sc/r:null};};
+const a=agg(cur),b=agg(prev),rrList=L=>Array.isArray(L)&&L.length&&L.every(Number.isFinite)?L:null,ra=rrList(rrCur),rb=rrList(rrPrev);
+const rrPer=L=>L?L.reduce((s,x)=>s+x,0)/L.length:null;
+const out={n:a.n,nPrev:b.n,wr:a.wr,wrPrev:b.wr,acs:a.acs,acsPrev:b.acs,rrPerGame:rrPer(ra),rrPerGamePrev:rrPer(rb),rrN:ra?ra.length:0,rrNPrev:rb?rb.length:0,
+rrTotal:ra?ra.reduce((s,x)=>s+x,0):null,rrTotalPrev:rb?rb.reduce((s,x)=>s+x,0):null,volumeDiffers:a.n!==b.n,claim:'obs'};
+if(a.n<PROG_MIN||b.n<PROG_MIN)return Object.assign(out,{dir:'unknown',conf:'insuffisant',
+why:`Échantillon trop petit pour une lecture (${a.n} contre ${b.n} parties ; plancher d’affichage ${PROG_MIN} de chaque côté, pas un seuil de fiabilité).`,next:a.n<PROG_MIN?`Joue encore ${PROG_MIN-a.n} partie${PROG_MIN-a.n>1?'s':''} pour obtenir une première lecture.`:'Charge plus d’historique (Parties › « Charger plus ») pour avoir une période de comparaison.'});
+const choose=(n,k)=>{if(k<0||k>n)return 0;k=Math.min(k,n-k);let v=1;for(let i=1;i<=k;i++)v=v*(n-k+i)/i;return v;};
+const K=a.w+b.w,N=a.n+b.n,lo=Math.max(0,K-b.n),hi=Math.min(a.n,K),den=choose(N,K);
+const prob=x=>den?choose(a.n,x)*choose(b.n,K-x)/den:1,observed=prob(a.w);
+let pValue=0;for(let x=lo;x<=hi;x++){const q=prob(x);if(q<=observed+1e-12)pValue+=q;}
+pValue=Math.min(1,pValue);
+const conf=pValue<=.05?'solide':pValue<=.10?'moyen':'aucune';
+const dir=conf==='aucune'||a.wr===b.wr?'flat':a.wr>b.wr?'up':'down';
+const pTxt=pValue<.001?'< 0,001':pValue.toFixed(3).replace('.',',');
+const why=dir==='flat'?`Aucun écart statistique net entre les deux périodes (test exact de Fisher, p = ${pTxt}).`
+:`Taux de victoire ${dir==='up'?'en hausse':'en baisse'} ; signal ${conf==='solide'?'statistique net':'à confirmer'} dans cet échantillon (test exact de Fisher, p = ${pTxt}).`;
+const next=dir==='down'&&conf==='solide'?'Ouvre le Coach : vérifie si la priorité actuelle se retrouve dans tes dernières défaites.'
+:dir==='up'?'Garde la même priorité d’entraînement une semaine de plus et vérifie si le signal se maintient.':'Continue sur ta priorité Coach : davantage de parties donnera plus de puissance au test.';
+return Object.assign(out,{dir,conf,pValue,test:'fisher-exact',why,next});
+}
+const CONF_FR=Object.freeze({insuffisant:'Échantillon insuffisant',aucune:'Aucun signal net',faible:'Signal exploratoire',moyen:'Signal à confirmer',solide:'Signal statistique net'});
+function coachTruth(items){
+const L=(items||[]).filter(Boolean),sure=L.filter(x=>x.sure&&x.lvl>=2),top=sure[0]||null;
+const status=top?'diagnostic':L.some(x=>x.cost!=null||x.lvl>=1)?'hypothese':L.length?'observation':'vide';
+const lead=top||L[0]||null;
+const rest=L.filter(x=>x!==lead).map(x=>Object.assign({},x,{claim:x.sure?'ind':'hyp'}));
+const head=status==='diagnostic'?`Priorité : ${lead.t}`:status==='hypothese'?'Pas encore de diagnostic étayé':status==='observation'?'Rien d’établi pour l’instant':'Pas encore assez de parties détaillées';
+return{status,lead,top,rest,head,claim:status==='diagnostic'?'ind':'hyp',
+leadLabel:status==='diagnostic'?'Priorité principale':'Hypothèse principale à tester',restLabel:status==='diagnostic'?'Autres pistes (non prioritaires)':'Autres hypothèses à tester (non confirmées)'};
+}
+function matchConsistency(row,det,meI){
+if(!row||!det||!Array.isArray(det.pl))return{ok:false,unknown:true,diffs:[],missing:[]};
+const i=meI!=null?meI:det.pl.findIndex(p=>p&&p.n==='moi'),p=i>=0?det.pl[i]:null;
+if(!p)return{ok:false,unknown:true,diffs:[],missing:['joueur']};
+const nR=Array.isArray(det.rounds)?det.rounds.length:0;
+const histShots=[row.hs,row.bs,row.ls].every(Number.isFinite)?row.hs+row.bs+row.ls:0;
+const repShots=Number.isFinite(p.sh)?p.sh:0;
+const F=[['K',row.k,p.k],['D',row.d,p.d],['A',row.a,p.as],
+['ACS',row.r?Math.round(row.sc/row.r):undefined,nR&&Number.isFinite(p.sc)?Math.round(p.sc/nR):undefined],
+['Tête %',histShots>0?Math.round(row.hs/histShots*100):undefined,repShots>0&&Number.isFinite(p.hs)?Math.round(p.hs/repShots*100):undefined]];
+const diffs=[],missing=[];
+F.forEach(([k,h,r])=>{if(valState(h)!=='ok'&&valState(h)!=='zero')missing.push(k+' (historique)');else if(valState(r)!=='ok'&&valState(r)!=='zero')missing.push(k+' (rapport)');else if(h!==r)diffs.push({k,hist:h,rep:r});});
+return{ok:!diffs.length,unknown:false,diffs,missing,src:{hist:'Résumé de partie (historique Henrik)',rep:'Détail complet de la partie (Henrik v4)'}};
+}
+return{CLAIM,valState,PROG_MIN,progressCompare,CONF_FR,coachTruth,matchConsistency,MODEL_REGISTRY_VERSION,MODEL_REGISTRY,modelRef,PROFILE_LOCAL_PREFIXES,profileLocalKeys,IDENTITY_STATES,VISIBILITY_STATES,identityConsentState,esc,toNum,
 wilson,trust,rateTip,nthStats,nightLimit,lobbyPlace,weaponStats,
 smooth,weekStart,pAgg,agentPick,stackStats,lobbyPct,wellImpact,habitDays,records,stepGoal,HOURS,hourBucket,
 divOf,pctRank,benchPct,pDetail,castRates,agentMeta,coverage,MOVERS,copyPhase,fromCv,nearestRegion,
@@ -1723,7 +1778,7 @@ e_ouvSeul:['Revois tes 3 dernières premières morts : à quelle distance était
 e_ouv:['Entraîne le 2e contact : reste juste derrière ton duelliste et reprends son duel','Avant le premier duel : demande une info, une flash ou un drone','Après ton premier tir, recule derrière l\'angle au lieu de rester'],
 e_post:['Après le plant : place-toi à couvert, loin du spike, et laisse-les venir','Revois 3 morts après plant : cherchais-tu un kill de plus ?','Regarde le chrono quand tu meurs : le temps jouait pour toi'],
 e_avant:['Quand vous êtes plus nombreux : reste groupé et laisse-les venir','Revois 3 morts à 4 contre 3 : pouvais-tu attendre ?','Annonce « on est plus nombreux, on attend » à l\'équipe'],
-e_notr:['Dis où tu vas avant de sortir de ton angle','Reste à 5-10 m d\'un coéquipier en milieu de round','Revois 3 morts non vengées : qui pouvait te reprendre ?'],
+e_notr:['Dis où tu vas avant de sortir de ton angle','Reste à 5-10 m d\'un coéquipier en milieu de round','Revois 3 morts sans échange : qui pouvait te reprendre ?'],
 e_seul:['Reste à 5-10 m d\'un coéquipier : à plus de 25 m, presque aucune mort n\'est vengée','Revois tes 3 dernières morts isolées : pourquoi étais-tu loin ?','Joue un site entier avec le même coéquipier (même timing)'],
 e_nocov:['Avant de peek, dis « je peek, couvre-moi »','Demande à un coéquipier de regarder l\'angle d\'où on peut te tuer','Revois 3 morts avec un coéquipier proche : regardait-il ton angle ?'],
 e_xf:['Avant de sortir : smoke, flash ou mur sur l\'un des deux angles','Jiggle peek : sors une demi-seconde puis rentre pour compter les ennemis','Revois 3 morts « pris entre deux » : quel angle pouvais-tu bloquer ?'],
@@ -1945,6 +2000,21 @@ normalizeHenrikAccount,normalizeRiotAccount,normalizeRiotMatchRefs,validateAccou
 });
 ;
 "use strict";
+const SYNTHETIC_PROFILES=new WeakSet();
+const RIOT_PUBLIC=Object.freeze({
+message:'Données de joueurs indisponibles : connexion Riot (RSO) non obtenue. Seule la démo synthétique est ouverte.',
+isDemo:p=>!!p&&SYNTHETIC_PROFILES.has(p),
+requirePlayerData(){
+const e=new Error(this.message);e.code='rso-required';throw e;
+},
+requireDemo(p){if(!this.isDemo(p))this.requirePlayerData();}
+});
+const RIOT_DISCLAIMER="Elitrack isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.";
+function riotPendingHtml(){
+return`<section class="card state" data-riot-access="rso-required"><h2>Démo uniquement</h2><p>${esc(RIOT_PUBLIC.message)}</p><p>Ni une clé personnelle, ni une case de consentement ne peuvent ouvrir un profil réel, le tien ou celui d’un autre joueur.</p><button class="btn big" data-act="demo">Explorer la démo</button></section>`;
+}
+;
+"use strict";
 const PX='ph_';
 const ST={
 get(k,d){try{const v=localStorage.getItem(PX+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
@@ -1959,8 +2029,9 @@ const userKey=()=>{try{return localStorage.getItem(PX+'hkey')||((/^(file:|http:\
 const setUserKey=k=>{try{k?localStorage.setItem(PX+'hkey',k.trim()):localStorage.removeItem(PX+'hkey');}catch(e){}};
 const API={calls:0};
 const personalOnly=()=>!!(APP.cfg&&APP.cfg.dataMode==='personal');
-const apiReady=()=>!!(userKey()||(!personalOnly()&&APP.cfg.proxy));
+const apiReady=()=>false;
 async function apiGet(path,tries=3,opt={}){
+RIOT_PUBLIC.requirePlayerData();
 const key=userKey(),base=key?'https://api.henrikdev.xyz':personalOnly()?'':APP.cfg.proxy;
 if(!base){const e=new Error(personalOnly()?'Phase de test : ajoute ta clé HenrikDev personnelle dans Réglages. Elle reste uniquement dans ton navigateur.':'Ce site n\'a pas encore son serveur : ajoute ta clé HenrikDev gratuite (Réglages) ou essaie la démo.');e.code='nokey';throw e;}
 const lic=!key&&opt.lic&&APP.licCode?`${path.includes('?')?'&':'?'}lic=${encodeURIComponent(APP.licCode)}`:'';
@@ -1994,6 +2065,7 @@ return j;
 const VALDATA=VALPROVIDER.createHenrik(apiGet);
 const ROWS_MAX=1500,PAGES_MAX=60;
 async function loadProfile(riot,region,opt={}){
+RIOT_PUBLIC.requirePlayerData();
 const sp=splitRiot(riot);if(!sp)throw new Error('Écris ton Riot ID en entier : Pseudo#TAG (exemple : Kebab#EUW).');
 const[nm,tg]=sp,rid=ridNorm(riot),all=!!opt.all,old=ST.get('prof:'+rid);
 if(!opt.force&&!all&&old&&old.v===2&&old.region===region&&Date.now()-old.at<10*6e4)return old;
@@ -2046,7 +2118,9 @@ const DET_V=8;
 const idsOn=()=>!APP.cfg||APP.cfg.riotIds!==false;
 const detFix=(prof,d)=>{const r=d&&(prof.rows||[]).find(x=>x.id===d.id);return r?detTrim(d,r.us+r.them):d;};
 async function detGet(prof,id,fresh){
+RIOT_PUBLIC.requireDemo(prof);
 const k=mdKey(prof,id),old=x=>fresh&&(x.v||0)<DET_V;if(DET.mem[k]&&!old(DET.mem[k]))return DET.mem[k];
+if(RIOT_PUBLIC.isDemo(prof))return DET.mem[k]?detFix(prof,DET.mem[k]):null;
 let d=DET.mem[k]||null;if(!d){try{d=await idb('readonly',s=>s.get(k));}catch(e){}}
 if(d&&!old(d))return DET.mem[k]=detFix(prof,d);
 if(prof.demo)return d?DET.mem[k]=detFix(prof,d):null;
@@ -2058,6 +2132,7 @@ try{await idb('readwrite',s=>s.put(d,k));}catch(e){console.warn('Détail non gar
 return DET.mem[k]=detFix(prof,d);
 }
 async function detAll(prof){
+RIOT_PUBLIC.requireDemo(prof);
 const ids=new Set(prof.rows.map(r=>r.id)),out=[];
 for(const r of prof.rows){const k=mdKey(prof,r.id);if(DET.mem[k])out.push(DET.mem[k]);}
 if(out.length<ids.size&&!prof.demo){
@@ -2067,6 +2142,7 @@ try{const all=await idb('readonly',s=>s.getAll(IDBKeyRange.bound(pre,pre+'￿'))
 return out.sort((a,b)=>b.ts-a.ts);
 }
 async function detFill(prof,max,onStep){
+RIOT_PUBLIC.requireDemo(prof);
 if(prof.demo||!apiReady())return 0;
 const have=new Map((await detAll(prof)).map(d=>[d.id,d.v||0])),todo=prof.rows.slice(0,max).filter((r,j)=>!DET.miss.has(r.id)&&(!have.has(r.id)||have.get(r.id)<6||(j<5&&have.get(r.id)<DET_V)));
 let n=0,fail=0;
@@ -2106,6 +2182,7 @@ rows.sort((a,b)=>b.ts-a.ts);
 const prof={v:2,demo:true,at:now,rid:'démo#fr1',name:'Démo',tag:'FR1',riot:'Démo#FR1',region:'eu',puuid:'',level:142,card:'e9c8d760-4d06-4037-4882-6bab3610d9ea',full:true,
 mmr:{tier:Math.floor(elo/100)+3,rr:elo%100,last:hist[hist.length-1].ch,elo,need:0,peak:{tier:Math.floor(peak/100)+3,season:'e11a2'}},rows,hist};
 rows.slice(0,45).forEach(r=>{const d=demoDetail(r,rnd,ri,pickW);DET.mem[mdKey(prof,r.id)]=d;});
+SYNTHETIC_PROFILES.add(prof);
 return prof;
 }
 const DEMO_IDS=['Démo#FR1','Alba#2201','Corbeau#7788','Nimbus#0042','Kestrel#9910','Zéphyr#3141','Orchidée#5050','Mistral#1212','Quartz#8080','Lynx#6006'];
@@ -2161,7 +2238,7 @@ return{id:row.id,v:8,rg:'eu',map:row.map,date:row.date,ts:row.ts,rounds,kills,pl
 const TH={draft:null,fonts:new Set(),last:null};
 const DEF_ACCENT='#ff2e97';
 const themeSaved=()=>themeClean(ST.get('theme',{}));
-const canPerso=()=>featOn('perso',APP.plan,APP.cfg);
+const canPerso=()=>true;
 const themeUsed=()=>TH.draft||(canPerso()?themeSaved():themeFree(themeSaved()));
 function bestMap(rows){const a=aggBy(rows||[],'map').filter(x=>MAP_ID[x.key]);const ok=a.filter(x=>x.n>=3).sort((x,y)=>smooth(y.w,y.n)-smooth(x.w,x.n));return(ok[0]||a[0]||{}).key||'';}
 function themeCompute(t,prof){
@@ -2212,22 +2289,20 @@ function themeRefresh(){themeApply(themeCompute(themeUsed(),APP.prof));}
 function persoOpen(){TH.draft=themeClean(canPerso()?themeSaved():themeFree(themeSaved()));$('#perso').hidden=false;document.body.classList.add('drawer-on');persoRender();setTimeout(()=>{const f=$('#perso [data-pf]');if(f)f.focus();},50);}
 function persoClose(){
 if($('#perso').hidden)return;
-const prem=themeDiff(TH.draft);
-if(canPerso())ST.set('theme',TH.draft);else{ST.set('theme',themeFree(TH.draft));if(prem.length)toast('Aperçu terminé : passe Premium pour garder ce thème.',false,{label:'Voir Premium',fn:()=>premiumOpen('perso')});}
+ST.set('theme',TH.draft);
 TH.draft=null;$('#perso').hidden=true;document.body.classList.remove('drawer-on');themeRefresh();render();
 }
 function persoSet(k,v){const t=Object.assign({},TH.draft,{[k]:v});TH.draft=themeClean(t);themeRefresh();persoRender();if(APP.prof&&(k==='blocks'||k==='hidden'||k==='streamer'))render();}
-const star=f=>canPerso()?'':' <span class="star" title="Premium : aperçu possible">★</span>';
+const star=()=>'';
 function persoRender(){
-const t=TH.draft,th=TH.last||themeCompute(t,APP.prof),prem=!canPerso()?themeDiff(t):[],P=APP.prof;
+const t=TH.draft,th=TH.last||themeCompute(t,APP.prof),P=APP.prof;
 const chips=(k,list,fr,free)=>`<div class="chips">${list.map(v=>`<button type="button" class="chip${t[k]===v?' on':''}" data-pf="${k}" data-v="${esc(v)}" aria-pressed="${t[k]===v}">${esc(fr[v]||v)}${free&&free.includes(v)?'':star()}</button>`).join('')}</div>`;
 const agents=Object.keys(window.KITS||{}).sort();
 const used=P?aggBy(P.rows,'agent').map(x=>x.key):[];
 const blocks=(t.blocks.length?t.blocks:BLOCKS).concat(BLOCKS.filter(b=>!t.blocks.includes(b)&&t.blocks.length));
 $('#persoIn').innerHTML=`
   <div class="drawer-h"><h2>Personnaliser</h2><button class="btn ghost sm" data-act="persoClose" aria-label="Fermer">✕</button></div>
-  <p class="muted small">Ton interface : <b>${esc(th.label||'—')}</b>. ${canPerso()?'Tout est enregistré dans ce navigateur.':'Le thème automatique est gratuit. Les réglages ★ sont en aperçu : ils s\'annulent à la fermeture sans Premium.'}</p>
-  ${prem.length?`<div class="infobox">Aperçu Premium en cours (${prem.length} réglage${prem.length>1?'s':''}). <button class="btn sm" data-act="premium:perso">Garder ce thème</button></div>`:''}
+  <p class="muted small">Ton interface : <b>${esc(th.label||'—')}</b>. Tout est enregistré dans ce navigateur.</p>
   <h3>Ton thème</h3>${chips('mode',THEME_ENUM.mode,MODE_FR,['auto','dernier','neutre'])}
   ${t.mode==='agent'||t.mode==='perso'?`<label class="lbl">Agent${star()}</label><div class="agrid">${agents.map(a=>`<button type="button" class="ag${t.agent===a||(!t.agent&&th.agent===a)?' on':''}${used.includes(a)?' joue':''}" data-pf="agent" data-v="${esc(a)}" title="${esc(a)}${used.includes(a)?' (joué)':''}"><img src="${IMG.agent(a)}" alt="${esc(a)}" loading="lazy"></button>`).join('')}</div>`:''}
   ${t.mode==='carte'||t.mode==='perso'||t.bg==='splash'?`<label class="lbl" for="pfMap">Carte${star()}</label><select id="pfMap" data-pf="map"><option value="">Auto : ta meilleure carte</option>${Object.keys(MAP_ID).sort().map(m=>`<option${t.map===m?' selected':''}>${m}</option>`).join('')}</select>`:''}
@@ -2417,7 +2492,7 @@ const sg=(x,d=1)=>{if(x==null||!Number.isFinite(+x))return'—';const s=fmt(Math
 const dFr=(ts,o={weekday:'short',day:'numeric',month:'short'})=>{try{return new Date(ts).toLocaleDateString('fr-FR',o);}catch(e){return'';}};
 const hFr=ts=>{try{return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}catch(e){return'';}};
 const agImg=(a,cls='ag')=>{const u=IMG.agent(a);return u?`<img class="${cls}" src="${u}" alt="${esc(a)}" title="${esc(a)}" loading="lazy">`:`<span class="${cls} ph">${esc(String(a||'?').slice(0,2))}</span>`;};
-const lockTag=f=>featOn(f,APP.plan,APP.cfg)?'':' <span class="star" title="Premium">★</span>';
+const lockTag=()=>'';
 const trendTxt=(a,b,d=1,inv)=>a==null||b==null?'':`<small class="${(a-b)*(inv?-1:1)>=0?'up':'down'}">${a>=b?'▲':'▼'} ${fmt(Math.abs(a-b),d)}</small>`;
 const rateCls=(k,n,ref=.5)=>trust(k,n,ref);
 const empty=t=>`<p class="muted">${esc(t)}</p>`;
@@ -2436,60 +2511,17 @@ const ACT={};
 const AFTER=[],after=fn=>AFTER.push(fn);
 const runAfter=()=>AFTER.splice(0).forEach(f=>{try{const p=f();if(p&&p.catch)p.catch(e=>console.error(e));}catch(e){console.error(e);}});
 function renderLanding(){
-const C=APP.cfg,prem=Object.entries(FEATURES).filter(([k])=>!featOn(k,'free',C)),free=Object.entries(FEATURES).filter(([k])=>featOn(k,'free',C));
-const wall=['Jett','Reyna','Omen','Sova','Killjoy'];
-$('#app').innerHTML=`
-  <section class="land"><div class="motif" aria-hidden="true"></div>
-    <div class="land-txt">
-      <p class="eyebrow">Tracker perso · gratuit · sans compte</p>
-      <h1>Tes stats, <em>à tes couleurs</em>.</h1>
-      <p class="lead">Entre ton Riot ID : rang, RR, rapports de partie, et surtout <b>où te placer</b>, <b>quelle strat jouer</b> sur chaque carte et <b>comment t'entraîner</b>. L'interface prend les couleurs de ton agent principal.</p>
-      <form id="landForm" class="land-form" autocomplete="off">
-        <input id="landRiot" placeholder="Pseudo#TAG" aria-label="Ton Riot ID (Pseudo#TAG)" maxlength="30" value="${esc((ST.get('last')||{}).riot||'')}">
-        <select id="landReg" aria-label="Région">${REGIONS.map(([v,n])=>`<option value="${v}"${v===((ST.get('last')||{}).region||'eu')?' selected':''}>${n}</option>`).join('')}</select>
-        <button class="btn big" type="submit">Voir mon profil</button>
-      </form>
-      <label class="chk small"><input type="checkbox" id="landOk" ${ST.get('consent')?'checked':''}> C'est mon compte (ou le joueur est d'accord). Mes données restent dans mon navigateur.</label>
-      <p class="small muted mt8">Pas encore prêt ? <a href="#" data-act="demo">Voir la démo</a> avec un profil inventé.</p>
-    </div>
-    <div class="wall" aria-hidden="true">${wall.map((a,i)=>`<img src="img/mur-${a.toLowerCase()}.webp" alt="" width="661" height="600" style="--i:${i};--c:${AGENT_COL[a]}" loading="lazy" decoding="async" fetchpriority="low">`).join('')}</div>
-  </section>
-  <h2 class="sr">Ce que fait ${esc(C.nom)}</h2>
-  <section class="grid g3 feats">
-    <div class="card"><h3>${ico('tactique')}Positionnement optimal</h3><p>Tes meilleurs spots, carte par carte, avec l'angle à tenir et d'où on te tue. Comparé aux joueurs de ton niveau, jamais une position intenable.</p></div>
-    <div class="card"><h3>${ico('map')}Stratégie par carte</h3><p>Quel site attaquer, où smoker, où te placer en défense, quand tourner, quel agent prendre. Écrit pour TON agent, avec un briefing d'1 minute.</p></div>
-    <div class="card"><h3>${ico('entrainement')}Entraînement sur mesure</h3><p>Routine réglée sur ton rang et tes vrais points faibles, minuteur, test de réflexes, sensibilité idéale et plan de la semaine.</p></div>
-    <div class="card"><h3>${ico('analyse')}Plus que des chiffres</h3><p>Chaque partie expliquée : rounds gagnés contre attendus, ton impact en rounds, tes duels sur la carte, les moments qui ont tout changé.</p></div>
-    <div class="card"><h3>${ico('coach')}Un coach honnête</h3><p>Ta place réelle dans tes lobbys et tes vrais points faibles, seulement quand les chiffres sont sûrs. Objectif de rang, défis et succès.</p></div>
-    <div class="card"><h3>${ico('palette')}Ton interface, ton agent</h3><p>Joue Jett ? Tout passe en bleu ciel avec son art en fond. Main Omen ? Violet et fumée. Ça change tout seul avec ton profil.</p></div>
-  </section>
-  ${pricingHtml()}
-  <section class="card faq mt">
-    <h2>Questions</h2>
-    <details><summary>Où vont mes données ?</summary><p>Nulle part : elles sont gardées dans ton navigateur (stockage local). Pas de compte, pas de base de données, pas de pub. Bouton « Oublier mes données » dans les réglages.</p></details>
-    <details><summary>Comment marche Premium ?</summary><p>Tu paies une fois (${esc(C.achat.vie||'—')}) ou par mois (${esc(C.achat.mensuel||'—')}) et tu reçois un code lié à ton Riot ID. Tu le colles dans « J'ai un code » : tout est débloqué, sans compte.</p></details>
-    <details><summary>Est-ce que c'est officiel ?</summary><p>Non. ${esc(C.nom)} est un projet de fan, pas approuvé par Riot Games. Les données viennent de l'API communautaire HenrikDev.</p></details>
-    <details><summary>Mes stats ne bougent pas ?</summary><p>Les données sont gardées 10 minutes pour ne pas surcharger le service : clique « Actualiser » sur ton profil après une partie.</p></details>
-    <details><summary>Est-ce que je peux l'installer comme une appli ?</summary><p>Oui : sur ordinateur, bouton « Installer » dans la barre du haut (Chrome, Edge) ; sur téléphone, menu du navigateur › « Ajouter à l'écran d'accueil ».</p></details>
-    <details><summary>Le positionnement et les strats, c'est autorisé ?</summary><p>Oui : tout vient de tes parties terminées, sur toi-même. Rien n'est utilisé pendant une partie et aucun adversaire n'est identifié.</p></details>
-  </section>`;
+document.body.classList.toggle('major-preview',MAJOR_PREVIEW);
+$('#app').innerHTML=`${MAJOR_PREVIEW?majorBanner():''}<section class="major-heading"><p class="eyebrow">VALORANT · aperçu synthétique</p><h1>Comprendre. Progresser. Avec des preuves.</h1><p>Explore le Dashboard, les rapports, la Progression et le Coach avec un profil entièrement inventé. Aucun compte Riot réel n’est accessible dans cette version.</p></section>${riotPendingHtml()}`;
 $('#recherche').hidden=true;document.body.classList.remove('has-gnav');heroWatch();
 }
-function pricingHtml(){
-const C=APP.cfg,li=([k,f],on)=>`<li class="${on?'good':'badl'}">${esc(f.n)}</li>`;
-const all=Object.entries(FEATURES);
-return`<section class="pricing mt" id="offres">
-    <div class="card plan"><h3>Gratuit</h3><p class="price">0 €</p><ul class="ul">${all.map(x=>li(x,featOn(x[0],'free',C))).join('')}</ul></div>
-    <div class="card plan best"><h3>Premium <span class="pill">tout débloqué</span></h3><p class="price">${esc(C.achat.vie||'—')} <small>à vie</small>${C.achat.mensuel?` <span class="muted small">ou ${esc(C.achat.mensuel)} / mois</span>`:''}</p>
-      <ul class="ul">${all.map(x=>li(x,true)).join('')}</ul>
-      ${C.freeAll?'<div class="infobox">Lancement : tout est gratuit en ce moment.</div>':`<div class="row mt8">${C.achat.lien?`<a class="btn" href="${esc(C.achat.lien)}" target="_blank" rel="noopener noreferrer">Acheter Premium</a>`:'<span class="muted small">Achat bientôt disponible.</span>'}<button class="btn ghost" data-act="codeAsk">J'ai un code</button></div>`}
-      <p class="note">Indique ton Riot ID dans le message du paiement : tu reçois ton code${C.achat.contact?` (contact : ${esc(C.achat.contact)})`:''}. Le code est lié à ton compte.</p></div>
-  </section>`;
-}
+function pricingHtml(){return'<p>Les éventuelles fonctionnalités futures dépendent des autorisations Riot requises. Aucune offre commerciale n’est ouverte.</p>';}
 const TABS_P=[['vue','Vue d\'ensemble'],['parties','Parties'],['agents','Agents & cartes'],['position','Positionnement','position'],['strategie','Stratégie','strategie'],['entrainement','Entraînement','entrainement'],
 ['visee','Visée','visee'],['coach','Coach','coach'],['progression','Progression','progression'],['comparer','Comparer','comparer'],['meta','Méta','meta']];
 const TAB_KEYS=TABS_P.map(t=>t[0]);
-const GROUPS=[['moi','Moi',['vue','parties','progression']],['analyse','Analyse',['coach','visee','agents','comparer']],['tactique','Tactique',['position','strategie','meta']],['entrainement','Entraînement',['entrainement']]];
+const UI_CLASSIC=typeof location!=='undefined'&&new URLSearchParams(location.search).get('ui')==='classic';
+const MAJOR_PREVIEW=!UI_CLASSIC;
+const GROUPS=MAJOR_PREVIEW?[['moi','Aujourd’hui',['vue']],['analyse','Parties',['parties']],['entrainement','Progresser',['coach','progression','entrainement','visee']],['tactique','Cartes & Méta',['position','strategie','meta']],['settings','Moi',['agents','comparer']]]:[['moi','Moi',['vue','parties','progression']],['analyse','Analyse',['coach','visee','agents','comparer']],['tactique','Tactique',['position','strategie','meta']],['entrainement','Entraînement',['entrainement']]];
 const groupOf=k=>GROUPS.find(g=>g[2].includes(k))||GROUPS[0];
 const ico=n=>`<svg class="ico" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 function navHtml(){
@@ -2497,7 +2529,7 @@ const G=groupOf(APP.tab),P=APP.prof,M=P.mmr,av=IMG.card(P.card,'smallart')||IMG.
 return`<nav class="gnav" aria-label="Sections du profil">${GROUPS.map(([g,n])=>`<button type="button" data-act="grp:${g}"${G[0]===g?' aria-current="page"':''}>${ico(g)}<span>${n}</span></button>`).join('')}</nav>
     <div class="snav"><div class="tabs" role="tablist" aria-label="${esc(G[1])}"${G[2].length<2?' hidden':''}>${G[2].map(k=>{const[,n,f]=TABS_P.find(t=>t[0]===k);
 return`<button role="tab" data-act="tab:${k}" id="tb-${k}" aria-selected="${APP.tab===k}" tabindex="${APP.tab===k?0:-1}">${n}${f?lockTag(f):''}</button>`;}).join('')}</div>
-    <div class="navid" aria-hidden="true">${av?`<img src="${av}" alt="">`:''}<b>${esc(P.name)}</b><small>${esc(tierFr(M.tier))}${M.rr!=null?` · ${clamp(M.rr,0,100)} RR`:''}</small></div></div>`;
+    ${MAJOR_PREVIEW&&G[0]==='settings'?'<button class="btn ghost sm" data-act="reglages">Données & réglages</button>':''}<div class="navid" aria-hidden="true">${av?`<img src="${av}" alt="">`:''}<b>${esc(P.name)}</b><small>${esc(tierFr(M.tier))}${M.rr!=null?` · ${clamp(M.rr,0,100)} RR`:''}</small></div></div>`;
 }
 function navRender(){
 const n=$('#pnav');if(!n||!APP.prof)return;const had=n.contains(document.activeElement)?document.activeElement.dataset.act:null;
@@ -2510,11 +2542,14 @@ if(HERO_IO)HERO_IO.disconnect();HERO_IO=null;document.body.classList.remove('her
 HERO_IO=new IntersectionObserver(([e])=>document.body.classList.toggle('hero-off',!e.isIntersecting),{rootMargin:'-110px 0px 0px 0px'});HERO_IO.observe(h);
 }
 function renderProfile(){
+if(!RIOT_PUBLIC.isDemo(APP.prof))return renderLanding();
+document.body.classList.toggle('major-preview',MAJOR_PREVIEW);
 const P=APP.prof,th=TH.last||themeCompute(themeUsed(),P),M=P.mmr,lic=APP.lic;
-$('#recherche').hidden=false;
+$('#recherche').hidden=true;
 const rr=M.rr==null?null:clamp(M.rr,0,100),banner=IMG.card(P.card,'wideart')||IMG.agent(th.agent,'background'),bannerM=IMG.card(P.card,'largeart')||banner,av=IMG.card(P.card,'smallart')||IMG.agent(th.agent);
 $('#app').innerHTML=`
-  ${P.demo?'<div class="infobox demo"><b>Démo</b> : profil inventé, tout est débloqué pour te montrer le site. <a href="#" data-act="accueil">Voir mon vrai profil</a></div>':''}
+  ${MAJOR_PREVIEW?majorBanner():''}
+  ${P.demo?'<div class="infobox demo"><b>Démo</b> : profil inventé, tout est débloqué pour te montrer le site. <a href="#" data-act="accueil">Retour à l’accueil</a></div>':''}
   <section class="hero" style="--banner:url('${banner}');--banner-m:url('${bannerM}');--rk:${tierCol(M.tier)}">
     <div class="banner"></div><div class="motif" aria-hidden="true"></div>${th.portrait&&matchMedia('(min-width:761px)').matches?`<img class="portrait" src="${th.portrait}" alt="" decoding="async" fetchpriority="low">`:''}
     <div class="hero-in">
@@ -2532,7 +2567,7 @@ $('#app').innerHTML=`
         <button class="btn ghost sm" data-act="perso" aria-label="Personnaliser">${ico('palette')}<span class="lbl-m">Personnaliser</span></button>
         <button class="btn ghost sm" data-act="share" title="Image de ton profil à partager" aria-label="Partager">${ico('share')}<span class="lbl-m">Partager</span>${lockTag('partage')}</button>
         ${P.demo?'':`<button class="btn ghost sm" data-act="linkCopy" title="Copier le lien direct vers ce profil" aria-label="Copier le lien">${ico('link')}<span class="lbl-m">Lien</span></button>`}
-        ${APP.plan==='free'?'':`<span class="pill prem" title="${lic&&lic.exp?`Jusqu'au ${esc(lic.exp)}`:'À vie'}">★ ${APP.plan==='dieu'?'Mode Dieu':'Premium'}${lic&&lic.days!=null?` · ${lic.days} j`:''}</span>`}
+
       </div>
     </div>
   </section>
@@ -2542,6 +2577,7 @@ document.body.classList.add('has-gnav');heroWatch();tabShow();renderTab();
 }
 function tabShow(){const nav=$('.tabs'),b=$('#tb-'+APP.tab);if(nav&&b)nav.scrollLeft=Math.max(0,b.offsetLeft-(nav.clientWidth-b.clientWidth)/2);}
 function renderTab(){
+if(!RIOT_PUBLIC.isDemo(APP.prof))return renderLanding();
 const el=$('#tabIn');if(!el)return;
 if(!TAB_KEYS.includes(APP.tab))APP.tab='vue';
 const f=(TABS_P.find(t=>t[0]===APP.tab)||[])[2];
@@ -2550,7 +2586,7 @@ if(f&&!featOn(f,APP.plan,APP.cfg)){el.innerHTML=teaser(f);return;}
 if(['position','strategie','entrainement','meta'].includes(APP.tab)&&typeof tabTrain==='undefined'){el.innerHTML=skel(4);lotLoad().then(()=>renderTab(),e=>{el.innerHTML=stateHtml('!','Onglet indisponible',e.message,['Réessayer','retab'],true);});return;}
 const V={vue:tabVue,parties:tabParties,agents:tabAgents,position:()=>tabPosition(),strategie:()=>tabStrat(),entrainement:()=>tabTrain(),meta:()=>tabMeta(),visee:tabVisee,progression:tabProg,coach:tabCoach,comparer:tabComparer};
 const wantsDet=['visee','coach','position','strategie','entrainement','progression'].includes(APP.tab)||(APP.tab==='agents'&&APP.statsAnalyze);
-try{el.innerHTML=(wantsDet?detPick():'')+(V[APP.tab]||tabVue)();runAfter();}
+try{el.innerHTML=(wantsDet?detPick():'')+(MAJOR_PREVIEW&&APP.tab!=='vue'?majorTabHeading(APP.tab):'')+(V[APP.tab]||tabVue)();runAfter();}
 catch(e){console.error(e);el.innerHTML=`<div class="card">${empty('Affichage impossible : '+e.message)}</div>`;logErr(e);}
 if(['visee','coach','vue','position','strategie','entrainement','progression'].includes(APP.tab)||(APP.tab==='agents'&&APP.statsAnalyze))detNeed();
 if(APP.tab==='meta'&&APP.meta===undefined)metaLoad().then(()=>{if(APP.tab==='meta'&&canRerender())renderTab();});
@@ -2567,11 +2603,7 @@ progression:['📈','Ta courbe de RR complète, tes semaines, et surtout ta limi
 coach:['🧠','Ta place réelle dans tes lobbys (mieux que X % des joueurs), tes points faibles sûrs, et les exercices qui vont avec.'],
 comparer:['⚔️','Toi contre un ami : victoires, K/D, ACS, précision, agents en commun.'],rapports:['📋','Le rapport de chaque partie.'],historique:['🗂️','Jusqu\'à 100 parties.'],partage:['📸','Une image de ton profil à tes couleurs.'],perso:['🎨','Tout personnaliser.']};
 const TEASE_IC={visee:'analyse',position:'tactique',strategie:'map',entrainement:'entrainement',progression:'moi',coach:'coach',comparer:'analyse',rapports:'analyse',historique:'moi',partage:'share',perso:'palette'};
-function teaser(f){
-const txt=(TEASE[f]||[])[1]||'';
-return`<div class="card state"><div class="state-i" aria-hidden="true">${ico(TEASE_IC[f]||'moi')}</div><h2>${esc(FEATURES[f].n)}</h2><p>${esc(txt)}</p>
-    <div class="row center"><button class="btn big" data-act="premium:${f}">Débloquer avec Premium</button><button class="btn ghost" data-act="demo">Voir dans la démo</button></div></div>`;
-}
+function teaser(){return riotPendingHtml();}
 function profileScope(P=APP.prof){const v=P?ST.get('profileScope:'+P.rid,'act'):'act';return PROFILE_SCOPES.includes(v)?v:'act';}
 function profileWindowRows(P=APP.prof){return P?profileRows(P.rows,profileScope(P)):[];}
 function profileScopeBar(P=APP.prof){
@@ -2584,6 +2616,17 @@ const P=APP.prof,R=P.rows,t=themeUsed(),order=(t.blocks.length?t.blocks.concat(B
 if(!R.length)return stateHtml(ico('moi'),'Aucune partie classée récente','Joue une partie classée, puis actualise : tes stats apparaissent ici.',P.demo?null:['Actualiser','refresh']);
 const B={kpis:bKpis,session:bSession,objectif:bObjectif,forme:bForme,rr:bRR,agents:bAgents,cartes:bCartes,records:bRecords,dernier:bDernier,defis:bDefis,succes:bSucces};
 const hid=t.hidden.filter(b=>B[b]);
+if(MAJOR_PREVIEW){
+const block=key=>order.includes(key)&&B[key]?`<div class="blk-${key}">${B[key]()}</div>`:'';
+const rest=order.filter(k=>!['kpis','dernier'].includes(k)&&B[k]);
+return`${majorHeading('Aujourd’hui','Où tu en es, et quoi faire ensuite.','Résumé observé, ce qui compte, la preuve, puis une seule action.')} ${profileScopeBar(P)}
+      <section class="major-summary" aria-label="Résumé"><p class="eyebrow">01 / Où tu en es</p>${block('kpis')}</section>
+      <div class="major-duo"><section class="card major-state" aria-label="Tendance"><p class="eyebrow">02 / Tendance</p>${progressCardHtml(true)}</section>
+        ${coachLeadHtml(true)}</div>
+      <section aria-label="Preuves"><p class="eyebrow">03 / Preuve</p>${block('dernier')}<button class="btn ghost sm" data-act="tab:parties">Toutes mes parties →</button></section>
+      <details class="major-advanced"><summary>04 / Avancé <span>Objectifs, tendances et tous tes autres blocs</span></summary><div class="vue">${rest.map(k=>block(k)).join('')}</div></details>
+      ${hid.length?'<p class="note">Tes blocs masqués restent disponibles dans <button class="btn ghost sm" data-act="perso">Personnaliser</button>.</p>':''}`;
+}
 return`${profileScopeBar(P)}<div class="vue">${order.filter(b=>B[b]).map(b=>{let h='';try{h=B[b]();}catch(e){console.error(e);logErr(e);}return h?`<div class="blk-${b}">${h}</div>`:'';}).join('')}</div>
     ${hid.length?`<p class="note">Blocs masqués : ${hid.map(b=>esc(BLOCK_FR[b])).join(', ')}. <a href="#" data-act="perso">Les afficher ou changer l'ordre</a></p>`:''}`;
 }
@@ -2596,7 +2639,7 @@ const L=ses.length?rowsAgg(ses):null,ids=new Set(ses.map(r=>r.id)),SG=(APP.D||[]
 const eT=ERR_KEYS.map(k=>[k,SG.reduce((s,g)=>s+(g['e_'+k]||0),0)]).sort((a,b)=>b[1]-a[1])[0],sImp=SG.length?SG.reduce((s,g)=>s+g.imp,0)/SG.length:null;
 return verdictHtml({h:'Avant de lancer',p:'Test de réflexes (30 s) puis échauffement de 10 minutes : tu commences la session à ton vrai niveau.',
 facts:[['Ta limite',`<b>${lim?`${lim} partie${lim>1?'s':''}`:'—'}</b>`,lim?'par session : au-delà, tu perds nettement plus souvent':'pas de baisse sûre : arrête-toi après 3 défaites d\'affilée'],
-L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${nulTxt(L)}${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}${sImp!=null?` · impact ${sg(sImp,1)} round/partie`:''}`],
+L&&['Dernière session',`<b>${L.w} V · ${L.l} D</b>`,`${nulTxt(L)}${esc(dFr(ses[0].ts))}${P.hist.length?` · ${sg(rrOf(ses),0)} RR`:''}${sImp!=null?` · impact estimé ${sg(sImp,1)} round/partie`:''}`],
 eT&&eT[1]>=2&&['À corriger ce soir',`<b>${eT[1]}×</b>`,`${esc(ERR_DEF[eT[0]].t.toLowerCase())} à la dernière session`]].filter(Boolean),
 acts:'<button class="btn" data-act="warmup">Échauffement 10 min</button><button class="btn ghost" data-act="tab:entrainement">Test de réflexes</button>'},'Ce soir','');
 }
@@ -2605,7 +2648,7 @@ const last3=cur.slice(-3),lost3=last3.length===3&&last3.every(r=>r.res==='L'),lo
 const T=(APP.D||[]).length>=8?tiltOf(coachData().G,cur):null,drop=T&&T.ses&&T.ses.drop,aft=T&&T.after&&T.after.sure&&cur[cur.length-1].res==='L'?T.after:null;
 const st=lim&&cur.length>=lim?['bad','Stop conseillé',`Tu as atteint ta limite habituelle (${lim} parties) : au-delà, tu perds nettement plus souvent.`]
 :lost3?['bad','Pause conseillée','3 défaites d\'affilée : 15 minutes de pause, ou arrête-toi pour ce soir.']
-:drop?['foe','Attention : ton jeu baisse',`Tes kills et tes morts rapportent nettement moins de rounds que d'habitude ce soir (${sg(T.ses.imp*20,1)} contre ${sg(T.ses.base*20,1)} round/partie) : pause de 10 min ou fin de session.`]
+:drop?['foe','Attention : ton jeu baisse',`Ton impact estimé est nettement plus bas que d'habitude ce soir (${sg(T.ses.imp*20,1)} contre ${sg(T.ses.base*20,1)} round/partie, estimation du modèle) : pause de 10 min ou fin de session.`]
 :low?['foe','Attention',`Tu joues en dessous de ton niveau ce soir (ACS ${fmt(A.acs,0)} contre ${fmt(before.acs,0)} d'habitude).`]
 :['ok','Feu vert','Tu peux continuer : rien d\'inquiétant dans cette session.'];
 if(aft)st[2]+=` Après une défaite, tu meurs en premier plus souvent (${fmt(aft.fdL,0)} % des rounds contre ${fmt(aft.fdW,0)} %) : joue la prochaine en 2e contact.`;
@@ -2873,15 +2916,15 @@ const a=rowsAgg(cur),b=rowsAgg(prev),rr=L=>{const ids=new Set(L.map(r=>r.id));re
 const miss=(L,x,y)=>Math.max(0,P.hist.filter(h=>inW(h.ts,x,y)).length-L.length),mC=miss(cur,d0,Infinity),mP=miss(prev,d1,d0);
 const G=(APP.D||[]).length>=3?coachData().G:[],gc=G.filter(g=>g.ts>=d0),gp=G.filter(g=>inW(g.ts,d1,d0));
 const imp=L=>L.length?L.reduce((s,g)=>s+g.imp,0)/L.length:null,er=L=>{const r=L.reduce((s,g)=>s+g.r,0);return r?L.reduce((s,g)=>s+ERR_KEYS.reduce((t,k)=>t+(g['e_'+k]||0),0),0)/r*100:null;};
-const line=(n,x,y,f,better)=>{const c=x==null||y==null||x===y?'':(x>y)===(better>0)?'up':'down';return`<tr><td>${n}</td><td class="${c}"><b>${x==null?'—':f(x)}</b></td><td class="muted">${y==null?'—':f(y)}</td></tr>`;};
+const line=(n,x,y,f,better)=>{const c=!better||x==null||y==null||x===y?'':(x>y)===(better>0)?'up':'down';return`<tr><td>${n}</td><td class="${c}"><b>${x==null?'—':f(x)}</b></td><td class="muted">${y==null?'—':f(y)}</td></tr>`;};
 const S=focusState();
 return`<div class="card mt"><div class="card-h"><h2>Bilan de la semaine</h2><span class="muted small">depuis lundi, contre la semaine d'avant</span></div>
     <div class="tbl"><table><thead><tr><th></th><th>Cette semaine</th><th>Semaine d'avant</th></tr></thead><tbody>
-    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR reçus',a.n?rr(cur):null,b.n?rr(prev):null,x=>sg(x,0),1):''}
-    ${line('Impact (round/partie)',imp(gc),imp(gp),x=>sg(x,1),1)}${line('Morts « erreur » pour 100 rounds',er(gc),er(gp),x=>fmt(x,1),-1)}</tbody></table></div>
+    ${line('Parties',a.n,b.n,x=>x,0)}${line('Victoires',a.n?a.wr:null,b.n?b.wr:null,pc0,1)}${P.hist.length?line('RR reçus (total, dépend du volume)',a.n?rr(cur):null,b.n?rr(prev):null,x=>sg(x,0),0)+line('RR moyen par partie',a.n&&rr(cur)!=null?rr(cur)/a.n:null,b.n&&rr(prev)!=null?rr(prev)/b.n:null,x=>sg(x,1),0):''}
+    ${line('Impact estimé (round/partie)',imp(gc),imp(gp),x=>sg(x,1),1)}${line('Morts classées évitables (règles fixes) / 100 rounds',er(gc),er(gp),x=>fmt(x,1),-1)}</tbody></table></div>
     ${S?`<p class="small mt8">Focus : <b>${esc(S.f.t)}</b> · <span class="pill ${FOCUS_ST[S.ev.st][0]}">${FOCUS_ST[S.ev.st][1]}</span></p>`:''}
     ${mC||mP?`<p class="note">Parties pas encore chargées : ${[mC&&`${mC} cette semaine`,mP&&`${mP} la semaine d'avant`].filter(Boolean).join(', ')} (Parties › « Charger plus »). Les chiffres ci-dessus portent sur les parties chargées.</p>`:''}
-    <p class="note">Impact et erreurs : seulement sur tes parties détaillées (${gc.length} cette semaine, ${gp.length} avant). Couleur = mieux ou moins bien, pas forcément sûr.</p></div>`;
+    <p class="note">Volumes différents (${a.n} contre ${b.n} parties) : les totaux ne mesurent pas une progression. Compare les taux par partie, et lis la tendance en haut de page. Impact estimé et morts classées : seulement sur tes parties détaillées (${gc.length} cette semaine, ${gp.length} avant) ; couleur = sens de l'écart, pas une preuve.</p></div>`;
 }
 function tabProg(){
 const P=APP.prof,R=P.rows,W={};R.forEach(r=>(W[weekStart(r.date)]=W[weekStart(r.date)]||[]).push(r));
@@ -2892,7 +2935,7 @@ const days=[0,1,2,3,4,5,6].map(i=>rowsAgg(R.filter(r=>(new Date(r.ts).getDay()+6
 const v=lim?{cls:'foe',h:`Arrête-toi après ${lim} partie${lim>1?'s':''}`,p:'Au-delà, dans la même session, tu perds nettement plus souvent (détail par numéro de partie plus bas).'}
 :{cls:'ok',h:'Pas de limite sûre',p:'Ton taux de victoire ne baisse pas à coup sûr avec le nombre de parties : joue tant que tu te sens bien, et arrête-toi après 3 défaites d\'affilée.'};
 v.facts=[['Sessions analysées',`<b>${S.length}</b>`,'groupes de parties à moins de 3 h d\'écart'],['Parties',`<b>${R.length}</b>`,`${P.hist.length} observations de rang conservées`]];
-return`${verdictHtml(v,'Progression','')}${weekRecapHtml()}
+return`${MAJOR_PREVIEW?`<section class="card major-state" aria-label="Tendance"><p class="eyebrow">01 / Résumé</p>${progressCardHtml(false)}</section>`:''}${verdictHtml(v,MAJOR_PREVIEW?'Rythme de session':'Progression','')}${weekRecapHtml()}
   ${rankHistoryHtml('rrP')}
   <div class="grid g2 mt">
   <div class="card"><h2>Tes semaines</h2><div class="tbl"><table><thead><tr><th>Semaine du</th><th>Parties</th><th>Victoires</th><th>K/D</th><th>ACS</th><th>Tête</th></tr></thead><tbody>
@@ -2971,13 +3014,13 @@ function tabCoach(){
 const review=coachEvidenceHtml();
 const w=detWait();if(w)return review+w;
 const s=coachStats(),lp=s.place,Pc=s.pct,V=coachData(),C=V.C,rkN=RANK_FR[C.rk]||'',upN=C.up?RANK_FR[C.up]:'',per=x=>x==null?null:x*C.rpg,rv=x=>x==null?'—':Math.abs(x)<.005?'0':sg(x,Math.abs(x)<1?2:1);
-const items=V.rk?V.PL:coachPub(s),top=items.find(x=>x.lvl>=2),histKey=APP.prof&&!APP.prof.demo?'coach:'+APP.prof.rid:'',
+const items=V.rk?V.PL:coachPub(s),top=coachTruth(items).top,histKey=APP.prof&&!APP.prof.demo?'coach:'+APP.prof.rid:'',
 hist0=histKey?ST.get(histKey,[]):[],hist=histKey&&top?coachHistoryPush(hist0,top,Date.now(),(modelRef('coach')||{}).ref):hist0;
 if(histKey&&JSON.stringify(hist)!==JSON.stringify(hist0))ST.set(histKey,hist);
 const rest=(top?items.filter(x=>x!==top):items.slice(1)).filter(x=>!x.row),T=C.tot||{};
 const src=V.W?`${V.W.matches.toLocaleString('fr-FR')} parties classées collectées${V.W.region?` (${esc(V.W.region.toUpperCase())})`:''}${V.W.au?`, jusqu'au ${esc(dFr(Date.parse(V.W.au+'T12:00:00'),{day:'numeric',month:'long'}))}`:''}`:`tes lobbys (les 9 autres joueurs de tes ${V.L.n||0} parties)`;
-const lvlTxt=x=>x.lvl===3?'Priorité':x.lvl===2?'Important':x.cost!=null?'À confirmer':'Conseil';
-const costTxt=x=>x.src==='phase'||!x.src?`Te coûte <b class="down">${fmt(x.cost,1)} round${x.cost>=2?'s':''} par partie</b> face aux joueurs ${esc(rkN)} de ton rôle`
+const lvlTxt=x=>x.sure&&x.lvl===3?'Priorité':x.sure&&x.lvl===2?'Important':x.cost!=null?'Hypothèse':'Piste';
+const costTxt=x=>x.src==='phase'||!x.src?`Écart estimé : <b class="down">${fmt(x.cost,1)} round${x.cost>=2?'s':''} par partie</b> face aux joueurs ${esc(rkN)} de ton rôle <small class="muted">(modèle)</small>`
 :`À récupérer : <b class="down">≈ ${fmt(x.cost,2)} round par partie</b> en jouant comme les autres joueurs de tes parties`;
 const itemHtml=x=>`<div class="coach"><span class="lvl lvl${x.lvl}">${lvlTxt(x)}</span><div><b>${esc(x.t)}</b>
     ${x.cost!=null?`<p>${costTxt(x)}${x.sure?'':' <small class="muted">(pas encore sûr : à confirmer sur plus de parties)</small>'}</p>`:x.why?`<p>${esc(x.why)}</p>`:''}
@@ -2986,7 +3029,7 @@ const itemHtml=x=>`<div class="coach"><span class="lvl lvl${x.lvl}">${lvlTxt(x)}
 const v=top?{cls:top.lvl===3?'bad':'foe',h:`Priorité : ${top.t}`,p:`→ ${top.fix}`,facts:[top.cost!=null&&(top.src==='phase'||!top.src?['Te coûte',`<b class="down">${fmt(top.cost,1)} round${top.cost>=2?'s':''}</b>`,`par partie face aux joueurs ${esc(rkN)} de ton rôle${top.sure?'':' (à confirmer)'}`]
 :['À récupérer',`<b class="down">≈ ${fmt(top.cost,2)} round</b>`,`par partie en jouant comme les autres joueurs de tes parties${top.sure?'':' (à confirmer)'}`]),
 top.row&&top.row.rate!=null&&['Toi · les autres',`<b class="down">${fmt(top.row.rate,1)}</b> · ${top.row.ref==null?'—':fmt(top.row.ref,1)}`,'pour 100 rounds (autres joueurs de tes parties)']].filter(Boolean)}
-:{cls:'ok',h:'Aucun point faible sûr',p:items[0]&&items[0].fix?`→ ${items[0].fix}`:'Continue comme ça : le coach se met à jour tout seul après tes parties.',facts:[]};
+:{cls:'warn',h:'Pas encore de diagnostic étayé',p:items[0]&&items[0].fix?`Les pistes ci-dessous sont des hypothèses à tester, pas des faiblesses établies. À tester d'abord : ${items[0].fix}`:'Rien d’établi pour l’instant : le coach se met à jour tout seul après tes parties.',facts:[]};
 if(V.rk)v.facts.push(['Tes kills et tes morts',`<b class="${(per(T.me)||0)>=0?'up':'down'}">${rv(per(T.me))}</b>`,`round par partie pour ton équipe · joueur ${esc(rkN)} de ton rôle : ${rv(per(T.ref))}`]);
 if(lp){v.facts.push(['Place moyenne',`<b>${fmt(lp.place,1)}<small>/10</small></b>`,`à l'impact corrigé du rôle, sur ${lp.n} parties détaillées`]);
 v.facts.push(['Impact durable',`<b>${sg(lp.shrunk*24,1)}<small> rounds / 24</small></b>`,lp.verdict==='above'?'au-dessus de ton lobby, sûr à 90 %':lp.verdict==='below'?'en dessous de ton lobby, sûr à 90 %':'pas d\'écart sûr avec ton lobby']);}
@@ -3000,16 +3043,16 @@ const phase=c=>{const e=c.cost==null?null:-c.cost;return`<div class="drow"><span
 const pct2=(n,x)=>`<li class="srow"><div><b>${n}</b><small>${x==null?'pas assez de parties':`mieux que ${Math.round(x)} % des joueurs de tes parties`}</small></div><div class="val"><b>${x==null?'—':Math.round(x)+' %'}</b>${x==null?'':barHtml(x/100,.5,x>=60?'ok':x<40?'bad':'')}</div></li>`;
 const A=V.A,rkRef=(k,r)=>{const c=r&&V.W&&V.W.c[`${r}|*`];return c?metV(c,'e_'+k):null;};
 const refTxt=k=>[[rkN,rkRef(k,C.rk)],[upN,rkRef(k,C.up)]].filter(x=>x[0]&&x[1]!=null).map(x=>`${esc(x[0])} : ${fmt(x[1],1)}`).join(' · ');
-const errRow=r=>{const rt=refTxt(r.k),lab=r.sure?['Sûr',3]:r.impact==='none'?['Sans effet mesuré',1]:['À confirmer',1];return`<div class="coach"><span class="lvl lvl${lab[1]}">${lab[0]}</span><div><b>${esc(r.t)}</b>
+const errRow=r=>{const rt=refTxt(r.k),lab=r.sure?['Écart net',3]:r.impact==='none'?['Sans effet mesuré',1]:['Indice',1];return`<div class="coach"><span class="lvl lvl${lab[1]}">${lab[0]}</span><div><b>${esc(r.t)}</b>
       <p class="small">Toi : <b class="${r.ref!=null&&r.rate>r.ref?'down':''}">${fmt(r.rate,1)}</b> pour 100 rounds <span class="muted">(autres joueurs de tes parties : ${r.ref==null?'—':fmt(r.ref,1)}${rt?` · ${rt}`:''})</span>${r.gain>=GAIN_MIN?` · à récupérer <b class="down">≈ ${fmt(r.gain,2)} round/partie</b>`:''}${r.won!=null&&r.n?` · ton équipe gagne ${r.won}/${r.n} de ces rounds${r.base!=null&&r.n>=8?` (${pc0(r.won/r.n*100)} contre ${pc0(r.base*100)} sur tes autres rounds)`:''}`:''}</p>
       ${r.ex.length?`<p class="small">Exemples : ${r.ex.map(x=>`<button type="button" class="chip" data-act="rapR:${esc(x.id)}|${x.r}">${esc(x.map)} R${x.r+1}</button>`).join(' ')}</p>`:''}
       <p class="fix">→ ${esc(r.fix)}</p></div></div>`;};
 const worse=r=>r.n>=2&&(r.ref==null||r.rate>r.ref)&&(r.sure||(r.gain||0)>=GAIN_MIN||(r.impact==='none'&&r.freq));
 const er=(A.rows||[]).filter(r=>!r.cause&&worse(r)).slice(0,4),cr=(A.rows||[]).filter(r=>r.cause&&worse(r)).slice(0,2),eco=(V.E.rows||[]).filter(worse);
-const fh=focusHtml(),errHtml=er.length||cr.length?`<div class="card"><div class="card-h"><h2>Tes erreurs qui reviennent</h2><span class="muted small">${A.n} parties · ${A.rounds} rounds</span></div>
+const fh=focusHtml(),errHtml=er.length||cr.length?`<div class="card"><div class="card-h"><h2>Morts classées évitables</h2><span class="pill" title="${esc(CLAIM.ind.d)}">${CLAIM.ind.t}</span><span class="muted small">${A.n} parties · ${A.rounds} rounds</span></div>
     ${er.map(errRow).join('')}
-    ${cr.length?`<h3 class="mt8">Pourquoi personne ne t'a vengé</h3><p class="muted small">D'après le regard des 9 autres joueurs à l'instant de ta mort (${A.n7} partie${A.n7>1?'s':''} récente${A.n7>1?'s':''}).</p>${cr.map(errRow).join('')}`:''}
-    <p class="note">Chaque mort est classée par des règles fixes (vengée en 3 s = jamais une erreur). « Sûr » = plus fréquent que chez les 9 autres joueurs de tes parties (loi exacte, 90 %), dans au moins 2 parties, et assez coûteux (≥ 0,05 round par partie). « À récupérer » = ce que tu gagnes en jouant comme eux, pas le coût total ; les causes se recoupent : ne les additionne pas. « Visait » = regard à moins de 15° et 30 m (l'API ne connaît pas les murs). Seuils = conventions.</p></div>`:'';
+    ${cr.length?`<h3 class="mt8">Morts sans échange rapide : causes possibles</h3><p class="muted small">D'après le regard des 9 autres joueurs à l'instant de ta mort (${A.n7} partie${A.n7>1?'s':''} récente${A.n7>1?'s':''}).</p>${cr.map(errRow).join('')}`:''}
+    <p class="note">Chaque mort est classée par des règles fixes (échangée en 3 s = jamais classée évitable). Classement par règles, pas un jugement : « Écart net » = plus fréquent que chez les 9 autres joueurs de tes parties (loi exacte, 90 %), dans au moins 2 parties, et assez coûteux (≥ 0,05 round par partie). « À récupérer » = ce que tu gagnes en jouant comme eux, pas le coût total ; les causes se recoupent : ne les additionne pas. « Visait » = regard à moins de 15° et 30 m (l'API ne connaît pas les murs). Seuils = conventions.</p></div>`:'';
 const ecoHtml=eco.length?`<div class="card"><div class="card-h"><h2>Tes achats</h2><span class="muted small">${V.E.n} parties récentes</span></div>${eco.map(errRow).join('')}
     <p class="note">Plein = 3 900 crédits d'équipement ou plus, éco = moins de 2 000 ; pistols exclus. Dans tes parties, les rounds avec un achat décalé sont gagnés à ${V.E.wr==null?'—':pc0(V.E.wr)} (${V.E.dN} cas, tous joueurs)${V.E.base!=null?`, contre ${pc0(V.E.base*100)} pour tes rounds normaux`:''}. Un achat décalé n'est « sûr » que si ton équipe perd alors plus de rounds qu'avec un achat normal.</p></div>`:'';
 const agHtml=(V.U||[]).map(u=>{const K=(window.KITS||{})[u.agent]||[],nm=j=>(K[j+1]||'').split('|')[0]||['C','Q','E','X'][j],m=x=>fmt(x,2);
@@ -3019,11 +3062,11 @@ return`<div class="card"><div class="card-h"><h2>Tes capacités en ${esc(u.agent
       ${low.length?`<p class="fix">→ À tester : travaille ${lst(low.map(a=>esc(nm(a.j))))} sur tes prochaines parties. Les joueurs ${esc(upN||rkN)} en ${esc(u.agent)} l'utilisent nettement plus souvent ; ce signal ne prouve pas que « plus = mieux ».</p>`:`<p class="small muted">${u.ab.some(a=>a.ref!=null)?'Tu utilises ton kit autant que les joueurs de ton niveau.':'Pas encore assez de joueurs de ton rang sur cet agent pour comparer.'}</p>`}
       <p class="note">Utilisations par round sur la partie entière (l'API ne donne pas le détail round par round). Ce signal est observationnel : une fréquence plus basse n'est pas une preuve de mauvaise utilisation. Teste le changement et vérifie qu'il ne dégrade pas ton Focus principal.${u.refN?` Référence : ${Math.round(u.refN)} parties ${esc(rkN)}${u.upN?`, ${Math.round(u.upN)} ${esc(upN)}`:''}.`:''}</p></div>`;});
 const side=[fh,...agHtml,ecoHtml].filter(Boolean);
-return`${review}${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
+return`${MAJOR_PREVIEW?coachLeadHtml(false,items):''}${review}${MAJOR_PREVIEW?'<details class="major-advanced" data-major-coach-advanced><summary>Avancé <span>Priorités, exercices et analyses du Coach existant</span></summary>':''}${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} de ton rôle`:'Coach','')}
   ${side.length?`<div class="grid g2 mt">${side.join('')}</div>`:''}
   ${errHtml?`<div class="mt">${errHtml}</div>`:''}
-  ${rest.length||(C.strong&&C.strong.length)?`<div class="card mt"><h2>${rest.length?(top?'Tes autres priorités':'Autres conseils'):'Tes forces'}</h2>${rest.map(itemHtml).join('')}
-    ${C.strong&&C.strong.length?`<p class="sem ok mt8">Tes forces : ${C.strong.map(c=>`${esc(c.t)} (+${fmt(-c.cost,1)} round/partie)`).join(', ')}</p>`:''}</div>`:''}
+  ${rest.length||(C.strong&&C.strong.length)?`<div class="card mt"><h2>${rest.length?(top?'Autres pistes (non prioritaires)':'Autres hypothèses à tester (non confirmées)'):'Tes forces'}</h2>${rest.map(itemHtml).join('')}
+    ${C.strong&&C.strong.length?`<p class="sem ok mt8">Tes forces : ${C.strong.map(c=>`${esc(c.t)} (≈ +${fmt(-c.cost,1)} round/partie, estimé)`).join(', ')}</p>`:''}</div>`:''}
   <div class="grid g2 mt">${nextHtml}
   ${V.rk?`<div class="card"><h2>Détail par phase du round</h2><p class="muted small">Rounds par partie gagnés (+) ou perdus (−) par tes kills et tes morts, contre un joueur ${esc(rkN)} de ton rôle, sur ${C.n} parties détaillées.</p>${(C.cats||[]).map(phase).join('')}</div>`:''}
   <div class="card"><h2>Ta place dans tes parties</h2><p class="muted small">${s.n} parties détaillées, comparé aux 9 autres joueurs de chaque partie (anonymes).</p>
@@ -3032,31 +3075,23 @@ return`${review}${verdictHtml(v,V.rk?`Coach · comparé aux joueurs ${esc(rkN)} 
   <div class="card"><h2>Les exercices qui vont avec</h2><ol class="plan">${items.slice(0,3).map(x=>(DRILL[x.k]||DRILL[x.cat]||DRILL.ok).slice(0,2).map(d=>`<li>${esc(d)} <small class="muted">(${esc(x.t)})</small></li>`).join('')).join('')}</ol>
     <p class="note">En Range, en Deathmatch ou avec un aim trainer gratuit. La routine complète avec minuteur est dans l'onglet Entraînement.</p></div>
   </div>${histHtml}
-  <p class="note">Impact = variation des chances de gagner le round à chacun de tes kills et de tes morts (modèle appris sur ${V.W&&V.W.M?'les parties collectées':'tes parties'}). Référence : ${src}. « À confirmer » = écart encore trop petit pour exclure le hasard (seuil 90 %).${V.rk?'':' Rang inconnu : joue des parties classées pour être comparé aux joueurs de ton rang.'}</p>`;
+  <p class="note">Impact = variation des chances de gagner le round à chacun de tes kills et de tes morts (modèle appris sur ${V.W&&V.W.M?'les parties collectées':'tes parties'}). Référence : ${src}. « À confirmer » = écart encore trop petit pour exclure le hasard (seuil 90 %).${V.rk?'':' Rang inconnu : joue des parties classées pour être comparé aux joueurs de ton rang.'}</p>${MAJOR_PREVIEW?'</details>':''}`;
 }
 function tabComparer(){
-const C=APP.cmp,P=APP.prof;
-const form=`<form id="cmpForm" class="row" autocomplete="off"><input id="cmpRiot" placeholder="Riot ID de ton ami (Pseudo#TAG)" maxlength="30" value="${esc(C?C.riot:'')}" aria-label="Riot ID de ton ami"><button class="btn" type="submit">Comparer</button></form>
-    <label class="chk small mt8"><input type="checkbox" id="cmpOk"> Mon ami est d'accord pour que je regarde ses stats.</label>`;
-if(!C)return`<div class="card"><h2>Comparer avec un ami</h2>${form}<p class="note">Même région que toi. Ses 20 dernières parties classées.</p></div>`;
-const a=rowsAgg(P.rows.slice(0,20)),b=rowsAgg(C.rows.slice(0,20)),la=aggBy(P.rows,'agent')[0],lb=aggBy(C.rows,'agent')[0];
-const pair=(n,x,y,d=1)=>{const m=Math.max(Math.abs(x||0),Math.abs(y||0))||1,bx=x!=null&&y!=null&&x>y,by=x!=null&&y!=null&&y>x;
-return`<div class="cmpx"><p class="small"><b>${n}</b></p><div class="mbars">${mbarH(P.name,x==null?0:Math.abs(x),m,(x==null?'—':fmt(x,d))+(bx?' ✓':''),true)}${mbarH(C.name,y==null?0:Math.abs(y),m,(y==null?'—':fmt(y,d))+(by?' ✓':''))}</div></div>`;};
-return`<div class="card"><h2>Toi contre ${esc(C.name)}</h2>${form}
-    <div class="grid g2 mt"><div class="mini">${la?agImg(la.key):''}<div><b>${esc(P.name)}</b><small>${esc(tierFr(P.mmr.tier))}${la?` · ${esc(la.key)}`:''}</small></div></div><div class="mini">${lb?agImg(lb.key):''}<div><b>${esc(C.name)}</b><small>${esc(tierFr(C.mmr.tier))}${lb?` · ${esc(lb.key)}`:''}</small></div></div></div>
-    <div class="cmpgrid mt">${pair('Victoires %',a.wr,b.wr,0)}${pair('K/D',a.kd,b.kd,2)}${pair('ACS',a.acs,b.acs,0)}${pair('ADR',a.adr,b.adr,0)}${pair('Tête %',a.hsP,b.hsP,1)}${pair('DDΔ',a.dd,b.dd,0)}${pair('Kills / round',a.kpr,b.kpr,2)}</div>
-    <p class="note">Sur les 20 dernières parties classées de chacun · ✓ = le meilleur des deux · ta barre est à ta couleur.</p></div>`;
+return`<div class="card"><h2>Comparer</h2><p>La comparaison entre joueurs réels est indisponible avant une intégration Riot/RSO autorisée. Aucun accord local ne remplace une identité vérifiée.</p>${riotPendingHtml()}</div>`;
 }
 const RG_OK=/^(eu|na|latam|br|ap|kr)$/;
 function ridHtml(d,i){
 const p=d&&d.pl&&d.pl[i];if(!p||!p.rid)return'';
 const k=p.rid.lastIndexOf('#'),lab=`${esc(p.rid.slice(0,k))}<small>${esc(p.rid.slice(k))}</small>`;
-if(!APP.prof||APP.prof.demo||d.demo)return`<span class="rid">${lab}</span>`;
+if(!RIOT_PUBLIC.isDemo(APP.prof))return'';
+if(APP.prof.demo||d.demo)return`<span class="rid">${lab}</span>`;
 const rg=RG_OK.test(d.rg||'')?d.rg:(APP.prof.region||'eu');
 return`<a class="rid" href="#/${rg}/${encodeURIComponent(p.rid)}/vue" title="Ouvrir le profil EliTrack de ${esc(p.rid)}">${lab}</a>`;
 }
 const mmss=ms=>{const s=Math.max(0,Math.round(ms/1000));return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 async function openReport(id){
+if(!RIOT_PUBLIC.isDemo(APP.prof))return keyAsk();
 const P=APP.prof,r=P.rows.find(x=>x.id===id);if(!r)return;
 if(!(featOn('rapports',APP.plan,APP.cfg)||(featOn('dernier',APP.plan,APP.cfg)&&id===P.rows[0].id)))return premiumOpen('rapports');
 dlgOpen(`<div class="skel skel-hero"></div>${skel(4)}`);
@@ -3076,7 +3111,7 @@ S.iv.lines.forEach(l=>{if(l.j!==me)return;const e=l.e;
 if(l.kind==='k'||l.kind==='a'){o.up+=l.v;if(l.kind==='k'&&d.pl[e.victim]&&d.pl[e.victim].t!==d.pl[me].t){const c=o.cats[l.cat]||(o.cats[l.cat]={n:0,g:0});c.n++;c.g+=l.v;o.kills.push({r:l.r,e,g:l.v});}}
 else if(l.kind==='d')o.down-=l.v;});
 o.kills.sort((a,b)=>b.g-a.g);return o;})();
-const FD=fairData(),RK=rankV2(d,S.iv,FD.roleOf,FD.bias),rme=RK.rows[me],nRd=d.rounds.length||1,mvpMe=RK.mvp.clear&&RK.mvp.ids[0]===me,teamMe=RK.team[d.pl[me].t].clear&&RK.team[d.pl[me].t].ids[0]===me;
+const MC=matchConsistency(r,d,me),FD=fairData(),RK=rankV2(d,S.iv,FD.roleOf,FD.bias),rme=RK.rows[me],nRd=d.rounds.length||1,mvpMe=RK.mvp.clear&&RK.mvp.ids[0]===me,teamMe=RK.team[d.pl[me].t].clear&&RK.team[d.pl[me].t].ids[0]===me;
 const rdw=x=>`round${Math.abs(x)>=2?'s':''}`;
 const nR=d.rounds.length||24,i24=imp/nR*24,lvl=i24>=1.5?['ok','Impact très positif','Tu as clairement fait gagner des rounds à ton équipe.']:i24>=.5?['ok','Impact positif','Tu as aidé ton équipe à gagner des rounds.']
 :i24>-.5?['neutral','Impact neutre','Tes kills et tes morts se sont à peu près équilibrés.']:i24>-1.5?['bad','Impact négatif','Tes morts ont coûté plus de rounds que tes kills n\'en ont rapporté.']:['bad','Impact très négatif','Tes morts ont coûté beaucoup plus de rounds que tes kills n\'en ont rapporté.'];
@@ -3098,11 +3133,11 @@ const gainHtml=`<div class="card mt8"><h3>Ce que tu as rapporté</h3>
     ${gRows.length?`<h4 class="mt8">D'où viennent tes gains</h4>${gRows.map(([c,o])=>drow(`${esc(GAIN_FR[c])}<small class="muted">${o.n} kill${o.n>1?'s':''}</small>`,o.g)).join('')}`:'<p class="muted mt8">Aucun kill décisif cette partie.</p>'}
     ${BK.length?`<p class="small mt8">Tes meilleurs kills (touche un round pour le voir sur la carte) :</p><span class="rds">${BK.map(k=>`<button type="button" class="rd W" data-act="repRound:${k.r}" aria-label="Voir le round ${k.r+1} sur la carte">${k.r+1}<small>${sg(k.g)}</small></button>`).join('')}</span>`:''}</div>`;
 const lesHtml=`<div class="card mt8"><h3>${LS.length?`${LS.length===1?'Ta leçon':`Tes ${LS.length} leçons`} : ce qui t'a coûté le plus de rounds`:'Ce qui t\'a coûté des rounds'}</h3>
-    <p class="muted small">Tes morts les plus coûteuses <b>dans les rounds perdus</b>, par type. Une mort dans un round gagné n'est jamais comptée (voir plus bas), ni une mort vengée dans les 3 secondes. Touche un numéro de round pour revoir le duel sur la carte.</p>
+    <p class="muted small">Tes morts les plus coûteuses <b>dans les rounds perdus</b>, par type. Une mort dans un round gagné n'est jamais comptée (voir plus bas), ni une mort échangée dans les 3 secondes. Touche un numéro de round pour revoir le duel sur la carte.</p>
     ${LS.length?`<ol class="plan">${LS.map(l=>`<li><b>${esc(ERR_DEF[l.tag].t)}</b><br><span class="small">${l.n} fois · coût : <b class="down">−${fmt(l.cost,1)} ${rdw(l.cost)}</b></span>
       <span class="rds">${l.rounds.map(r=>`<button type="button" class="rd L" data-act="repRound:${r}" aria-label="Voir le round ${r+1} sur la carte">${r+1}</button>`).join('')}</span>
       ${l.cause&&l.causeN?`<p class="small">Cause la plus fréquente : ${l.n===1?'dans cette mort':l.causeN===l.n?'dans toutes ces morts':`dans ${l.causeN} de ces ${l.n} morts`}, ${esc(ERR_CAUSE[l.cause].d)}.</p>`:''}
-      <p class="fix small">À faire : ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été vengées, utiles, ou dans des rounds gagnés.</p>'}
+      <p class="fix small">À faire : ${esc(l.cause&&l.causeN*2>l.n?ERR_CAUSE[l.cause].fix:errFix(l.tag,l.sides))}</p></li>`).join('')}</ol>`:'<p class="muted">Aucune erreur coûteuse repérée : tes morts ont été échangées, utiles, ou dans des rounds gagnés.</p>'}
     ${ft?`<p class="small mt8">Ton objectif de la semaine : <b>${esc(FS.f.t)}</b>. Sur cette partie : ${metTxt(FS.f.k,ft.v)}, contre ${metTxt(FS.f.k,FS.ev.base)} d'habitude chez toi. <span class="sem ${ft.ok?'ok':'bad'}">${ft.ok?'✓ mieux que d\'habitude':'✕ moins bien que d\'habitude'}</span></p>`:''}</div>`;
 const DW=DI.filter(e=>e.won),DU=DW.filter(e=>e.ctx!=='gagne'),pls=n=>n>1?'s':'';
 const ctxHtml=DI.length?`<div class="card mt8"><h3>Tes morts dans les rounds gagnés</h3>
@@ -3113,7 +3148,7 @@ const ctxHtml=DI.length?`<div class="card mt8"><h3>Tes morts dans les rounds gag
     <p class="note">Repères : « loin » = à plus de ${CTX_FAR} m du spike ; « seul » = aucun allié à moins de ${ERR_ISO} m ; tueur « loin » = à plus de ${CTX_KILLER} m du spike. Ce sont des seuils fixes, pas des preuves.</p></div>`:'';
 const tradeKills=(GN.cats.trade||{}).n||0;
 const matchFactHtml=`<div class="grid g2 mt">
-    <div class="card"><h3>Teamplay & clutchs</h3><div class="kpis mt8"><div class="kpi"><span>Trades effectués</span><b>${tradeKills}</b><small>kills qui vengent un allié ≤ 3 s</small></div><div class="kpi"><span>Tes morts vengées</span><b>${L&&L.p.d?`${L.trd}/${L.p.d}`:'—'}</b><small>${L&&L.p.d?pc0(L.trd/L.p.d*100):'pas de mort'} en ≤ 3 s</small></div><div class="kpi"><span>Clutchs</span><b>${clW}/${clA}</b><small>gagnés / situations 1vX</small></div></div></div>
+    <div class="card"><h3>Teamplay & clutchs</h3><div class="kpis mt8"><div class="kpi"><span>Trades effectués</span><b>${tradeKills}</b><small>kills qui vengent un allié ≤ 3 s</small></div><div class="kpi"><span>Tes morts échangées (≤ 3 s)</span><b>${L&&L.p.d?`${L.trd}/${L.p.d}`:'—'}</b><small>${L&&L.p.d?pc0(L.trd/L.p.d*100):'pas de mort'} en ≤ 3 s</small></div><div class="kpi"><span>Clutchs</span><b>${clW}/${clA}</b><small>gagnés / situations 1vX</small></div></div></div>
     <div class="card"><h3>Armes de la partie</h3><div class="tbl"><table class="small"><thead><tr><th>Arme</th><th>Kills</th><th>Morts</th><th>1er kill</th></tr></thead><tbody>${Wm.slice(0,8).map(x=>`<tr><td><b>${esc(wpnFr(x.w))}</b></td><td>${x.k}</td><td>${x.d}</td><td>${x.fk}</td></tr>`).join('')||'<tr><td colspan="4">Données insuffisantes</td></tr>'}</tbody></table></div></div>
   </div>`;
 const ecoMatchHtml=`<details class="card mt"><summary><b>Économie round par round</b> <span class="muted small">vos achats / leurs achats</span></summary><div class="tbl mt8"><table class="small"><thead><tr><th>Round</th><th>Vous</th><th>Eux</th><th>Résultat</th><th>Spike</th></tr></thead><tbody>${d.rounds.map((x,i)=>{const pis=i===0||i===12,buy=v=>pis?'Pistol':`${BUY_FR[BUYK(v)]} · ${Math.round(v).toLocaleString('fr-FR')} ¤`;return`<tr><td>R${i+1}</td><td>${buy(x.ol)}</td><td>${buy(x.tl)}</td><td class="${x.w?'up':'down'}">${x.w?'Gagné':'Perdu'}</td><td>${x.p?`${x.pu===1?'Vous':'Eux'} · ${esc(x.p)}`:'—'}</td></tr>`;}).join('')}</tbody></table></div><p class="note">Valeur d'équipement observée au début du round. Le type Éco / Force / Full buy suit les seuils versionnés du modèle ; aucune dépense manquante n'est inventée.</p></details>`;
@@ -3149,19 +3184,24 @@ const fairHtml=`<div class="card mt"><details><summary><b>Fiabilité du modèle 
     <div class="tbl"><table class="small"><thead><tr><th>Chance annoncée</th><th>Situations</th><th>Moyenne annoncée</th><th>Gagné en vrai</th></tr></thead><tbody>${CB.bins.filter(b=>b.n>=20).map(b=>`<tr><td>${Math.round(b.lo*100)}–${Math.round(b.hi*100)} %</td><td>${b.n}</td><td>${fmt(b.pred*100,0)} %</td><td>${fmt(b.obs*100,0)} %</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted small mt8">Calibration : il faut au moins 8 parties détaillées.</p>'}
     <p class="note">Les situations d'un même round sont liées : la marge réelle est plus large que le nombre de situations ne le laisse croire.</p></details></div>`;
 const hasMap=mapOk(d.map)&&d.kills.some(k=>(k[2]===me&&k[6]!=null)||(k[3]===me&&k[4]!=null)),myT=d.pl[me].t;
-dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
-      <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
-      <p>${mvpMe?'<span class="pill ok">MVP de la partie</span> ':teamMe?'<span class="pill ok">Meilleur de ton équipe</span> ':rme.tier===1?'<span class="pill">Au sommet, à égalité</span> ':''}<b>${rme.tier}<sup>${rme.tier===1?'er':'e'}</sup> palier</b> sur ${RK.nT} <small class="muted">(impact corrigé du rôle ; ${S.place}<sup>${S.place===1?'er':'e'}</sup> au score)</small></p>
-      <button class="btn ghost sm" data-act="reportCopy:${d.id}">${ico('link')} Copier le lien du rapport</button></div></div>
-    ${verdictHtml(v,'Ton bilan sur la partie')}${gainHtml}${lesHtml}${ctxHtml}
-    ${L?`<div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b><small>kills / morts / assists</small></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b><small>score de combat par round</small></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b><small>rounds où tu as été utile</small></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>premiers kills – premières morts</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b><small>de tes tirs</small></div></div>`:''}
+const rankingHtml=`      <p>${mvpMe?'<span class="pill ok">MVP de la partie</span> ':teamMe?'<span class="pill ok">Meilleur de ton équipe</span> ':rme.tier===1?'<span class="pill">Au sommet, à égalité</span> ':''}<b>${rme.tier}<sup>${rme.tier===1?'er':'e'}</sup> palier</b> sur ${RK.nT} <small class="muted">(estimation calculée sur le détail v4 : impact corrigé du rôle ; ${S.place}<sup>${S.place===1?'er':'e'}</sup> au score)</small></p>`;
+const advancedIntro=`${MAJOR_PREVIEW?rankingHtml:''}    ${verdictHtml(v,'Ton bilan sur la partie')}${gainHtml}${lesHtml}${ctxHtml}
+    ${L?`<p class="small muted mt8">Source des chiffres ci-dessous : détail complet de la partie (Henrik v4).</p><div class="kpis mt8"><div class="kpi"><span>K/D/A</span><b>${L.p.k}/${L.p.d}/${L.p.as}</b><small>kills / morts / assists</small></div><div class="kpi"><span>ACS</span><b>${fmt(L.acs,0)}</b><small>score de combat par round</small></div><div class="kpi"><span>KAST</span><b>${fmt(L.kast,0)} %</b><small>rounds où tu as été utile</small></div><div class="kpi"><span>Premiers duels</span><b>${L.fk}-${L.fd}</b><small>premiers kills – premières morts</small></div><div class="kpi"><span>3 kills et +</span><b>${L.mk}</b><small>rounds</small></div><div class="kpi"><span>Tête</span><b>${L.hs==null?'—':fmt(L.hs,0)+' %'}</b><small>de tes tirs</small></div></div>`:''}
     ${matchFactHtml}${ecoMatchHtml}
+`;
+dlgOpen(`${MAJOR_PREVIEW?'<p class="eyebrow">01 / Résumé · Rapport de match</p>':''}<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class="muted small">${dFr(r.ts,{weekday:'long',day:'numeric',month:'long'})} · ${hFr(r.ts)} · ${esc(d.map)} · ${esc(r.agent)}</p>
+      <h2 class="score ${r.res}">${r.res==='W'?'Victoire':r.res==='L'?'Défaite':'Égalité'} ${r.us}-${r.them}</h2>
+      ${MAJOR_PREVIEW?`<p data-kda-src="historique"><b>${r.k} / ${r.d} / ${r.a}</b> K/D/A · ACS ${r.r?fmt(r.sc/r.r,0):'—'} · Tête ${(r.hs+r.bs+r.ls)?Math.round(r.hs/(r.hs+r.bs+r.ls)*100)+'\u00a0%':'inconnu'} <small class="muted">· source : historique de tes parties</small></p>`:rankingHtml}
+      <button class="btn ghost sm" data-act="reportCopy:${d.id}">${ico('link')} Copier le lien du rapport</button></div></div>
+    ${MAJOR_PREVIEW?majorReportCoach(MC,r):advancedIntro}
+    ${MAJOR_PREVIEW?'<section class="major-proofs" aria-label="Preuves"><p class="eyebrow">03 / Preuves</p><h2>Revenir aux actions.</h2><p class="muted">Sélectionne un round pour examiner les positions disponibles. Les estimations restent celles du rapport existant.</p>':''}
     <div class="grid g2 mt">
       <div><h3>Tes moments clés</h3>${S.key.length?`<ol class="plist">${S.key.map(k=>`<li class="krow" role="button" data-act="repRound:${k.r}" tabindex="0"><span class="mk ${k.e.pa>=k.e.pb?'ok':'bad'}" aria-hidden="true"></span><div><b>Round ${k.r+1}</b> · ${ev(k.e)}<small>${vsTxt(k.e)}chances de gagner le round : ${pc(k.e.pb)} → <b class="${k.e.pa>=k.e.pb?'up':'down'}">${pc(k.e.pa)}</b></small></div></li>`).join('')}</ol>`:empty('Pas de moment décisif.')}</div>
       ${hasMap?`<div data-link="rep"><h3>Tes duels sur la carte <small class="muted" id="repCnt"></small></h3><div class="row filt"><select data-repround aria-label="Round affiché"><option value="all">Tous les rounds</option>${d.rounds.map((x,i)=>`<option value="${i}">Round ${i+1} (${x.w?'gagné':'perdu'})</option>`).join('')}</select></div>
         ${svgMapHtml('repMv',d.map,`Tes duels sur ${d.map}`)}${legendHtml([['ok','D\'où tu as tué (trait : vers ta victime)'],['bad','Où tu es mort'],['foe','D\'où on t\'a tué (pointillés : son tir)']])}</div>`:'<div><h3>Tes duels sur la carte</h3>'+empty('Positions indisponibles pour cette partie.')+'</div>'}
     </div>
     ${rpHtml}
+    ${MAJOR_PREVIEW?'</section><details class="major-advanced" data-major-advanced><summary>04 / Avancé <span>Analyses, statistiques et méthodes du rapport</span></summary>'+advancedIntro:''}
     <h3 class="mt">Ton équipe</h3>${tb(myT)}<h3>Adversaires</h3>${tb(1-myT)}
     ${whyHtml}${fairHtml}
     <p class="note">${d.pl.some(p=>p.rid)?'Riot ID tels que donnés par les données de la partie, gardés seulement dans ce navigateur ; touche un Riot ID pour ouvrir son profil.':'Joueurs anonymes (détail ancien).'} Impact = rounds rapportés (+) ou perdus (−) par les kills et les morts de chaque joueur. Note = performance de la partie (1,00 = moyen).</p>
@@ -3180,7 +3220,7 @@ dlgOpen(`<div class="rep-h" style="--mbg:url('${IMG.map(d.map)}')"><div><p class
       <li><b>Plant / retake</b> : poser le spike (la bombe) / reprendre le site après que l'ennemi l'a posé.</li>
       <li><b>KAST</b> : % de rounds où tu as fait un kill, une assist, survécu ou été vengé. 70 % et plus, c'est très bien.</li>
       <li><b>ACS</b> : score de combat moyen par round (kills, dégâts, assists).</li>
-      <li><b>Note de performance</b> : note globale de la partie. 1,00 = joueur moyen.</li></ul></details>`);
+      <li><b>Note de performance</b> : note globale de la partie. 1,00 = joueur moyen.</li></ul></details>${MAJOR_PREVIEW?'</details>':''}`);
 APP.rep={d,me,nm};APP.rp=null;setTimeout(()=>{drawRep('all');if(hasRp)rpSet(rpFirst);},0);
 }
 function drawRep(round){
@@ -3237,15 +3277,9 @@ ACT.rpGo=ms=>{const Q=APP.rp;if(!Q||!Q.R)return;Q.play=false;Q.T=Math.max(Q.R.t0
 function rpSeek(v){const Q=APP.rp;if(!Q||!Q.R)return;Q.play=false;Q.T=Q.R.t0+v*100;rpBtn();rpDraw();}
 ACT.rapR=a=>{const[id,r]=a.split('|');openReport(id).then(()=>{if(APP.rep&&APP.rep.d.id===id)setTimeout(()=>ACT.repRound(+r),30);});};
 ACT.repRound=i=>{drawRep(i);if(APP.rp&&i!=='all'&&i!==''){const sel=$('[data-rpround]');if(sel)sel.value=String(i);rpSet(+i);}const m=$('#repMv');if(m){const b=m.getBoundingClientRect();if(b.top<0||b.bottom>innerHeight)m.scrollIntoView({block:'center',behavior:'smooth'});}};
-function premiumOpen(f){
-const C=APP.cfg,why=f&&FEATURES[f]?`<div class="infobox">★ <b>${esc(FEATURES[f].n)}</b> fait partie de Premium.</div>`:'';
-dlgOpen(`<h2>Premium</h2>${why}${pricingHtml().replace('class="pricing mt"','class="pricing"')}${codeHtml()}`);
-}
-function codeHtml(){
-return`<div class="card mt"><h3>J'ai un code</h3><div class="row"><input id="licIn" placeholder="PH1.…" aria-label="Ton code Premium" autocomplete="off"><button class="btn" data-act="licEnter">Activer</button></div>
-    <p class="note">Le code est lié au Riot ID ${APP.prof&&!APP.prof.demo?`<b>${esc(APP.prof.riot)}</b>`:'donné à l\'achat'}. Il est gardé dans ce navigateur.</p><p id="licOut" class="small" role="status"></p></div>`;
-}
-function dlgOpen(html){const d=$('#dlg');$('#dlgIn').innerHTML=`<button class="btn ghost sm dlg-x" data-act="dlgClose" aria-label="Fermer">✕</button>${html}`;if(!d.open)d.showModal();d.scrollTop=0;}
+function premiumOpen(){dlgOpen(pricingHtml());}
+function codeHtml(){return pricingHtml();}
+function dlgOpen(html){const d=$('#dlg');d.classList.toggle('major-report',MAJOR_PREVIEW&&html.includes('major-proofs'));$('#dlgIn').innerHTML=`<button class="btn ghost sm dlg-x" data-act="dlgClose" aria-label="Fermer">✕</button>${html}`;if(!d.open)d.showModal();d.scrollTop=0;}
 const pct=x=>x==null||!Number.isFinite(x)?'—':`${Math.round(x*100)} %`;
 const atlasLoad=()=>APP.atlasP||(APP.atlasP=fetch('atlas.json').then(r=>r.ok?r.json():null).then(j=>{APP.atlas=j?atlasClean(j):null;}).catch(()=>{APP.atlas=null;}));
 const metaLoad=()=>APP.metaP||(APP.metaP=fetch('meta.json').then(r=>r.ok?r.json():null).then(j=>{APP.meta=j?metaClean(j):null;}).catch(()=>{APP.meta=null;}));
@@ -3285,6 +3319,56 @@ p.x=e.clientX;p.y=e.clientY;
 });
 const mvUp=e=>MVP.delete(e.pointerId);document.addEventListener('pointerup',mvUp);document.addEventListener('pointercancel',mvUp);
 document.addEventListener('wheel',e=>{const s=e.ctrlKey&&e.target.closest&&e.target.closest('.mv svg');if(!s||!s._v)return;e.preventDefault();const v=s._v;mvView(s,v.z*(e.deltaY<0?1.15:1/1.15),v.cx,v.cy);},{passive:false});
+function majorBanner(){
+const url=new URL(location.href);url.searchParams.delete('preview');url.searchParams.set('ui','classic');
+return`<aside class="major-banner"><span><b>ELITRACK</b> · VALORANT</span><a href="${esc(url.pathname+url.search+url.hash)}">Interface classique</a></aside>`;
+}
+function majorHeading(kicker,title,text){return`<header class="major-heading"><p class="eyebrow">${esc(kicker)}</p><h1>${esc(title)}</h1><p>${esc(text)}</p></header>`;}
+function majorTabHeading(tab){
+const labels={parties:['Parties','Chaque match, une histoire.','Retrouve un résultat, puis ouvre les actions qui l’expliquent.'],coach:['Progresser / Coach','Observer. Comprendre. Travailler.','Les faits disponibles et leurs limites, avant toute interprétation.'],progression:['Progresser / Progression','Prendre du recul.','Un historique observé, pas une promesse de rang.'],agents:['Moi','Tes agents et tes repères.','Retrouve tes statistiques, comparaisons et réglages.']};
+return labels[tab]?majorHeading(...labels[tab]):'';
+}
+function majorReportCoach(mc,r){
+const src=mc&&mc.src?`<small class="muted">Historique : ${esc(mc.src.hist)} · Rapport : ${esc(mc.src.rep)}</small>`:'';
+const cons=!mc||mc.unknown?`<p class="note" data-consistency="unknown">Cohérence avec l’historique : non vérifiable (détail incomplet).</p>`
+:mc.diffs.length?`<div class="consist-warn" role="note" data-consistency="diverge"><b>Les deux sources ne donnent pas les mêmes chiffres.</b> ${mc.diffs.map(x=>`${esc(x.k)} : ${fmt(x.hist,0)} (historique) / ${fmt(x.rep,0)} (rapport)`).join(' · ')}. Aucune valeur n’est corrigée ni choisie à ta place. ${src}</div>`
+:`<p class="note" data-consistency="ok">Mesures comparables sans divergence (K/D/A, ACS, Tête %)${mc.missing.length?` · non disponible : ${esc(mc.missing.join(', '))}`:''}. ${src}</p>`;
+return`<section class="major-coach card"><p class="eyebrow">02 / Lecture</p><h2>Un match à relire, pas un verdict sur ton niveau.</h2><p>Commence par un round : observe les actions et leur contexte. Les estimations (impact, classement) sont dans Avancé, avec leur méthode.</p>${cons}</section>`;
+}
+const PROG_DIR={up:['↗','Ça progresse'],down:['↘','En baisse'],flat:['→','Stable'],unknown:['…','Trop tôt pour conclure']};
+function progressData(N=10){
+const P=APP.prof,R=((P&&P.rows)||[]).slice().sort((a,b)=>b.ts-a.ts),cur=R.slice(0,N),prev=R.slice(N,N*2);
+const H=new Map(((P&&P.hist)||[]).filter(h=>h&&h.mid&&Number.isFinite(h.ch)).map(h=>[h.mid,h.ch]));
+const rrOfL=L=>L.length&&L.every(r=>H.has(r.id))?L.map(r=>H.get(r.id)):null,cov=L=>L.filter(r=>H.has(r.id)).length;
+const span=L=>L.length?`${dFr(L[L.length-1].ts,{day:'numeric',month:'short'})} → ${dFr(L[0].ts,{day:'numeric',month:'short'})}`:'—';
+return{N,cur,prev,C:progressCompare(cur,prev,rrOfL(cur),rrOfL(prev)),covCur:cov(cur),covPrev:cov(prev),spanCur:span(cur),spanPrev:span(prev)};
+}
+function progressCardHtml(compact){
+const P=APP.prof;if(!P||!(P.rows||[]).length)return`<div class="prog-card" data-prog-dir="empty"><h2>Pas encore de partie chargée</h2><p class="muted">Charge tes parties pour voir ta tendance.</p><button class="btn ghost sm" data-act="tab:parties">Mes parties</button></div>`;
+const X=progressData(),C=X.C,d=PROG_DIR[C.dir]||PROG_DIR.unknown,pc=v=>v==null?'—':Math.round(v*100)+' %';
+const rr=C.rrPerGame!=null&&C.rrPerGamePrev!=null?`<div><dt>RR moyen / partie</dt><dd><b>${sg(C.rrPerGame,1)}</b> <small class="muted">avant ${sg(C.rrPerGamePrev,1)}</small></dd></div>`
+:`<div><dt>RR moyen / partie</dt><dd><span class="muted">Inconnu</span> <small class="muted">RR observé sur ${X.covCur}/${C.n} et ${X.covPrev}/${C.nPrev} parties</small></dd></div>`;
+return`<div class="prog-card" data-prog-dir="${C.dir}" data-prog-conf="${C.conf}">
+    <div class="prog-head"><span class="prog-arrow ${C.dir}" aria-hidden="true">${d[0]}</span><div><h2>${d[1]}</h2><p class="muted small">${C.n} parties récentes (${esc(X.spanCur)}) contre ${C.nPrev} précédentes (${esc(X.spanPrev)})</p></div></div>
+    <dl class="prog-facts"><div><dt>Victoires</dt><dd><b>${pc(C.wr)}</b> <small class="muted">avant ${pc(C.wrPrev)}</small></dd></div>${rr}${compact?'':`<div><dt>ACS</dt><dd><b>${C.acs==null?'—':fmt(C.acs,0)}</b> <small class="muted">avant ${C.acsPrev==null?'—':fmt(C.acsPrev,0)}</small></dd></div>`}</dl>
+    <p class="small"><span class="pill ${C.conf==='solide'?'ok':C.conf==='insuffisant'?'warn':''}">${CONF_FR[C.conf]}</span> ${esc(C.why)} <span class="claim" title="${esc(CLAIM.obs.d)}">${CLAIM.obs.t}</span></p>
+    <p class="fix">→ ${esc(C.next)}</p>
+    ${compact?'<button class="btn ghost sm" data-act="tab:progression">Voir ma progression →</button>':`<p class="note">Direction lue sur le taux de victoire avec un test exact de Fisher (signal net : p ≤ 0,05 ; à confirmer : p ≤ 0,10). Le RR total n’est jamais comparé entre deux périodes de volumes différents. Plancher d’affichage : ${PROG_MIN} parties de chaque côté ; ce plancher n’est pas un seuil de fiabilité.</p>`}</div>`;
+}
+function coachLeadHtml(compact,items){
+const L=items||coachItems(),T=coachTruth(L),x=T.lead;
+if(!x)return`<section class="major-coach card" aria-label="Coach"><p class="eyebrow">Ce qui compte</p><h2>${esc(T.head)}</h2><p>Le Coach a besoin d’au moins 3 parties détaillées pour proposer une piste.</p><button class="btn" data-act="tab:coach">Ouvrir mon Coach ${ico('coach')}</button></section>`;
+const c0=(x.causes||[])[0],mt=(k,v)=>typeof metTxt==='function'?metTxt(k,v):fmt(v,2);
+const constat=x.row&&x.row.rate!=null?`Toi : ${fmt(x.row.rate,1)} pour 100 rounds · autres joueurs de tes parties : ${x.row.ref==null?'inconnu':fmt(x.row.ref,1)}`
+:c0?`${c0.t} : toi ${mt(c0.k,c0.me)} · référence ${mt(c0.k,c0.ref)}`:x.why||x.t;
+const diag=T.status==='diagnostic'?'Diagnostic étayé : plus fréquent chez toi que dans tes lobbys (sûr à 90 %). La cause se vérifie sur les preuves ci-dessous.':'Hypothèse : écart pas encore distinguable du hasard. À tester, pas à corriger à tout prix.';
+const ex=(x.row&&x.row.ex)||x.ex||[],proof=ex.length?`<p class="small">Preuves : ${ex.slice(0,3).map(e=>`<button type="button" class="chip" data-act="rapR:${esc(e.id)}|${e.r}">${esc(e.map)} R${e.r+1}</button>`).join(' ')}</p>`:'';
+const steps=[['Constat',constat,'obs'],['Diagnostic',diag,T.status==='diagnostic'?'ind':'hyp'],['Correction',x.fix||'—',null],['Réévaluation',`Quand de nouvelles parties détaillées sont chargées, le Coach recalcule ce point et dit s’il tient toujours ; aucun nombre de parties n’est garanti suffisant.`,null]];
+return`<section class="major-coach card coach-lead" aria-label="Coach" data-coach-status="${T.status}"><p class="eyebrow">${compact?'Ce qui compte':'01 / Ta priorité'}</p>
+    <p class="small muted">${esc(T.leadLabel)}</p><h2>${esc(x.t)}</h2>
+    <ol class="coach-steps">${steps.map(([h,t,k])=>`<li><b>${h}</b><span>${esc(t)}${k?` <span class="claim" title="${esc(CLAIM[k].d)}">${CLAIM[k].t}</span>`:''}</span></li>`).join('')}</ol>
+    ${proof}${compact?`<button class="btn" data-act="tab:coach">Ouvrir mon Coach ${ico('coach')}</button>`:T.rest.length?`<p class="note">${esc(T.restLabel)} : ${T.rest.length}, dans Avancé.</p>`:''}</section>`;
+}
 ;
 "use strict";
 const SHELL=(()=>{
@@ -3349,26 +3433,26 @@ mentions:`<h2>Mentions légales</h2>
       <h3>Éditeur</h3><p>${ed}. Contact : ${ct}.</p>
       <h3>Hébergement</h3><p>GitHub Pages, GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis.</p>
       <h3>Propriété intellectuelle</h3><p>${nom} (nom, logo, interface, textes, code, calculs et méthodes d'analyse) est protégé par le droit d'auteur. © ${AN} ${ed}. <b>Tous droits réservés.</b> Toute reproduction, copie, adaptation, extraction ou réutilisation, totale ou partielle, du code ou du contenu, sans accord écrit, est interdite (articles L.122-4 et L.335-2 du Code de la propriété intellectuelle).</p>
-      <h3>Riot Games</h3><p>${nom} n'est pas approuvé par Riot Games et ne reflète pas les opinions de Riot Games ni de quiconque officiellement impliqué dans la production ou la gestion des propriétés de Riot Games. Riot Games et toutes les propriétés associées sont des marques commerciales ou déposées de Riot Games, Inc. Images du jeu : valorant-api.com. Données : API communautaire HenrikDev.</p>`,
+      <h3>Riot Games</h3><p>${RIOT_DISCLAIMER}</p><p class="small">Images du jeu : valorant-api.com. Cette version publique utilise uniquement des données synthétiques. Le provider communautaire conservé dans le code n’est pas accessible pour charger des joueurs.</p>`,
 cgu:`<h2>Conditions d'utilisation</h2>
-      <h3>1. Le service</h3><p>${nom} affiche et analyse les statistiques de parties Valorant à partir de ton Riot ID. Le service est fourni « tel quel », sans garantie de disponibilité ni d'exactitude : les données viennent d'une API communautaire non officielle.</p>
-      <h3>2. Usage autorisé</h3><p>Usage personnel uniquement. Tu ne consultes que ton propre compte, ou celui d'un joueur qui est d'accord. Interdit : utiliser le site pendant une partie pour espionner des adversaires, collecter automatiquement des données, surcharger le service, contourner les protections ou les fonctions Premium.</p>
+      <h3>1. Le service</h3><p>${nom} présente un prototype VALORANT avec des données de démonstration inventées. Aucun profil, historique ou détail de joueur réel n’est accessible, y compris ton propre compte. Le service est fourni « tel quel ».</p>
+      <h3>2. Usage autorisé</h3><p>Usage personnel et post-match uniquement. Les données personnelles sont bloquées tant que la connexion Riot autorisée n’est pas disponible. Une future exposition nominative des données d'un autre joueur devra reposer sur l'opt-in Riot/RSO applicable ; une simple saisie de Riot ID ou un accord informel ne remplace pas ce consentement. Interdit : scouting d'adversaires avant un match, aide temps réel qui dicte une décision, contournement des protections ou collecte non autorisée.</p>
       <h3>3. Propriété</h3><p>Le code, le design, les textes et les méthodes de calcul de ${nom} appartiennent à son éditeur. Copier tout ou partie du site, le republier ailleurs ou s'en inspirer pour un service concurrent est interdit sans accord écrit. Toute copie détectée fera l'objet d'une demande de retrait auprès de l'hébergeur (DMCA) et de poursuites si besoin.</p>
-      <h3>4. Premium</h3><p>Le code Premium est personnel et lié à un seul Riot ID : il ne peut être ni partagé ni revendu. Un code partagé ou obtenu frauduleusement peut être désactivé sans remboursement. Prix affichés TTC. Le contenu numérique étant fourni immédiatement, tu acceptes en l'activant de renoncer au droit de rétractation de 14 jours (article L.221-28 du Code de la consommation). En cas de problème, contacte : ${ct}.</p>
-      <h3>5. Responsabilité</h3><p>Les conseils (positionnement, stratégie, entraînement, sensibilité) sont des suggestions calculées sur tes parties : tu restes seul juge de leur usage. L'éditeur ne peut être tenu responsable d'une perte de RR ou de rang.</p>
+      <h3>4. Premium</h3><p>La monétisation VALORANT n'est pas activée pour l'ouverture tant que le statut Riot requis n'est pas obtenu. Si une offre payante est proposée ultérieurement, elle conservera un accès gratuit et portera sur une valeur transformative de diagnostic/coaching, jamais sur la simple revente de données Riot. Les conditions commerciales devront alors être mises à jour avant activation. Contact : ${ct}.</p>
+      <h3>5. Responsabilité</h3><p>Les exemples de conseils sont calculés sur les parties synthétiques de la démo : tu restes seul juge de leur usage. L'éditeur ne peut être tenu responsable d'une perte de RR ou de rang.</p>
       <h3>6. Changements</h3><p>Ces conditions peuvent évoluer ; la version en ligne fait foi. Droit français.</p>`,
 confidentialite:`<h2>Confidentialité</h2>
       <p><b>Pas de compte, pas de publicité, pas de cookie de suivi.</b></p>
-      <h3>Ce qui reste chez toi</h3><p>Profils consultés, détails des parties, thème, objectifs, entraînements, codes Premium : tout est gardé dans le stockage de ton navigateur (localStorage, IndexedDB). Rien n'est envoyé à l'éditeur. Bouton « Oublier toutes mes données » dans les réglages.</p>
-      <h3>Ce qui passe par le serveur</h3><p>Pour afficher tes stats, ton Riot ID est envoyé au serveur relais du site puis à l'API HenrikDev. Le relais garde les réponses en cache quelques heures pour ne pas surcharger le service et ne conserve aucun historique de visiteurs. Si tu as un code Premium, il est vérifié par le serveur pour les fonctions qui en ont besoin.</p>
-      <h3>Autres joueurs</h3><p>Les joueurs de tes parties restent anonymes : aucun pseudo d'un autre joueur n'est gardé ni affiché.</p>
-      <h3>Tes droits</h3><p>Tes données sont sur ton appareil : tu peux les exporter ou les effacer à tout moment (Réglages). Pour toute question : ${ct}.</p>`
+      <h3>Ce qui reste chez toi</h3><p>Préférences et éventuelles anciennes sauvegardes restent dans le stockage de ton navigateur (localStorage, IndexedDB). Les anciens profils et les imports ne peuvent pas être affichés ni actualisés dans cette version. Rien n’est envoyé à l’éditeur. Bouton « Oublier toutes mes données » dans les réglages.</p>
+      <h3>Ce qui passe par le serveur</h3><p>Cette version publique n’envoie aucun Riot ID à un fournisseur : clé personnelle et proxy sont inopérants pour les données de joueurs. Avant ouverture de la connexion Riot en production, Elitrack doit utiliser les autorisations Riot applicables, dont RSO/opt-in lorsque requis, et documenter précisément les endpoints et la rétention serveur.</p>
+      <h3>Autres joueurs</h3><p>La démo affiche uniquement des pseudonymes inventés ; aucun joueur réel n’est recherché ou chargé.</p>
+      <h3>Tes droits</h3><p>Seules les préférences génériques validées sont exportables (Réglages). Les anciens profils, historiques et états dérivés ne sont pas exportés ; ils restent supprimables sur ton appareil. Pour toute question : ${ct}.</p>`
 };
 return T[k]||'';
 }
 function glossHtml(){
 return`<h2>C'est quoi ?</h2><div class="gloss">${GLOSS.map(([t,d])=>`<p><b>${esc(t)}</b> : ${esc(d)}</p>`).join('')}</div>
-    <h3>Raccourcis clavier</h3><p class="small"><span class="kbd">/</span> chercher un joueur · <span class="kbd">1</span> à <span class="kbd">0</span> changer d'onglet · <span class="kbd">?</span> cette aide · <span class="kbd">Échap</span> fermer</p>`;
+    <h3>Raccourcis clavier</h3><p class="small"><span class="kbd">/</span> accéder à la démo ou à sa navigation · <span class="kbd">1</span> à <span class="kbd">0</span> changer d'onglet · <span class="kbd">?</span> cette aide · <span class="kbd">Échap</span> fermer</p>`;
 }
 ;
 "use strict";
@@ -3411,45 +3495,19 @@ if(!base){try{const r=await fetch('config.json',{cache:'no-store'});if(r.ok)base
 APP.cfgBase=pubCfg(base);APP.cfg=APP.cfgBase;
 const live=ST.get('cfgLive',null);if(APP.cfg.proxy&&live)APP.cfg=pubCfg(live,APP.cfgBase,true);
 }
-async function liveCfg(){
-const B=APP.cfgBase;if(!B||!B.proxy)return;
-let j=null;try{const r=await fetch(proxyUrl(B.proxy,'/config'),{cache:'no-store'});if(r.ok)j=await r.json();}catch(e){return console.warn('Réglages en direct indisponibles',e);}
-if(!j||typeof j!=='object'||(j.status&&j.status!==200))return;
-const C=pubCfg(j,B,true),key=c=>JSON.stringify([c.maintenance,c.freeAll,c.premium,c.revoked,c.achat]),big=key(C)!==key(APP.cfg);
-ST.set('cfgLive',j);APP.cfg=C;applyCfg();if(!big)return;
-await licRefresh();themeRefresh();
-const typing=/^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement||{}).tagName||'');
-if(!typing&&canRerender()&&!$('#dlg').open&&$('#perso').hidden)render();
-}
+async function liveCfg(){}
 function applyCfg(){
 const C=APP.cfg;document.title=`${C.nom} : ton tracker perso`;
-$('#siteNom').textContent=C.nom;$('#footNom').textContent=C.nom;$('#footAn').textContent=new Date().getFullYear();
+$('#siteNom').textContent=C.nom;$('#footAn').textContent=new Date().getFullYear();
 const a=$('#annonce');a.hidden=!C.annonce&&!APP.local;a.innerHTML=`${C.annonce?esc(C.annonce):''}${APP.local?`${C.annonce?' · ':''}<b>Test local</b> : réglages du brouillon du mode Dieu.`:''}`;
-$('#premBtn').hidden=C.freeAll;
+$('#recherche').hidden=true;
 }
 const licCodes=()=>{const o=ST.get('lic',{});return o&&typeof o==='object'?o:{};};
 function dieuLocal(){try{return LOCAL?localStorage.getItem('psh__dieu_lic')||'':'';}catch(e){return'';}}
 async function licRefresh(){
-APP.plan='free';APP.lic=null;APP.licCode='';const C=licCodes(),rid=APP.prof?APP.prof.rid:'';
-if(APP.prof&&APP.prof.demo){APP.plan='premium';return;}
-if(!LIC.ok()||!APP.cfg.licKey)return;
-for(const code of[dieuLocal(),C['*'],rid&&C[rid]].filter(Boolean)){
-const v=await LIC.verify(APP.cfg.licKey,code);if(!v.p)continue;
-const c=licCheck(v.p,APP.prof?APP.prof.riot:'',today(),APP.cfg.revoked);
-if(c.ok){APP.plan=c.plan;APP.lic=c;APP.licCode=code.replace(/\s+/g,'');return;}
-if(c.why==='expiree'&&APP.prof)toast(`Ton Premium a expiré le ${c.exp}. Merci d'avoir soutenu le site !`,false,{label:'Renouveler',fn:()=>premiumOpen()});
+APP.plan=RIOT_PUBLIC.isDemo(APP.prof)?'premium':'free';APP.lic=null;APP.licCode='';
 }
-}
-async function licEnter(){
-const code=($('#licIn')||{}).value||'',out=$('#licOut'),say=(t,bad)=>{if(out){out.textContent=t;out.className='small '+(bad?'down':'up');}};
-if(!APP.cfg.licKey)return say(LIC_WHY.cle,true);
-const v=await LIC.verify(APP.cfg.licKey,code);if(!v.p)return say(LIC_WHY[v.err]||LIC_WHY.format,true);
-if(v.p.rid!=='*'&&(!APP.prof||APP.prof.demo)){const C=licCodes();C[v.p.rid]=code.replace(/\s+/g,'');ST.set('lic',C);return say(`Code valable pour ${v.p.rid}. Ouvre ce profil : Premium s'activera tout seul.`);}
-const c=licCheck(v.p,APP.prof?APP.prof.riot:'',today(),APP.cfg.revoked);if(!c.ok)return say(LIC_WHY[c.why],true);
-const C=licCodes();C[v.p.rid]=code.replace(/\s+/g,'');ST.set('lic',C);
-await licRefresh();say(`${APP.plan==='dieu'?'Mode Dieu':'Premium'} activé${c.exp?` jusqu'au ${c.exp}`:' à vie'}. Merci !`);
-setTimeout(()=>{$('#dlg').close();themeRefresh();render();toast('★ Tout est débloqué');},900);
-}
+async function licEnter(){keyAsk();}
 function hashOf(){
 const P=APP.prof;if(!P)return'';
 return P.demo?`#/demo/${APP.tab}`:`#/${P.region}/${encodeURIComponent(P.riot)}/${APP.tab}`;
@@ -3463,6 +3521,7 @@ return`${base}?m=${encodeURIComponent(String(id).toLowerCase())}${Number.isInteg
 }
 async function openFromHash(){
 const target=location.hash,h=readHash();if(!h){if(APP.prof&&!location.hash){APP.prof=null;await licRefresh();themeRefresh();render();}return false;}
+if(!h.demo){APP.prof=null;APP.D=null;APP.cmp=null;render();keyAsk();return true;}
 const tab=TAB_KEYS.includes(h.tab)?h.tab:'vue';
 if(h.demo){if(!APP.prof||!APP.prof.demo)await openDemo(true,tab);else if(APP.tab!==tab)ACT.tab(tab,null,true);}
 else if(APP.prof&&!APP.prof.demo&&APP.prof.rid===ridNorm(h.riot)){if(APP.tab!==tab)ACT.tab(tab,null,true);}
@@ -3478,29 +3537,9 @@ if($('#dlg').open)$('#dlg').close();
 const prev=SHELL.cur;
 SHELL.sync().then(cur=>{if(cur!=='valorant')return;if(prev!=='valorant')render();return openFromHash();}).catch(logErr);
 });
-async function openProfile(riot,region,opt={}){
-if(!splitRiot(riot))return toast('Écris ton Riot ID en entier : Pseudo#TAG',true);
-if(!apiReady())return keyAsk(riot,region);
-if(!opt.bg)document.body.classList.add('busy');
-const old=!opt.force&&ST.get('prof:'+ridNorm(riot)),early=old&&old.v===2&&!(APP.prof&&APP.prof.rid===old.rid)?old:null;
-if(early){await profShow(early,opt);document.body.classList.remove('busy');}
-try{
-const P=await loadProfile(riot,region,opt),same=APP.prof&&APP.prof.rid===P.rid;
-if(!same||APP.prof.at!==P.at){
-const moved=same&&(APP.prof.rows[0]||{}).id!==(P.rows[0]||{}).id;
-if(same&&!moved&&APP.prof.mmr.rr===P.mmr.rr&&APP.prof.rows.length===P.rows.length&&JSON.stringify(APP.prof.hist)===JSON.stringify(P.hist)){APP.prof=P;}
-else{if(moved){APP.D=null;APP.detTried='';}await profShow(P,Object.assign({},opt,early?{noPush:true}:{}),same);}
-}
-if(!opt.all&&!P.full&&featOn('historique',APP.plan,APP.cfg)&&P.rows.length>=20)setTimeout(()=>{if(APP.prof&&APP.prof.rid===P.rid)openProfile(P.riot,P.region,{force:true,all:true,keepTab:true,noPush:true,bg:true,quiet:true});},1500);
-else if(opt.all&&!opt.bg)toast(P.full?`Historique complet : ${nPart(P.rows.length)} gardées`:'Historique incomplet : le service a coupé, réessaie plus tard',!P.full);
-}catch(e){
-statut('');if(e.code==='nokey')keyAsk(riot,region);
-else if(early)toast(`Service indisponible : tu vois tes données du ${dFr(early.at,{day:'numeric',month:'short'})} à ${hFr(early.at)}.`,true,{label:'Réessayer',fn:()=>openProfile(riot,region,Object.assign({},opt,{force:true}))});
-else if(!opt.quiet)toast(e.message,true,{label:'Réessayer',fn:()=>openProfile(riot,region,opt)});else render();
-}
-document.body.classList.remove('busy');
-}
+async function openProfile(){keyAsk();}
 async function profShow(P,opt,refresh){
+RIOT_PUBLIC.requireDemo(P);
 const changed=!APP.prof||APP.prof.rid!==P.rid;
 if(changed){if(!opt.keepTab)APP.tab='vue';APP.filt=null;APP.cmp=null;APP.D=null;APP.detTried='';APP.statsAnalyze=false;APP.statsFilt=null;APP.pos=null;APP.strat=null;}
 APP.prof=P;ST.set('last',{riot:P.riot,region:P.region});
@@ -3510,19 +3549,14 @@ async function openDemo(noPush,tab){APP.prof=demoProfile();APP.tab=TAB_KEYS.incl
 function render(){
 if(SHELL.cur!=='valorant')return SHELL.render();
 if(APP.cfg.maintenance&&APP.plan!=='dieu'){document.body.classList.remove('has-gnav');$('#app').innerHTML=`<div class="card state"><div class="state-i" aria-hidden="true">${ico('settings')}</div><h2>Maintenance</h2><p>${esc(APP.cfg.nom)} revient très vite. ${esc(APP.cfg.annonce)}</p></div>`;return;}
+if(APP.prof&&!RIOT_PUBLIC.isDemo(APP.prof)){APP.prof=null;APP.D=null;APP.cmp=null;}
 if(!APP.prof)renderLanding();else renderProfile();
 const P=APP.prof;$('#qRiot').value=P&&!P.demo?P.riot:'';if(P&&!P.demo)$('#qReg').value=P.region;
 }
-function keyAsk(riot,region){
-const perso=APP.cfg&&APP.cfg.dataMode==='personal';
-dlgOpen(`<h2>${perso?'Clé personnelle requise pendant le test':'Il manque le service de données'}</h2><p>${perso?'Pour protéger le quota commun pendant la phase de test, chaque testeur utilise sa propre clé <b>HenrikDev</b>. Elle reste uniquement dans ce navigateur.':`${esc(APP.cfg.nom)} n'a pas encore son serveur. En attendant, tu peux utiliser ta propre clé <b>HenrikDev</b> (gratuite, 2 minutes) :`}</p>
-    <ol class="plan"><li>Rejoins le Discord de HenrikDev (lien sur <span class="kbd">docs.henrikdev.xyz</span>).</li><li>Salon de vérification, puis génère une clé « Basic ».</li><li>Colle-la ici : elle reste dans ton navigateur.</li></ol>
-    <div class="row"><input id="keyIn" placeholder="HDEV-…" autocomplete="off" aria-label="Ta clé HenrikDev"><button class="btn" data-act="keySave">Enregistrer</button></div>
-    <p class="note">Ou <a href="#" data-act="demo">regarde la démo</a> en attendant.</p>`);
-APP.pending={riot,region};
-}
+function keyAsk(){dlgOpen(riotPendingHtml());}
 function loadImg(src){return new Promise(res=>{if(!src)return res(null);const im=new Image();if(!src.startsWith('data:'))im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
 async function shareCard(withImg=true){
+RIOT_PUBLIC.requireDemo(APP.prof);
 const P=APP.prof,th=TH.last,A=rowsAgg(P.rows.slice(0,20)),cv=document.createElement('canvas');cv.width=1200;cv.height=630;const g=cv.getContext('2d');
 const ft=(FONTS[th.fontT]||FONTS.teko).css,fb=(FONTS[th.fontB]||FONTS.systeme).css;
 try{await document.fonts.load(`64px ${ft}`);}catch(e){}
@@ -3554,12 +3588,26 @@ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=
 try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);toast('Image téléchargée et copiée : colle-la sur Discord avec Ctrl+V');}catch(e){toast('Image téléchargée');}
 }catch(e){if(withImg)return shareCard(false);toast('Image impossible dans ce navigateur',true);}
 }
+const PUBLIC_EXPORT_PREFERENCES=Object.freeze({
+theme:raw=>{
+if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+const t=themeClean(raw);
+return Object.fromEntries(['mode','bg','blur','dark','fx','accent','fontT','fontB','radius','density','cards','anim','streamer','blocks','hidden'].map(k=>[k,t[k]]));
+},
+sens:raw=>raw&&['dpi','sens'].every(k=>typeof raw[k]==='number'&&Number.isFinite(raw[k])&&raw[k]>0)?{dpi:raw.dpi,sens:raw.sens}:null,
+detN:n=>[0,10,25,50,100].includes(n)?n:null
+});
 const SECRET_KEYS=[PX+'hkey'];
 function dataExport(){
-const o={format:'elitrack-sauvegarde',version:1,date:today(),data:{}};
-Object.keys(localStorage).filter(k=>k.startsWith(PX)&&!SECRET_KEYS.includes(k)).forEach(k=>{o.data[k]=localStorage.getItem(k);});
-const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.download=`elitrack-sauvegarde-${today()}.json`;document.body.appendChild(a);a.click();a.remove();
-toast('Sauvegarde téléchargée (profils, thème, objectifs, entraînements, codes)');
+const o={format:'elitrack-sauvegarde',version:1,scope:'public-pre-rso-preferences',date:today(),data:{}};
+for(const[k,clean]of Object.entries(PUBLIC_EXPORT_PREFERENCES)){
+try{
+const raw=localStorage.getItem(PX+k);if(raw==null)continue;
+const v=clean(JSON.parse(raw));if(v!==null)o.data[PX+k]=JSON.stringify(v);
+}catch(e){}
+}
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.download=`elitrack-preferences-${today()}.json`;document.body.appendChild(a);a.click();a.remove();
+toast('Préférences exportées : apparence générique, sensibilité, profondeur d’analyse. Aucun profil ni état dérivé.');
 }
 async function dataImport(file){
 if(!file||file.size>8e6)return toast('Fichier trop gros ou absent',true);
@@ -3629,17 +3677,12 @@ briefCopy:()=>APP.briefTxt&&copyText(APP.briefTxt,'Briefing copié : colle-le su
 aide:()=>dlgOpen(glossHtml()),
 legal:k=>dlgOpen(legalHtml(k)),
 install:()=>installApp(),
-keySave:()=>{const k=($('#keyIn').value||'').trim();if(k.length<10)return toast('Clé trop courte : recopie-la en entier',true);setUserKey(k);$('#dlg').close();toast('Clé enregistrée dans ce navigateur');if(APP.pending)openProfile(APP.pending.riot,APP.pending.region);},
-reglages:()=>dlgOpen(`<h2>Réglages</h2>
-    <h3>Ma clé HenrikDev${APP.cfg&&APP.cfg.dataMode==='personal'?' (requise pendant le test)':' (facultatif)'}</h3><p class="note">${APP.cfg&&APP.cfg.dataMode==='personal'?'Pendant la phase de test, Elitrack n’utilise pas la clé partagée du proxy. Ta clé reste dans ce navigateur.':'Seulement si le site est saturé ou sans serveur. Elle reste dans ce navigateur.'}</p>
-    <div class="row"><input id="keyIn" placeholder="${userKey()?'Clé enregistrée (••••)':'HDEV-…'}" autocomplete="off" aria-label="Clé HenrikDev"><button class="btn" data-act="keySave">Enregistrer</button>${userKey()?'<button class="btn ghost" data-act="keyDel">Retirer</button>':''}</div>
-    <h3 class="mt">Premium</h3>${APP.lic?`<p>${APP.plan==='dieu'?'Mode Dieu':'Premium'} actif${APP.lic.exp?` jusqu'au ${esc(APP.lic.exp)}`:' à vie'}.</p>`:'<p class="muted">Pas de code actif sur ce profil.</p>'}${codeHtml()}
-    <h3 class="mt">Identité & confidentialité</h3><p class="note">Aujourd’hui, Elitrack fonctionne sans compte serveur : le profil actif est local. La future connexion Riot/RSO remplacera ce mécanisme seulement après validation Riot. Déconnexion et suppression restent deux actions distinctes.</p>
-    <p class="note"><strong>Connexion Riot : non activée.</strong> Un Riot ID saisi n’est pas une preuve d’identité et ne rend jamais un profil public. La future visibilité à d’autres joueurs restera privée par défaut et exigera une identité vérifiée par RSO ainsi qu’un opt-in explicite.</p>
-    ${APP.prof&&!APP.prof.demo?`<div class="row"><button class="btn ghost" data-act="disconnect">Déconnecter ce profil</button><button class="btn ghost" data-act="deleteProfile">Supprimer les données de ce profil</button></div>`:''}
-    <h3 class="mt">Mes données</h3><p class="note">Profils gardés, détails des parties, thème, objectifs, entraînements, codes : tout est dans ce navigateur, nulle part ailleurs.</p>
-    <div class="row"><button class="btn ghost" data-act="export">⬇️ Sauvegarder mes données</button><label class="btn ghost file">⬆️ Restaurer une sauvegarde<input type="file" accept="application/json,.json" id="impFile" hidden></label><button class="btn ghost" data-act="forget">Oublier toutes mes données</button></div>
-    ${ST.get('err',[]).length?'<p class="note">Un souci ? <a href="#" data-act="errCopy">Copier le journal des erreurs</a> pour le propriétaire du site.</p>':''}`),
+keySave:()=>keyAsk(),
+reglages:()=>dlgOpen(`<h2>Réglages</h2>${riotPendingHtml()}
+    <h3 class="mt">Identité & confidentialité</h3><p>Connexion Riot : non activée. Aucun profil réel ne peut être recherché, restauré à l’écran ou partagé. Une identité vérifiée côté serveur et les autorisations Riot applicables seront nécessaires.</p>
+    <h3 class="mt">Mes données locales</h3><p>Seules les préférences d’apparence générique, de sensibilité et de profondeur d’analyse sont exportables. Les anciens profils, historiques et états dérivés restent supprimables, jamais exportés. Un import ne débloque aucun accès joueur.</p>
+    <div class="row"><button class="btn ghost" data-act="export">⬇️ Exporter mes préférences</button><label class="btn ghost file">⬆️ Restaurer une sauvegarde<input type="file" accept="application/json,.json" id="impFile" hidden></label><button class="btn ghost" data-act="forget">Oublier toutes mes données</button><button class="btn ghost" data-act="keyDel">Retirer une ancienne clé locale</button></div>
+    ${ST.get('err',[]).length?'<p class="note"><a href="#" data-act="errCopy">Copier le journal des erreurs</a></p>':''}`),
 keyDel:()=>{setUserKey('');$('#dlg').close();toast('Clé retirée');},
 disconnect:()=>{if(!APP.prof||APP.prof.demo)return;APP.prof=null;APP.D=null;APP.detTried='';APP.cmp=null;APP.pos=null;APP.strat=null;ST.del('last');$('#dlg').close();setHash(true);render();toast('Profil déconnecté. Ses données locales sont conservées.');},
 deleteProfile:async()=>{const P=APP.prof;if(!P||P.demo)return;if(!confirm(`Supprimer de ce navigateur les données locales de ${P.riot} ? Cette action ne supprime aucun compte Riot.`))return;const keys=profileLocalKeys(Object.keys(localStorage).filter(k=>k.startsWith(PX)).map(k=>k.slice(PX.length)),P.rid);keys.forEach(k=>ST.del(k));await detForgetProfile(P);ST.del('last');APP.prof=null;APP.D=null;APP.detTried='';APP.cmp=null;$('#dlg').close();setHash(true);render();toast('Données locales de ce profil supprimées.');},
@@ -3654,12 +3697,7 @@ if(ACT[n])run();else lotLoad().then(run,x=>toast(x.message,true));
 });
 document.addEventListener('submit',e=>{
 e.preventDefault();
-if(e.target.id==='landForm'){if(!$('#landOk').checked)return toast('Coche « C\'est mon compte » pour continuer',true);ST.set('consent',true);openProfile($('#landRiot').value,$('#landReg').value);}
-if(e.target.id==='recherche'){if(!ST.get('consent')){ST.set('consent',true);}openProfile($('#qRiot').value,$('#qReg').value);}
-if(e.target.id==='cmpForm'){
-if(!$('#cmpOk').checked)return toast('Coche la case : ton ami doit être d\'accord',true);
-loadProfile($('#cmpRiot').value,APP.prof.region).then(p=>{APP.cmp=p;statut('');renderTab();}).catch(err=>{statut('');toast(err.message,true);});
-}
+if(['landForm','recherche','cmpForm'].includes(e.target.id))keyAsk();
 });
 document.addEventListener('change',e=>{
 const f=e.target.closest('[data-filt]');if(f){APP.filt[f.dataset.filt]=f.value;return renderTab();}
@@ -3688,7 +3726,7 @@ e.preventDefault();ACT.tab(n.dataset.act.split(':')[1],n);const f=$('#tb-'+APP.t
 }
 const typing=/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')||(e.target&&e.target.isContentEditable);
 if(typing||e.ctrlKey||e.metaKey||e.altKey||$('#dlg').open||SHELL.cur!=='valorant')return;
-if(e.key==='/'){const i=$('#recherche').hidden?$('#landRiot'):$('#qRiot');if(i){e.preventDefault();i.focus();i.select();}}
+if(e.key==='/'){const i=RIOT_PUBLIC.isDemo(APP.prof)?$('#tb-'+APP.tab):$('[data-act=demo]');if(i){e.preventDefault();i.focus();if(i.select)i.select();}}
 else if(e.key==='?'){e.preventDefault();ACT.aide();}
 else if(/^[0-9]$/.test(e.key)&&APP.prof&&$('#tabIn')){const i=e.key==='0'?9:+e.key-1;if(TAB_KEYS[i]){e.preventDefault();ACT.tab(TAB_KEYS[i]);}}
 });
@@ -3701,10 +3739,13 @@ async function installApp(){
 if(!INSTALL)return toast('Menu du navigateur › « Installer Elitrack » ou « Ajouter à l\'écran d\'accueil »');
 INSTALL.prompt();try{await INSTALL.userChoice;}catch(e){}INSTALL=null;$('#instBtn').hidden=true;
 }
+const POLICY_UPDATING=!!(navigator.serviceWorker&&navigator.serviceWorker.controller);
+let POLICY_RELOAD=false;
+if(GUARD_OK&&navigator.serviceWorker)navigator.serviceWorker.addEventListener('controllerchange',()=>{if(POLICY_UPDATING&&!POLICY_RELOAD){POLICY_RELOAD=true;location.reload();}});
 if(GUARD_OK&&'serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Hors ligne indisponible',e)));
 (async function boot(){
 if(!GUARD_OK)return;
-if(readHash()||(ST.get('last')||{}).riot)$('#recherche').hidden=false;
+$('#recherche').hidden=true;
 $('#qReg').innerHTML=REGIONS.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
 const hdr=()=>document.documentElement.style.setProperty('--hdr',$('header.top').offsetHeight+'px');window.addEventListener('resize',hdr);hdr();
 const net=()=>{$('#horsLigne').hidden=navigator.onLine!==false;};window.addEventListener('online',net);window.addEventListener('offline',net);net();

@@ -3,7 +3,7 @@
   "version": 1,
   "nom": "Elitrack",
   "slogan": "Ton tracker perso, à tes couleurs",
-  "proxy": "https://script.google.com/macros/s/AKfycbwEpOZh-cmt2PONtksVMtisFYPI9VzwHzTf5WbiGq9A7FUmNFcQUdestiTlkqz5-w-Q/exec",
+  "proxy": "",
   "licKey": {
     "kty": "EC",
     "crv": "P-256",
@@ -12,8 +12,8 @@
   },
   "editeur": "Dimv",
   "achat": {
-    "mensuel": "2,99 €",
-    "vie": "14,99 €",
+    "mensuel": "",
+    "vie": "",
     "lien": "",
     "contact": "dimv92pro@gmail.com"
   },
