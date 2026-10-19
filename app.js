@@ -1,4 +1,4 @@
-/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261016-2145. */
+/*! © 2026 Elitrack. Tous droits réservés. Code, design et méthodes d'analyse protégés par le droit d'auteur (CPI art. L.122-4, L.335-2). Toute copie, reproduction ou réutilisation sans accord écrit est interdite. Version 20261019-0153. */
 "use strict";
 (function(root,make){
 const m=make();
@@ -3288,7 +3288,7 @@ document.addEventListener('wheel',e=>{const s=e.ctrlKey&&e.target.closest&&e.tar
 ;
 "use strict";
 const SHELL=(()=>{
-const GAMES=[{id:'valorant',label:'Valorant',re:null},{id:'lol',label:'League of Legends',re:/^#\/lol(\/|$)/},{id:'tft',label:'Teamfight Tactics',re:/^#\/tft(\/|$)/}];
+const GAMES=[{id:'valorant',label:'Valorant',re:null},{id:'lol',label:'League of Legends',re:/^#\/lol(\/|$)/}];
 const reg={};
 let cur='valorant';
 const ownerOf=h=>(GAMES.find(g=>g.re&&g.re.test(h||''))||GAMES[0]).id;
